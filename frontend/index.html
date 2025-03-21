@@ -109,7 +109,10 @@
 
             <!-- Project Detail Section -->
             <div id="projectDetailSection" style="display: none;">
-                <button id="backToProjectsBtn" class="btn btn-outline-secondary mb-3">← Back to Projects</button>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button id="backToProjectsBtn" class="btn btn-outline-secondary">← Back to Projects</button>
+                    <button id="deleteProjectBtn" class="btn btn-danger">Delete Project</button>
+                </div>
                 <h2 id="projectTitle" class="mb-4"></h2>
                 
                 <ul class="nav nav-tabs mb-4" id="projectTabs">
@@ -1080,6 +1083,32 @@
                 console.error('Error creating event:', error);
                 eventError.textContent = 'Failed to create event: ' + (error.message || 'Unknown error');
                 eventError.style.display = 'block';
+            }
+        });
+
+        // Delete Project Button
+        document.getElementById('deleteProjectBtn').addEventListener('click', async () => {
+            if (!currentProject) return;
+            
+            // Show confirmation dialog
+            if (!confirm(`Are you sure you want to delete project "${currentProject.name}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                console.log('Deleting project:', currentProject.id);
+                await apiRequest(`/projects/${currentProject.id}`, 'DELETE');
+                console.log('Project deleted successfully');
+                
+                // Show success message
+                alert('Project deleted successfully');
+                
+                // Refresh projects list and go back to projects view
+                await fetchProjects();
+                showSection('projects');
+            } catch (error) {
+                console.error('Error deleting project:', error);
+                alert('Failed to delete project: ' + error.message);
             }
         });
 
