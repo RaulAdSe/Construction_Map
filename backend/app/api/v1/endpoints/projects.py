@@ -127,12 +127,15 @@ def delete_project(
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Delete project
-    success = project_service.delete_project(db, project_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete project")
-    
-    return None
+    try:
+        # Delete project
+        success = project_service.delete_project(db, project_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete project. Check server logs for details.")
+        
+        return None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting project: {str(e)}")
 
 
 @router.post("/{project_id}/users", status_code=status.HTTP_201_CREATED)
@@ -186,4 +189,52 @@ def remove_user_from_project(
     if not success:
         raise HTTPException(status_code=400, detail="Failed to remove user from project")
     
-    return None 
+    return None
+
+
+@router.get("/debug", response_model=dict)
+def debug_project(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Debug endpoint to check project relationships and structures.
+    """
+    from app.models.project import Project
+    from app.models.map import Map
+    from app.models.event import Event
+    from app.models.project import ProjectUser
+    
+    try:
+        # Get counts
+        project_count = db.query(Project).count()
+        projectuser_count = db.query(ProjectUser).count()
+        map_count = db.query(Map).count()
+        event_count = db.query(Event).count()
+        
+        # Check what other models depend on Project
+        tables_with_fk = []
+        for table in db.get_bind().table_names():
+            if table != 'projects':
+                query = f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table}' AND column_name = 'project_id'"
+                result = db.execute(query).fetchone()
+                if result:
+                    tables_with_fk.append(table)
+        
+        return {
+            "counts": {
+                "projects": project_count,
+                "project_users": projectuser_count,
+                "maps": map_count,
+                "events": event_count
+            },
+            "tables_with_project_fk": tables_with_fk,
+            "project_model_relationships": [rel.key for rel in Project.__mapper__.relationships],
+            "cascade_settings": {
+                "maps": "all, delete-orphan" if "all, delete-orphan" in str(Project.__mapper__.relationships['maps'].cascade) else "none",
+                "events": "all, delete-orphan" if "all, delete-orphan" in str(Project.__mapper__.relationships['events'].cascade) else "none",
+                "users": "all, delete-orphan" if "all, delete-orphan" in str(Project.__mapper__.relationships['users'].cascade) else "none"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting debug info: {str(e)}") 

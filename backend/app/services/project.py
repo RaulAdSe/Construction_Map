@@ -54,18 +54,31 @@ def update_project(
 
 
 def delete_project(db: Session, project_id: int) -> bool:
-    # First, remove all ProjectUser associations
-    db.query(ProjectUser).filter(ProjectUser.project_id == project_id).delete()
-    db.flush()
-    
-    # Then delete the project
-    project = get_project(db, project_id)
-    if not project:
+    try:
+        # Retrieve the project to make sure it exists
+        project = get_project(db, project_id)
+        if not project:
+            return False
+            
+        # First, delete all events associated with this project
+        from app.models.event import Event
+        db.query(Event).filter(Event.project_id == project_id).delete()
+        
+        # Next, delete all maps associated with this project
+        from app.models.map import Map
+        db.query(Map).filter(Map.project_id == project_id).delete()
+        
+        # Then, remove all ProjectUser associations
+        db.query(ProjectUser).filter(ProjectUser.project_id == project_id).delete()
+        
+        # Finally, delete the project itself
+        db.delete(project)
+        db.commit()
+        return True
+    except Exception as e:
+        print(f"Error deleting project: {e}")
+        db.rollback()
         return False
-    
-    db.delete(project)
-    db.commit()
-    return True
 
 
 def add_user_to_project(db: Session, project_id: int, user_id: int) -> Optional[ProjectUser]:
