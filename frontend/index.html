@@ -664,8 +664,14 @@
             console.log('Rendering maps:', maps);
             
             maps.forEach(map => {
-                // Format the date properly
-                const uploadDate = map.created_at ? new Date(map.created_at).toLocaleDateString() : 'Unknown';
+                // Format the date properly - handle both uploaded_at and created_at fields
+                let uploadDate = 'Unknown';
+                if (map.uploaded_at) {
+                    uploadDate = new Date(map.uploaded_at).toLocaleDateString();
+                } else if (map.created_at) {
+                    uploadDate = new Date(map.created_at).toLocaleDateString();
+                }
+                
                 // Get version or default to N/A
                 const version = map.version || 'N/A';
                 
@@ -702,17 +708,33 @@
         // View map details
         async function viewMap(mapId) {
             try {
+                console.log('Viewing map:', mapId);
                 const response = await apiRequest(`/maps/${mapId}`);
                 currentMap = response;
+                
+                console.log('Map data:', currentMap);
                 
                 // Set map details
                 document.getElementById('mapTitle').textContent = currentMap.name;
                 
                 // Load map as iframe for PDF files
                 const mapContainer = document.getElementById('mapContainer');
-                const mapUrl = `${API_URL}/uploads/${currentMap.file_path}`;
+                
+                // Use filename property instead of file_path
+                let mapUrl;
+                if (currentMap.file_path) {
+                    mapUrl = `${API_URL}/uploads/${currentMap.file_path}`;
+                } else if (currentMap.filename) {
+                    mapUrl = `${API_URL}/uploads/${currentMap.filename}`;
+                } else {
+                    console.error('Map file path or filename is missing');
+                    mapUrl = '#'; // Set a fallback
+                }
+                
+                console.log('Map URL:', mapUrl);
+                
                 mapContainer.innerHTML = `
-                    <iframe src="${mapUrl}" style="width:100%; height:100%; border:none;" id="mapFrame"></iframe>
+                    <iframe src="${mapUrl}" style="width:100%; height:600px; border:none;" id="mapFrame"></iframe>
                     <div id="eventMarkers"></div>
                 `;
                 
@@ -726,6 +748,7 @@
                 showSection('mapDetail');
             } catch (error) {
                 console.error('Error viewing map:', error);
+                alert('Error loading map: ' + (error.message || 'Unknown error'));
             }
         }
 
