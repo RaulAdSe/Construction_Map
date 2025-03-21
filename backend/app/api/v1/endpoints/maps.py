@@ -13,26 +13,37 @@ router = APIRouter()
 
 @router.get("/", response_model=List[Map])
 def get_maps(
-    project_id: int,
+    project_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
     skip: int = 0,
     limit: int = 100
 ):
     """
-    Get all maps for a project.
+    Get all maps accessible by the current user.
+    Filter by project_id if provided.
     """
-    # Check if project exists and user has access
-    project = project_service.get_project(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    if project_id:
+        # Check if project exists and user has access
+        project = project_service.get_project(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Check if user has access to project
+        if not any(pu.user_id == current_user.id for pu in project.users):
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+        # Get maps for this project
+        maps = map_service.get_maps(db, project_id, skip, limit)
+    else:
+        # Get all maps from all projects the user has access to
+        user_projects = project_service.get_user_projects(db, current_user.id)
+        project_ids = [project.id for project in user_projects]
+        
+        maps = []
+        for pid in project_ids:
+            maps.extend(map_service.get_maps(db, pid, 0, 100))
     
-    # Check if user has access to project
-    if not any(pu.user_id == current_user.id for pu in project.users):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-    
-    # Get maps
-    maps = map_service.get_maps(db, project_id, skip, limit)
     return maps
 
 
