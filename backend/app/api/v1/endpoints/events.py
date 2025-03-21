@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.event import Event, EventCreate, EventUpdate, EventDetail
 from app.services import event as event_service
 from app.services import project as project_service
+from app.models.map import Map
 
 router = APIRouter()
 
@@ -111,8 +112,11 @@ def get_event(
 @router.post("/", response_model=Event)
 async def create_event(
     project_id: int = Form(...),
+    map_id: int = Form(...),
     title: str = Form(...),
     description: Optional[str] = Form(None),
+    status: Optional[str] = Form("open"),
+    active_maps: Optional[str] = Form(None),
     x_coordinate: float = Form(...),
     y_coordinate: float = Form(...),
     tags: Optional[List[str]] = Form(None),
@@ -132,27 +136,30 @@ async def create_event(
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
+    # Check if map exists and belongs to the project
+    map_obj = db.query(Map).filter(Map.id == map_id, Map.project_id == project_id).first()
+    if not map_obj:
+        raise HTTPException(status_code=404, detail="Map not found or doesn't belong to this project")
+    
     # Create event
     try:
         event = await event_service.create_event(
-            db,
-            project_id,
-            current_user.id,
-            title,
-            x_coordinate,
-            y_coordinate,
-            description,
-            tags,
-            image
+            db=db,
+            project_id=project_id,
+            map_id=map_id,
+            created_by_user_id=current_user.id,
+            title=title,
+            status=status,
+            active_maps=active_maps,
+            x_coordinate=x_coordinate,
+            y_coordinate=y_coordinate,
+            description=description,
+            tags=tags,
+            image=image
         )
         return event
-    except HTTPException as e:
-        raise e
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create event: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.put("/{event_id}", response_model=Event)

@@ -5,8 +5,11 @@ from datetime import datetime
 
 class EventBase(BaseModel):
     project_id: int
+    map_id: int
     title: str
     description: Optional[str] = None
+    status: Optional[str] = "open"
+    active_maps: Optional[str] = None
     x_coordinate: float
     y_coordinate: float
     tags: Optional[List[str]] = None
@@ -19,6 +22,7 @@ class EventCreate(EventBase):
 class EventUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    status: Optional[str] = None
     tags: Optional[List[str]] = None
 
 

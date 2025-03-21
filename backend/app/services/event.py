@@ -58,10 +58,13 @@ async def save_event_image(file: UploadFile) -> str:
 async def create_event(
     db: Session,
     project_id: int,
+    map_id: int,
     created_by_user_id: int,
     title: str,
     x_coordinate: float,
     y_coordinate: float,
+    status: str = "open",
+    active_maps: Optional[str] = None,
     description: Optional[str] = None,
     tags: Optional[List[str]] = None,
     image: Optional[UploadFile] = None
@@ -75,9 +78,12 @@ async def create_event(
     # Create event
     event = Event(
         project_id=project_id,
+        map_id=map_id,
         created_by_user_id=created_by_user_id,
         title=title,
         description=description,
+        status=status,
+        active_maps=active_maps,
         image_url=image_url,
         tags=tags,
         x_coordinate=x_coordinate,

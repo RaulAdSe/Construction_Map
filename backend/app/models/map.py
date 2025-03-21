@@ -18,4 +18,5 @@ class Map(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    project = relationship("Project", back_populates="maps") 
+    project = relationship("Project", back_populates="maps")
+    events = relationship("Event", back_populates="map") 

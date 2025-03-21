@@ -10,10 +10,13 @@ class Event(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    map_id = Column(Integer, ForeignKey("maps.id"), nullable=False)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
+    status = Column(String, default="open", nullable=False)
+    active_maps = Column(String, nullable=True)  # Names of active map layers when event was created
     tags = Column(JSON, nullable=True)  # JSON field for storing tags or mentions
     x_coordinate = Column(Float, nullable=False)
     y_coordinate = Column(Float, nullable=False)
@@ -21,4 +24,5 @@ class Event(Base):
 
     # Relationships
     project = relationship("Project", back_populates="events")
+    map = relationship("Map", back_populates="events")
     created_by_user = relationship("User", back_populates="events") 
