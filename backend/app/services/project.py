@@ -55,23 +55,23 @@ def update_project(
 
 def delete_project(db: Session, project_id: int) -> bool:
     try:
-        # Retrieve the project to make sure it exists
+        # First remove project_users with direct SQL DELETE 
+        # (avoid SQLAlchemy ORM to prevent the "blank-out primary key" error)
+        db.execute(f"DELETE FROM project_users WHERE project_id = {project_id}")
+        
+        # Get project
         project = get_project(db, project_id)
         if not project:
             return False
-            
-        # First, delete all events associated with this project
+        
+        # Now delete events and maps
         from app.models.event import Event
         db.query(Event).filter(Event.project_id == project_id).delete()
         
-        # Next, delete all maps associated with this project
         from app.models.map import Map
         db.query(Map).filter(Map.project_id == project_id).delete()
         
-        # Then, remove all ProjectUser associations
-        db.query(ProjectUser).filter(ProjectUser.project_id == project_id).delete()
-        
-        # Finally, delete the project itself
+        # Finally delete the project
         db.delete(project)
         db.commit()
         return True
