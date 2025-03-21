@@ -1,5 +1,6 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.models.project import Project, ProjectUser
 from app.models.user import User
@@ -55,9 +56,8 @@ def update_project(
 
 def delete_project(db: Session, project_id: int) -> bool:
     try:
-        # First remove project_users with direct SQL DELETE 
-        # (avoid SQLAlchemy ORM to prevent the "blank-out primary key" error)
-        db.execute(f"DELETE FROM project_users WHERE project_id = {project_id}")
+        # First remove project_users with direct SQL DELETE using text()
+        db.execute(text(f"DELETE FROM project_users WHERE project_id = {project_id}"))
         
         # Get project
         project = get_project(db, project_id)
