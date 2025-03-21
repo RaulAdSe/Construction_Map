@@ -1097,11 +1097,21 @@
             
             try {
                 console.log('Deleting project:', currentProject.id);
+                
+                // Disable the button while processing
+                const deleteBtn = document.getElementById('deleteProjectBtn');
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+                
+                // Send deletion request
                 await apiRequest(`/projects/${currentProject.id}`, 'DELETE');
                 console.log('Project deleted successfully');
                 
                 // Show success message
                 alert('Project deleted successfully');
+                
+                // Clear current project
+                currentProject = null;
                 
                 // Refresh projects list and go back to projects view
                 await fetchProjects();
@@ -1109,6 +1119,11 @@
             } catch (error) {
                 console.error('Error deleting project:', error);
                 alert('Failed to delete project: ' + error.message);
+                
+                // Re-enable the button
+                const deleteBtn = document.getElementById('deleteProjectBtn');
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = 'Delete Project';
             }
         });
 

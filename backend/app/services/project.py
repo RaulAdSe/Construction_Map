@@ -54,6 +54,11 @@ def update_project(
 
 
 def delete_project(db: Session, project_id: int) -> bool:
+    # First, remove all ProjectUser associations
+    db.query(ProjectUser).filter(ProjectUser.project_id == project_id).delete()
+    db.flush()
+    
+    # Then delete the project
     project = get_project(db, project_id)
     if not project:
         return False
