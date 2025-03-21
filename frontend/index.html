@@ -34,7 +34,16 @@
             border: 2px solid white;
             transform: translate(-50%, -50%);
             cursor: pointer;
-            z-index: 100;
+            z-index: 1050; /* Above map layers but below UI controls */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .event-marker:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
         }
         .login-form {
             max-width: 400px;
@@ -90,8 +99,10 @@
             border-radius: 5px;
             padding: 15px;
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            z-index: 1001;
+            z-index: 1500;
             max-width: 300px;
+            min-width: 200px;
+            animation: fadeIn 0.3s ease;
         }
         .user-color-1 { background-color: #FF5733; }
         .user-color-2 { background-color: #33FF57; }
@@ -182,6 +193,13 @@
         
         .overlay-map-label {
             color: #495057;
+        }
+        .marker-content {
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 0 0 2px rgba(0,0,0,0.7);
         }
     </style>
 </head>
@@ -1701,47 +1719,93 @@
         }
         
         // Fetch events for the current project
-        async function fetchProjectEvents() {
-            try {
-                // Reset events array
-                events = [];
-                
-                // Fetch events for each map in the project
-                for (const map of maps) {
-                    try {
-                        const mapEvents = await apiRequest(`/events/?map_id=${map.id}`);
-                        if (Array.isArray(mapEvents)) {
-                            events = [...events, ...mapEvents];
-                        }
-                    } catch (error) {
-                        console.error(`Error fetching events for map ${map.id}:`, error);
-                    }
-                }
-                
-                console.log('Project events:', events);
-                
-                // Render events on the map and in the table
-                renderProjectEvents();
-                renderRecentEventsTable();
-            } catch (error) {
-                console.error('Error fetching project events:', error);
+        function fetchProjectEvents() {
+            const projectId = currentProject?.id;
+            if (!projectId) {
+                console.warn('No current project ID available for fetching events');
+                return;
             }
+            
+            console.log(`Fetching events for project ${projectId}`);
+            
+            fetch(`${API_URL}/events/?project_id=${projectId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    events = data;
+                    console.log(`Fetched ${events.length} events:`, events);
+                    
+                    // Render the events in the main map view
+                    renderProjectEvents();
+                    
+                    // Render the events table
+                    renderRecentEventsTable();
+                })
+                .catch(error => {
+                    console.error('Error fetching events:', error);
+                    document.getElementById('recentEventsTable').innerHTML = 
+                        `<div class="alert alert-danger">Error loading events: ${error.message}. Please try again.</div>`;
+                });
+        }
+        
+        // Function to ensure the eventMarkersContainer exists
+        function ensureEventMarkersContainer() {
+            // Check if the container already exists
+            let eventMarkersContainer = document.getElementById('eventMarkersContainer');
+            
+            // If it doesn't exist, create it
+            if (!eventMarkersContainer) {
+                const mainMapViewer = document.getElementById('mainMapViewer');
+                if (!mainMapViewer) return null;
+                
+                eventMarkersContainer = document.createElement('div');
+                eventMarkersContainer.id = 'eventMarkersContainer';
+                eventMarkersContainer.style.position = 'absolute';
+                eventMarkersContainer.style.top = '0';
+                eventMarkersContainer.style.left = '0';
+                eventMarkersContainer.style.width = '100%';
+                eventMarkersContainer.style.height = '100%';
+                eventMarkersContainer.style.zIndex = '1000';
+                eventMarkersContainer.style.pointerEvents = 'none'; // Set initially to none, will be changed when rendering events
+                
+                mainMapViewer.appendChild(eventMarkersContainer);
+            }
+            
+            return eventMarkersContainer;
         }
         
         // Render event markers on the main map view
         function renderProjectEvents() {
-            const eventMarkersContainer = document.getElementById('eventMarkersContainer');
+            const eventMarkersContainer = ensureEventMarkersContainer();
             if (!eventMarkersContainer) return;
             
             // Clear existing markers
             eventMarkersContainer.innerHTML = '';
             
+            // If there are no events, exit early
+            if (!events || events.length === 0) {
+                console.log('No events to render');
+                return;
+            }
+            
+            console.log(`Rendering ${events.length} events on map`);
+            
+            // Enable pointer events on marker container to allow interaction
+            eventMarkersContainer.style.pointerEvents = 'auto';
+            
             // Render markers for each event
             events.forEach(event => {
                 // Skip events that don't have position data
                 if (typeof event.x_coordinate === 'undefined' || typeof event.y_coordinate === 'undefined') {
+                    console.log(`Event ${event.id} skipped: no coordinates`);
                     return;
                 }
+                
+                console.log(`Rendering event ${event.id} at (${event.x_coordinate}%, ${event.y_coordinate}%)`);
                 
                 const marker = document.createElement('div');
                 marker.className = 'event-marker';
@@ -1750,9 +1814,20 @@
                 marker.style.left = `${event.x_coordinate}%`;
                 marker.style.top = `${event.y_coordinate}%`;
                 
-                // Assign color based on user who created the event
+                // Add marker content to make it more visible
+                const markerContent = document.createElement('div');
+                markerContent.className = 'marker-content';
+                markerContent.innerHTML = `<span>${event.id}</span>`;
+                marker.appendChild(markerContent);
+                
+                // Assign color based on user who created the event or status
                 if (event.user_id) {
                     marker.classList.add(getUserColorClass(event.user_id));
+                } else {
+                    // Default color based on status if no user color available
+                    const statusClass = event.status === 'open' ? 'bg-danger' : 
+                                        event.status === 'in_progress' ? 'bg-warning' : 'bg-success';
+                    marker.classList.add(statusClass);
                 }
                 
                 // Add click event to show details popup
@@ -1763,79 +1838,107 @@
                 
                 eventMarkersContainer.appendChild(marker);
             });
+            
+            // Make sure event markers container is above the maps
+            eventMarkersContainer.style.zIndex = '1000';
         }
         
         // Show event details in a popup
         function showEventDetailsPopup(event, clientX, clientY) {
-            // Update event details
-            document.getElementById('eventDetailsTitle').textContent = event.title;
-            document.getElementById('eventDetailsDesc').textContent = event.description || 'No description provided';
-            document.getElementById('eventDetailsStatus').textContent = event.status.replace('_', ' ');
-            document.getElementById('eventDetailsCreator').textContent = event.user_name || 'Unknown';
-            document.getElementById('eventDetailsDate').textContent = new Date(event.created_at).toLocaleString();
+            console.log('Showing event details popup for event:', event);
             
-            // Show event image if available
-            const imageContainer = document.getElementById('eventDetailsImageContainer');
-            const image = document.getElementById('eventDetailsImage');
-            if (event.image_path) {
-                const apiUrlBase = API_URL.split('/api/v1')[0];
-                image.src = `${apiUrlBase}/uploads/${event.image_path}`;
-                imageContainer.style.display = 'block';
-            } else {
-                imageContainer.style.display = 'none';
-            }
+            // Create popup element
+            const popup = document.createElement('div');
+            popup.className = 'event-popup';
+            popup.id = `event-popup-${event.id}`;
             
-            // Show active map layers at time of event creation
-            document.getElementById('eventDetailsMapLayers').textContent = event.active_maps || 'Not recorded';
+            // Set initial position
+            popup.style.left = `${clientX}px`;
+            popup.style.top = `${clientY}px`;
             
-            // Show the modal
-            eventDetailsModal.show();
-        }
-        
-        // Render recent events table
-        function renderRecentEventsTable() {
-            const eventsTableBody = document.getElementById('recentEventsTableBody');
-            eventsTableBody.innerHTML = '';
+            // Calculate position to keep popup in viewport
+            setTimeout(() => {
+                const rect = popup.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    popup.style.left = `${window.innerWidth - rect.width - 20}px`;
+                }
+                if (rect.bottom > window.innerHeight) {
+                    popup.style.top = `${window.innerHeight - rect.height - 20}px`;
+                }
+            }, 0);
             
-            if (events.length === 0) {
-                document.getElementById('recentEventsTable').innerHTML = '<div class="alert alert-info">No events found for this project. Click the "Add Event" button to create a new event.</div>';
-                return;
-            }
+            // Add content
+            popup.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="m-0">${event.title}</h5>
+                    <button type="button" class="btn-close" aria-label="Close"></button>
+                </div>
+                <p>${event.description || 'No description provided'}</p>
+                <div class="d-flex justify-content-between">
+                    <span class="badge bg-${getStatusClass(event.status)}">${formatStatus(event.status)}</span>
+                    <small>${new Date(event.created_at).toLocaleString()}</small>
+                </div>
+                <div class="mt-2">
+                    <small>Created by: ${event.user_name || 'Unknown'}</small>
+                </div>
+                ${event.image_path ? `
+                <div class="mt-2">
+                    <img src="${API_URL.split('/api/v1')[0]}/uploads/${event.image_path}" 
+                         class="img-fluid rounded" alt="Event image">
+                </div>
+                ` : ''}
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-primary edit-event-btn" data-id="${event.id}">
+                        Edit
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary view-event-details-btn" data-id="${event.id}">
+                        Full Details
+                    </button>
+                </div>
+            `;
             
-            // Sort events by date (newest first)
-            const sortedEvents = [...events].sort((a, b) => 
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            );
+            // Add the popup to the body
+            document.body.appendChild(popup);
             
-            // Show only the 10 most recent events
-            const recentEvents = sortedEvents.slice(0, 10);
+            // Add close handler
+            popup.querySelector('.btn-close').addEventListener('click', () => {
+                popup.remove();
+            });
             
-            recentEvents.forEach(event => {
-                const row = document.createElement('tr');
-                
-                const statusClass = event.status === 'open' ? 'danger' : 
-                                   event.status === 'in_progress' ? 'warning' : 'success';
-                
-                row.innerHTML = `
-                    <td>${event.title}</td>
-                    <td>${event.description?.substring(0, 50) || ''}${event.description?.length > 50 ? '...' : ''}</td>
-                    <td><span class="badge bg-${statusClass}">${event.status.replace('_', ' ')}</span></td>
-                    <td>${event.user_name || 'Unknown'}</td>
-                    <td>${new Date(event.created_at).toLocaleDateString()}</td>
-                    <td>
-                        <button class="btn btn-outline-primary btn-sm view-event" data-id="${event.id}">View</button>
-                    </td>
-                `;
-                
-                eventsTableBody.appendChild(row);
-                
-                // Add event listener to view button
-                row.querySelector('.view-event').addEventListener('click', () => {
-                    showEventDetailsPopup(event);
-                });
+            // Add edit handler
+            popup.querySelector('.edit-event-btn').addEventListener('click', () => {
+                popup.remove();
+                // TODO: Implement edit event functionality
+                alert('Edit functionality will be implemented soon.');
+            });
+            
+            // Add view details handler
+            popup.querySelector('.view-event-details-btn').addEventListener('click', () => {
+                popup.remove();
+                // Show the full event details modal
+                showEventDetailsModal(event);
+            });
+            
+            // Close on click outside
+            document.addEventListener('click', function closePopup(e) {
+                if (!popup.contains(e.target) && e.target.className !== 'event-marker') {
+                    popup.remove();
+                    document.removeEventListener('click', closePopup);
+                }
             });
         }
         
+        // Helper function to format status
+        function formatStatus(status) {
+            return status?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown';
+        }
+        
+        // Helper function to get status class
+        function getStatusClass(status) {
+            return status === 'open' ? 'danger' : 
+                   status === 'in_progress' ? 'warning' : 'success';
+        }
+
         // Take picture button
         document.getElementById('takePictureBtn').addEventListener('click', () => {
             // Trigger the file input but use the camera
@@ -1970,6 +2073,110 @@
 
         // Initialize
         checkAuth();
+
+        // Show full event details in a modal
+        function showEventDetailsModal(event) {
+            // Use Bootstrap modal if available, otherwise fallback to our custom solution
+            let modal = document.getElementById('eventDetailsModal');
+            
+            if (!modal) {
+                // Create modal if it doesn't exist
+                modal = document.createElement('div');
+                modal.id = 'eventDetailsModal';
+                modal.className = 'modal fade';
+                modal.setAttribute('tabindex', '-1');
+                modal.setAttribute('aria-hidden', 'true');
+                
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="eventDetailsTitle">Event Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Description:</label>
+                                            <p id="eventDetailsDesc"></p>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Status:</label>
+                                            <span id="eventDetailsStatus" class="badge"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Created by:</label>
+                                            <span id="eventDetailsCreator"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Created on:</label>
+                                            <span id="eventDetailsDate"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Active Map Layers:</label>
+                                            <span id="eventDetailsMapLayers"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Coordinates:</label>
+                                            <span id="eventDetailsCoords"></span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4" id="eventDetailsImageContainer">
+                                        <img id="eventDetailsImage" class="img-fluid rounded" alt="Event image">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-primary" id="editEventBtn">Edit Event</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+            }
+            
+            // Update event details
+            document.getElementById('eventDetailsTitle').textContent = event.title;
+            document.getElementById('eventDetailsDesc').textContent = event.description || 'No description provided';
+            
+            const statusElement = document.getElementById('eventDetailsStatus');
+            statusElement.textContent = formatStatus(event.status);
+            statusElement.className = `badge bg-${getStatusClass(event.status)}`;
+            
+            document.getElementById('eventDetailsCreator').textContent = event.user_name || 'Unknown';
+            document.getElementById('eventDetailsDate').textContent = new Date(event.created_at).toLocaleString();
+            document.getElementById('eventDetailsMapLayers').textContent = event.active_maps || 'Not recorded';
+            document.getElementById('eventDetailsCoords').textContent = 
+                `X: ${event.x_coordinate}%, Y: ${event.y_coordinate}%`;
+            
+            // Show event image if available
+            const imageContainer = document.getElementById('eventDetailsImageContainer');
+            const image = document.getElementById('eventDetailsImage');
+            if (event.image_path) {
+                const apiUrlBase = API_URL.split('/api/v1')[0];
+                image.src = `${apiUrlBase}/uploads/${event.image_path}`;
+                imageContainer.style.display = 'block';
+            } else {
+                imageContainer.style.display = 'none';
+            }
+            
+            // Initialize Bootstrap modal
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            // Add edit event handler
+            const editBtn = document.getElementById('editEventBtn');
+            editBtn.onclick = function() {
+                bsModal.hide();
+                // TODO: Implement edit functionality
+                alert('Edit functionality will be implemented soon.');
+            };
+        }
+        
+        // Render recent events table
     </script>
 </body>
 </html> 
