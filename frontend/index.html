@@ -6,6 +6,7 @@
     <title>Construction Map Viewer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -117,9 +118,33 @@
         
         /* Clean PDF view styling - remove all UI elements */
         .clean-pdf-view {
-            background-color: white;
+            background-color: transparent;
             border: none;
             overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Hide any PDF reader UI elements that might show up */
+        .clean-pdf-view::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Special wrapper for PDF content only */
+        .pdf-content-only {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Canvas styling for PDF.js rendering */
+        .pdf-canvas {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
         
         /* Enhanced map layers control */
@@ -539,7 +564,13 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
     <script>
+        // Set PDF.js worker source
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
+        }
+
         // API base URL
         const API_URL = 'http://127.0.0.1:8000/api/v1';
         
@@ -1521,26 +1552,87 @@
                 // All maps shouldn't receive pointer events to allow clicks to pass through to container
                 mapDiv.style.pointerEvents = 'none';
                 
-                // Use iframe with specific parameters to show only the PDF without controls
-                // This provides the cleanest view of just the PDF content
-                mapDiv.innerHTML = `
-                    <iframe 
-                        src="${mapUrl}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH"
-                        style="width:100%; height:100%; border:none;"
-                        frameborder="0"
-                        class="clean-pdf-view">
-                    </iframe>
-                `;
+                // Create a wrapper for better control of PDF display
+                const pdfWrapper = document.createElement('div');
+                pdfWrapper.className = 'pdf-content-only';
+                pdfWrapper.id = `pdf-container-${map.id}`;
+                mapDiv.appendChild(pdfWrapper);
+                
+                // Use PDF.js to render PDF without UI controls
+                if (window.pdfjsLib) {
+                    console.log(`Using PDF.js to render map ${map.id}`);
+                    
+                    // Load the PDF document
+                    const loadingTask = pdfjsLib.getDocument(mapUrl);
+                    loadingTask.promise.then(function(pdf) {
+                        console.log(`PDF ${map.id} loaded successfully with ${pdf.numPages} pages`);
+                        
+                        // Get the first page
+                        pdf.getPage(1).then(function(page) {
+                            // Calculate scale to fit container
+                            const containerWidth = pdfWrapper.clientWidth;
+                            const containerHeight = pdfWrapper.clientHeight;
+                            
+                            // Get page dimensions
+                            const pdfWidth = page.getViewport({ scale: 1 }).width;
+                            const pdfHeight = page.getViewport({ scale: 1 }).height;
+                            
+                            // Calculate scale to fit width and height
+                            const scaleX = containerWidth / pdfWidth;
+                            const scaleY = containerHeight / pdfHeight;
+                            
+                            // Use the smaller scale to ensure the entire PDF fits
+                            const scale = Math.min(scaleX, scaleY) * 0.95; // 0.95 for a small margin
+                            
+                            const viewport = page.getViewport({ scale });
+                            
+                            // Create canvas element
+                            const canvas = document.createElement('canvas');
+                            canvas.className = 'pdf-canvas';
+                            
+                            // Set canvas dimensions
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            
+                            // Add canvas to the wrapper
+                            pdfWrapper.appendChild(canvas);
+                            
+                            // Render PDF page into canvas context
+                            const context = canvas.getContext('2d');
+                            const renderContext = {
+                                canvasContext: context,
+                                viewport: viewport
+                            };
+                            
+                            page.render(renderContext).promise.then(function() {
+                                console.log(`Rendered PDF ${map.id}`);
+                            }).catch(function(error) {
+                                console.error(`Error rendering PDF ${map.id}:`, error);
+                            });
+                        }).catch(function(error) {
+                            console.error(`Error getting page from PDF ${map.id}:`, error);
+                        });
+                    }).catch(function(error) {
+                        console.error(`Error loading PDF ${map.id}:`, error);
+                        
+                        // Fallback to iframe as a backup option
+                        fallbackToIframe(pdfWrapper, mapUrl);
+                    });
+                } else {
+                    console.warn("PDF.js not available, falling back to iframe");
+                    fallbackToIframe(pdfWrapper, mapUrl);
+                }
+                
+                // Apply additional styling to the container to ensure PDF is properly displayed
+                mapContainer.style.overflow = 'hidden';
                 
                 mapContainer.appendChild(mapDiv);
                 
-                // Fetch to check if URL is accessible and log the result
+                // Fetch to check if URL is accessible
                 fetch(mapUrl)
                     .then(response => {
                         console.log(`Fetch response for ${mapUrl}:`, response.status, response.statusText);
-                        if (response.ok) {
-                            console.log('PDF should be displayed successfully');
-                        } else {
+                        if (!response.ok) {
                             console.error('PDF fetch error:', response.status, response.statusText);
                         }
                         return response;
@@ -1549,6 +1641,28 @@
                         console.error(`Error fetching ${mapUrl}:`, error);
                     });
             });
+            
+            // Fallback function for iframe rendering when PDF.js fails
+            function fallbackToIframe(container, url) {
+                const iframe = document.createElement('iframe');
+                iframe.className = 'clean-pdf-view';
+                iframe.style.position = 'absolute';
+                iframe.style.top = '0';
+                iframe.style.left = '0';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.backgroundColor = 'transparent';
+                iframe.style.overflow = 'hidden';
+                iframe.setAttribute('frameborder', '0');
+                iframe.setAttribute('allowtransparency', 'true');
+                
+                // Build URL with all possible parameters to hide UI
+                const cleanUrl = `${url}#view=FitH&scrollbar=0&toolbar=0&navpanes=0&statusbar=0&messages=0&page=1&viewrect=0,0,1,1`;
+                iframe.src = cleanUrl;
+                
+                container.appendChild(iframe);
+            }
             
             // After rendering maps, render events
             renderProjectEvents();
