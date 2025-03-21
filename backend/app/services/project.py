@@ -56,25 +56,33 @@ def update_project(
 
 def delete_project(db: Session, project_id: int) -> bool:
     try:
-        # First remove project_users with direct SQL DELETE using text()
-        db.execute(text(f"DELETE FROM project_users WHERE project_id = {project_id}"))
+        # Create a new session for raw operations to avoid conflicts with tracked objects
+        from app.db.database import SessionLocal
+        raw_session = SessionLocal()
         
-        # Get project
-        project = get_project(db, project_id)
+        try:
+            # 1. First delete all related records using raw SQL (prevent ORM tracking issues)
+            raw_session.execute(text("DELETE FROM events WHERE project_id = :project_id"), 
+                              {"project_id": project_id})
+            raw_session.execute(text("DELETE FROM maps WHERE project_id = :project_id"), 
+                              {"project_id": project_id})
+            raw_session.execute(text("DELETE FROM project_users WHERE project_id = :project_id"), 
+                              {"project_id": project_id})
+            raw_session.commit()
+        finally:
+            raw_session.close()
+        
+        # 2. Now that all related records are gone, delete the project
+        # First, get the project again (to ensure fresh state)
+        project = db.query(Project).filter(Project.id == project_id).with_for_update().first()
         if not project:
             return False
         
-        # Now delete events and maps
-        from app.models.event import Event
-        db.query(Event).filter(Event.project_id == project_id).delete()
-        
-        from app.models.map import Map
-        db.query(Map).filter(Map.project_id == project_id).delete()
-        
-        # Finally delete the project
+        # Now delete the project
         db.delete(project)
         db.commit()
         return True
+        
     except Exception as e:
         print(f"Error deleting project: {e}")
         db.rollback()
