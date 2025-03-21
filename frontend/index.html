@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Construction Map Viewer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -95,6 +96,23 @@
         .user-color-3 { background-color: #3357FF; }
         .user-color-4 { background-color: #F033FF; }
         .user-color-5 { background-color: #FF9933; }
+        
+        /* Improved PDF Object Styling */
+        .pdf-object {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: white;
+        }
+        
+        /* Fix for Firefox PDF rendering */
+        @-moz-document url-prefix() {
+            .pdf-object {
+                height: 99%;
+                width: 99%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -376,8 +394,8 @@
                         </div>
                         <div class="mb-3">
                             <label for="mapFile" class="form-label">Map File</label>
-                            <input type="file" class="form-control" id="mapFile" accept="image/*" required>
-                            <div class="form-text">Upload a JPG, PNG or GIF file of your construction map.</div>
+                            <input type="file" class="form-control" id="mapFile" accept="application/pdf" required>
+                            <div class="form-text">Upload a PDF file of your construction map.</div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -822,16 +840,26 @@
             maps.forEach(map => {
                 const mapCard = document.createElement('div');
                 mapCard.className = 'col-md-4 mb-4';
+                
+                // Format the date properly, fallback to "Unknown" if not available
+                const uploadDate = map.created_at || map.uploaded_at 
+                    ? new Date(map.created_at || map.uploaded_at).toLocaleDateString() 
+                    : 'Unknown';
+                            
                 mapCard.innerHTML = `
                     <div class="card h-100">
                         <div class="card-img-top text-center bg-light" style="height: 200px;">
-                            <img src="${API_URL}/uploads/${map.file_path}" class="h-100" style="object-fit: contain;" alt="${map.name}">
+                            <div class="p-3 d-flex align-items-center justify-content-center h-100">
+                                <i class="bi bi-file-pdf" style="font-size: 5rem;"></i>
+                                <span class="badge bg-secondary position-absolute top-0 end-0 m-2">PDF</span>
+                            </div>
                         </div>
                         <div class="card-body">
                             <h5 class="card-title">${map.name}</h5>
                             <p class="card-text">
-                                <span class="badge bg-info">${map.map_type}</span>
-                                <small class="text-muted">Uploaded: ${new Date(map.created_at).toLocaleDateString()}</small>
+                                <span class="badge bg-info">${map.map_type || 'Map'}</span>
+                                ${map.version ? `<span class="badge bg-secondary">v${map.version}</span>` : ''}
+                                <small class="text-muted d-block mt-2">Uploaded: ${uploadDate}</small>
                             </p>
                         </div>
                         <div class="card-footer bg-transparent">
@@ -855,18 +883,54 @@
         // View map details
         async function viewMap(mapId) {
             try {
+                console.log('Viewing map with ID:', mapId);
                 const response = await apiRequest(`/maps/${mapId}`);
-                currentMap = response.data;
+                console.log('Map details response:', response);
+                
+                // Handle potential response formats
+                currentMap = response.data || response;
+                
+                if (!currentMap) {
+                    console.error('Invalid map data received:', response);
+                    alert('Error: Could not load map data');
+                    return;
+                }
+                
+                console.log('Current map set to:', currentMap);
                 
                 // Set map details
                 document.getElementById('mapTitle').textContent = currentMap.name;
                 
-                // Load map image
-                const mapContainer = document.getElementById('mapContainer');
-                mapContainer.innerHTML = `<img src="http://localhost:8000/uploads/${currentMap.file_path}" alt="${currentMap.name}" id="mapImage">`;
+                // Get base URL (without /api/v1)
+                const apiUrlBase = API_URL.split('/api/v1')[0];
                 
-                // Add click event to map for adding events
-                document.getElementById('mapImage').addEventListener('click', handleMapClick);
+                // Construct proper URL for the map
+                let mapUrl;
+                if (currentMap.filename) {
+                    mapUrl = `${apiUrlBase}/uploads/${currentMap.filename}`;
+                } else if (currentMap.file_path) {
+                    if (currentMap.file_path.includes('uploads/')) {
+                        mapUrl = `${apiUrlBase}/${currentMap.file_path}`;
+                    } else {
+                        mapUrl = `${apiUrlBase}/uploads/${currentMap.file_path}`;
+                    }
+                } else {
+                    console.error('Map has no filename or file_path:', currentMap);
+                    alert('Error: Map file information is missing');
+                    return;
+                }
+                
+                console.log('Loading map from URL:', mapUrl);
+                
+                // Load map with PDF object for better PDF display
+                const mapContainer = document.getElementById('mapContainer');
+                mapContainer.innerHTML = `
+                    <object data="${mapUrl}" type="application/pdf" width="100%" height="600px" class="map-viewer">
+                        <div class="alert alert-warning">
+                            Unable to display PDF. <a href="${mapUrl}" target="_blank">Download Instead</a>
+                        </div>
+                    </object>
+                `;
                 
                 // Fetch events for this map
                 fetchMapEvents(mapId);
@@ -875,6 +939,7 @@
                 showSection('mapDetail');
             } catch (error) {
                 console.error('Error viewing map:', error);
+                alert('Failed to load map details: ' + error.message);
             }
         }
 
@@ -1302,10 +1367,32 @@
                 return;
             }
             
-            // Create container for maps
+            console.log('Rendering active maps:', activeMapsData);
+            
+            // Create container for maps with explicit height and width
             const mapContainer = document.createElement('div');
             mapContainer.className = 'map-iframe-container';
+            mapContainer.style.width = '100%';
+            mapContainer.style.height = '600px';
+            mapContainer.style.position = 'relative';
+            mapContainer.style.backgroundColor = '#f8f9fa';
+            mapContainer.style.border = '1px solid #ddd';
             mainMapViewer.appendChild(mapContainer);
+            
+            // Add map event containers
+            const eventMarkersContainer = document.getElementById('eventMarkersContainer') || document.createElement('div');
+            eventMarkersContainer.id = 'eventMarkersContainer';
+            eventMarkersContainer.style.position = 'absolute';
+            eventMarkersContainer.style.top = '0';
+            eventMarkersContainer.style.left = '0';
+            eventMarkersContainer.style.width = '100%';
+            eventMarkersContainer.style.height = '100%';
+            eventMarkersContainer.style.zIndex = '1000';
+            eventMarkersContainer.style.pointerEvents = 'none';
+            mainMapViewer.appendChild(eventMarkersContainer);
+            
+            // Add click handler to the container for event creation
+            mapContainer.onclick = handleMainMapClick;
             
             // Add each active map as a layer
             activeMapsData.forEach((map, index) => {
@@ -1332,23 +1419,47 @@
                 
                 const mapDiv = document.createElement('div');
                 mapDiv.className = 'map-overlay';
+                mapDiv.style.position = 'absolute';
+                mapDiv.style.top = '0';
+                mapDiv.style.left = '0';
+                mapDiv.style.width = '100%';
+                mapDiv.style.height = '100%';
                 mapDiv.style.zIndex = 10 + index; // Stack maps with increasing z-index
                 
                 if (index === 0) {
                     // Base map is fully visible
                     mapDiv.style.opacity = '1';
-                    // Only the base map receives click events
-                    mapDiv.style.pointerEvents = 'all';
+                    mapDiv.style.pointerEvents = 'none'; // Allow clicks to pass through to container
                 } else {
                     // Overlay maps are semi-transparent
                     mapDiv.style.opacity = '0.7';
+                    mapDiv.style.pointerEvents = 'none';
                 }
                 
+                // Use object tag with fallback for better PDF compatibility
                 mapDiv.innerHTML = `
-                    <iframe src="${mapUrl}" style="width:100%; height:100%; border:none;"></iframe>
+                    <object data="${mapUrl}" type="application/pdf" width="100%" height="100%" class="pdf-object">
+                        <embed src="${mapUrl}" type="application/pdf" width="100%" height="100%" />
+                        <p>Your browser cannot display the PDF. <a href="${mapUrl}" target="_blank">Download the PDF</a> instead.</p>
+                    </object>
                 `;
                 
                 mapContainer.appendChild(mapDiv);
+                
+                // Fetch to check if URL is accessible and log the result
+                fetch(mapUrl)
+                    .then(response => {
+                        console.log(`Fetch response for ${mapUrl}:`, response.status, response.statusText);
+                        if (response.ok) {
+                            console.log('PDF should be displayed successfully');
+                        } else {
+                            console.error('PDF fetch error:', response.status, response.statusText);
+                        }
+                        return response;
+                    })
+                    .catch(error => {
+                        console.error(`Error fetching ${mapUrl}:`, error);
+                    });
             });
             
             // After rendering maps, render events
