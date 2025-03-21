@@ -286,14 +286,9 @@
                             <input type="text" class="form-control" id="mapName" required>
                         </div>
                         <div class="mb-3">
-                            <label for="mapVersion" class="form-label">Version</label>
-                            <input type="number" class="form-control" id="mapVersion" step="0.1" min="0.1" value="1.0" required>
-                            <div class="form-text">Specify version number (e.g., 1.0, 1.1)</div>
-                        </div>
-                        <div class="mb-3">
                             <label for="mapFile" class="form-label">Map File</label>
-                            <input type="file" class="form-control" id="mapFile" accept="application/pdf" required>
-                            <div class="form-text">Upload a PDF file of your construction map.</div>
+                            <input type="file" class="form-control" id="mapFile" accept="image/*" required>
+                            <div class="form-text">Upload a JPG, PNG or GIF file of your construction map.</div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -664,27 +659,18 @@
             console.log('Rendering maps:', maps);
             
             maps.forEach(map => {
-                // Format the date properly - handle both uploaded_at and created_at fields
-                let uploadDate = 'Unknown';
-                if (map.uploaded_at) {
-                    uploadDate = new Date(map.uploaded_at).toLocaleDateString();
-                } else if (map.created_at) {
-                    uploadDate = new Date(map.created_at).toLocaleDateString();
-                }
-                
-                // Get version or default to N/A
-                const version = map.version || 'N/A';
-                
                 const mapCard = document.createElement('div');
                 mapCard.className = 'col-md-4 mb-4';
                 mapCard.innerHTML = `
                     <div class="card h-100">
+                        <div class="card-img-top text-center bg-light" style="height: 200px;">
+                            <img src="${API_URL}/uploads/${map.file_path}" class="h-100" style="object-fit: contain;" alt="${map.name}">
+                        </div>
                         <div class="card-body">
                             <h5 class="card-title">${map.name}</h5>
                             <p class="card-text">
                                 <span class="badge bg-info">${map.map_type}</span>
-                                <span class="d-block mt-1">Version: ${version}</span>
-                                <small class="text-muted d-block mt-1">Uploaded: ${uploadDate}</small>
+                                <small class="text-muted">Uploaded: ${new Date(map.created_at).toLocaleDateString()}</small>
                             </p>
                         </div>
                         <div class="card-footer bg-transparent">
@@ -708,43 +694,18 @@
         // View map details
         async function viewMap(mapId) {
             try {
-                console.log('Viewing map:', mapId);
                 const response = await apiRequest(`/maps/${mapId}`);
-                currentMap = response;
-                
-                console.log('Map data:', currentMap);
+                currentMap = response.data;
                 
                 // Set map details
                 document.getElementById('mapTitle').textContent = currentMap.name;
                 
-                // Load map as iframe for PDF files
+                // Load map image
                 const mapContainer = document.getElementById('mapContainer');
+                mapContainer.innerHTML = `<img src="http://localhost:8000/uploads/${currentMap.file_path}" alt="${currentMap.name}" id="mapImage">`;
                 
-                // Fix the URL path - remove /api/v1 since uploads are mounted at the root level
-                let mapUrl;
-                if (currentMap.filename) {
-                    // Use hostname from API_URL but correct path
-                    const apiUrlBase = API_URL.split('/api/v1')[0];
-                    mapUrl = `${apiUrlBase}/uploads/${currentMap.filename}`;
-                    console.log('Using filename for map URL:', mapUrl);
-                } else if (currentMap.file_path) {
-                    const apiUrlBase = API_URL.split('/api/v1')[0];
-                    mapUrl = `${apiUrlBase}/uploads/${currentMap.file_path}`;
-                    console.log('Using file_path for map URL:', mapUrl);
-                } else {
-                    console.error('Map file path or filename is missing');
-                    mapUrl = '#'; // Set a fallback
-                }
-                
-                console.log('Map URL:', mapUrl);
-                
-                mapContainer.innerHTML = `
-                    <iframe src="${mapUrl}" style="width:100%; height:600px; border:none;" id="mapFrame"></iframe>
-                    <div id="eventMarkers"></div>
-                `;
-                
-                // Add click event to map container for adding events
-                document.getElementById('mapContainer').addEventListener('click', handleMapClick);
+                // Add click event to map for adding events
+                document.getElementById('mapImage').addEventListener('click', handleMapClick);
                 
                 // Fetch events for this map
                 fetchMapEvents(mapId);
@@ -753,7 +714,6 @@
                 showSection('mapDetail');
             } catch (error) {
                 console.error('Error viewing map:', error);
-                alert('Error loading map: ' + (error.message || 'Unknown error'));
             }
         }
 
@@ -1030,7 +990,6 @@
         document.getElementById('uploadMapBtn').addEventListener('click', () => {
             // Reset form
             document.getElementById('mapName').value = '';
-            document.getElementById('mapVersion').value = '1.0';
             document.getElementById('mapFile').value = '';
             document.getElementById('mapUploadError').style.display = 'none';
             
@@ -1041,7 +1000,6 @@
         // Save Map Button
         document.getElementById('saveMapBtn').addEventListener('click', async () => {
             const name = document.getElementById('mapName').value;
-            const version = document.getElementById('mapVersion').value;
             const fileInput = document.getElementById('mapFile');
             const mapUploadError = document.getElementById('mapUploadError');
             
@@ -1063,13 +1021,11 @@
                 const formData = new FormData();
                 formData.append('project_id', currentProject.id);
                 formData.append('name', name);
-                formData.append('version', version);
                 formData.append('map_type', 'implantation'); // Default type
                 formData.append('file', fileInput.files[0]);
                 
                 console.log("Uploading map with project_id:", currentProject.id);
                 console.log("File:", fileInput.files[0]);
-                console.log("Version:", version);
                 
                 const response = await apiRequest('/maps/', 'POST', formData);
                 console.log('Map uploaded:', response);
@@ -1158,6 +1114,9 @@
                 // Send deletion request
                 await apiRequest(`/projects/${currentProject.id}`, 'DELETE');
                 console.log('Project deleted successfully');
+                
+                // Show success message
+                alert('Project deleted successfully');
                 
                 // Clear current project
                 currentProject = null;
