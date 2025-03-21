@@ -589,19 +589,16 @@
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
         }
 
-        // API base URL
+        // Global variables
         const API_URL = 'http://127.0.0.1:8000/api/v1';
-        
-        // State variables
-        let token = localStorage.getItem('token');
-        let currentUser = null;
         let currentProject = null;
-        let currentMap = null;
-        let projects = [];
         let maps = [];
-        let events = [];
-        let selectedPosition = { x: 0, y: 0 };
-        let activeMaps = {};  // Tracks which maps are active in the overlay
+        let activeMaps = {}; // Track active maps
+        let events = []; // Events for the current project
+        let selectedPosition = null; // For creating events
+        let token = null; // Store auth token globally
+        let currentUser = null;
+        let projects = [];
         let userColors = {};  // Maps user IDs to colors
         const colorClasses = ['user-color-1', 'user-color-2', 'user-color-3', 'user-color-4', 'user-color-5'];
         
@@ -615,42 +612,95 @@
             return userColors[userId];
         }
         
-        // Elements
-        const loginSection = document.getElementById('loginSection');
-        const appSection = document.getElementById('appSection');
-        const projectsSection = document.getElementById('projectsSection');
-        const projectDetailSection = document.getElementById('projectDetailSection');
-        const mapDetailSection = document.getElementById('mapDetailSection');
-        const eventsSection = document.getElementById('eventsSection');
-        
         // Bootstrap modals
         const createProjectModal = new bootstrap.Modal(document.getElementById('createProjectModal'));
-        const uploadMapModal = new bootstrap.Modal(document.getElementById('uploadMapModal'));
+        const createMapModal = new bootstrap.Modal(document.getElementById('createMapModal'));
         const createEventModal = new bootstrap.Modal(document.getElementById('createEventModal'));
         const eventDetailsModal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
 
-        // Check if user is logged in
+        // Check if user is authenticated
         function checkAuth() {
-            if (token) {
-                loginSection.style.display = 'none';
-                appSection.style.display = 'block';
-                fetchProjects();
-            } else {
-                loginSection.style.display = 'block';
-                appSection.style.display = 'none';
+            // Check for token in localStorage
+            token = localStorage.getItem('token');
+            
+            // Show login form if no token
+            if (!token) {
+                console.log('No authentication token found, showing login form');
+                showLoginSection();
+                return;
             }
+            
+            console.log('Authentication token found, validating...');
+            
+            // Validate token by making a request to the API
+            fetch(`${API_URL}/users/me`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        console.error('Token validation failed: Unauthorized');
+                        localStorage.removeItem('token');
+                        token = null;
+                        showLoginSection();
+                        return;
+                    }
+                    throw new Error(`Token validation failed: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data) {
+                    console.log('Token validation successful, user:', data);
+                    showAppSection();
+                    
+                    // Load projects
+                    fetchProjects();
+                    
+                    // Initialize events page
+                    initializeEventsPage();
+                }
+            })
+            .catch(error => {
+                console.error('Error during authentication check:', error);
+                localStorage.removeItem('token');
+                token = null;
+                showLoginSection();
+            });
+        }
+        
+        // Show the login section
+        function showLoginSection() {
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('appSection').style.display = 'none';
+        }
+        
+        // Show the main app section
+        function showAppSection() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('appSection').style.display = 'block';
         }
 
         // API request helper
         async function apiRequest(endpoint, method = 'GET', data = null) {
             console.log(`API Request: ${method} ${API_URL}${endpoint}`);
+            
+            // Get the token from localStorage
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                alert('You are not logged in. Please log in to continue.');
+                showLoginSection();
+                throw new Error('Authentication required');
+            }
+            
             const headers = {
                 'Accept': 'application/json',
+                'Authorization': `Bearer ${token}`
             };
-            
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
             
             const options = {
                 method,
@@ -660,6 +710,7 @@
             if (data) {
                 if (data instanceof FormData) {
                     // For FormData, don't set Content-Type (browser will set it with boundary)
+                    // But still add the Authorization header
                     options.body = data;
                     console.log('Sending FormData:', Object.fromEntries(data.entries()));
                 } else {
@@ -669,7 +720,7 @@
                 }
             }
             
-            console.log('Request options:', { method, endpoint, headers });
+            console.log('Request options:', { method, endpoint, headers: { ...headers, Authorization: 'Bearer [REDACTED]' } });
             
             try {
                 const response = await fetch(`${API_URL}${endpoint}`, options);
@@ -677,48 +728,27 @@
                 
                 if (response.status === 401) {
                     // Unauthorized, clear token and redirect to login
+                    console.error('Authentication failed: Token expired or invalid');
                     localStorage.removeItem('token');
-                    token = null;
-                    checkAuth();
-                    throw new Error('Unauthorized');
+                    alert('Your session has expired. Please log in again.');
+                    showLoginSection();
+                    throw new Error('Authentication failed');
                 }
                 
                 if (!response.ok) {
-                    let errorDetail = 'API request failed';
-                    try {
-                        const errorText = await response.text();
-                        console.error('API error response:', errorText);
-                        
-                        if (errorText) {
-                            try {
-                                const errorObj = JSON.parse(errorText);
-                                errorDetail = errorObj.detail || errorText;
-                            } catch (e) {
-                                errorDetail = errorText;
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Error parsing error response:', e);
-                    }
-                    throw new Error(errorDetail);
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('API Error:', errorData);
+                    throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`);
                 }
                 
-                // Special handling for 204 No Content responses
-                if (response.status === 204) {
-                    console.log('No content returned (status 204)');
+                // For DELETE requests or other responses with no content
+                if (response.status === 204 || method === 'DELETE') {
                     return { success: true };
                 }
                 
-                // For other successful responses, try to parse JSON
-                try {
-                    const responseData = await response.json();
-                    return responseData;
-                } catch (error) {
-                    console.warn('Response is not valid JSON, returning raw response');
-                    return { success: true, message: 'Operation successful' };
-                }
+                return await response.json();
             } catch (error) {
-                console.error(`API request failed: ${endpoint}`, error);
+                console.error('API Request Error:', error);
                 throw error;
             }
         }
@@ -1465,6 +1495,9 @@
                 mainMapViewer.addEventListener('click', clickHandler);
             });
             
+            // Create event markers container
+            ensureEventMarkersContainer();
+            
             // Fetch and display events for this project
             fetchProjectEvents();
         }
@@ -1728,7 +1761,25 @@
             
             console.log(`Fetching events for project ${projectId}`);
             
-            fetch(`${API_URL}/events/?project_id=${projectId}`)
+            // Get the auth token
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token available');
+                document.getElementById('recentEventsTable').innerHTML = 
+                    '<div class="alert alert-danger">Authentication error. Please log in again.</div>';
+                return;
+            }
+            
+            // Include auth token in headers
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+            
+            fetch(`${API_URL}/events/?project_id=${projectId}`, {
+                method: 'GET',
+                headers: headers
+            })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -1737,7 +1788,7 @@
                 })
                 .then(data => {
                     events = data;
-                    console.log(`Fetched ${events.length} events:`, events);
+                    console.log(`Fetched ${events.length} events for project ${projectId}:`, events);
                     
                     // Render the events in the main map view
                     renderProjectEvents();
@@ -1781,7 +1832,10 @@
         // Render event markers on the main map view
         function renderProjectEvents() {
             const eventMarkersContainer = ensureEventMarkersContainer();
-            if (!eventMarkersContainer) return;
+            if (!eventMarkersContainer) {
+                console.error('Failed to get or create event markers container');
+                return;
+            }
             
             // Clear existing markers
             eventMarkersContainer.innerHTML = '';
@@ -1797,11 +1851,17 @@
             // Enable pointer events on marker container to allow interaction
             eventMarkersContainer.style.pointerEvents = 'auto';
             
+            // Make sure the z-index is high enough to appear above maps
+            eventMarkersContainer.style.zIndex = '1500';
+            
             // Render markers for each event
             events.forEach(event => {
                 // Skip events that don't have position data
-                if (typeof event.x_coordinate === 'undefined' || typeof event.y_coordinate === 'undefined') {
-                    console.log(`Event ${event.id} skipped: no coordinates`);
+                if (typeof event.x_coordinate === 'undefined' || 
+                    typeof event.y_coordinate === 'undefined' || 
+                    event.x_coordinate === null || 
+                    event.y_coordinate === null) {
+                    console.log(`Event ${event.id} skipped: no coordinates (${event.x_coordinate}, ${event.y_coordinate})`);
                     return;
                 }
                 
@@ -1826,7 +1886,7 @@
                 } else {
                     // Default color based on status if no user color available
                     const statusClass = event.status === 'open' ? 'bg-danger' : 
-                                        event.status === 'in_progress' ? 'bg-warning' : 'bg-success';
+                                       event.status === 'in_progress' ? 'bg-warning' : 'bg-success';
                     marker.classList.add(statusClass);
                 }
                 
@@ -1838,9 +1898,6 @@
                 
                 eventMarkersContainer.appendChild(marker);
             });
-            
-            // Make sure event markers container is above the maps
-            eventMarkersContainer.style.zIndex = '1000';
         }
         
         // Show event details in a popup
@@ -2177,6 +2234,109 @@
         }
         
         // Render recent events table
+        function renderRecentEventsTable() {
+            const recentEventsTableBody = document.getElementById('recentEventsTableBody');
+            const recentEventsTable = document.getElementById('recentEventsTable');
+            
+            if (!recentEventsTableBody || !recentEventsTable) {
+                console.error('Recent events table elements not found');
+                return;
+            }
+            
+            // Clear existing rows
+            recentEventsTableBody.innerHTML = '';
+            
+            if (!events || events.length === 0) {
+                recentEventsTable.innerHTML = '<div class="alert alert-info">No recent events found for this project.</div>';
+                return;
+            }
+            
+            console.log(`Rendering ${events.length} events in the recent events table`);
+            
+            // Sort events by created_at (newest first)
+            const sortedEvents = [...events].sort((a, b) => {
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
+            
+            // Limit to most recent 10 events
+            const recentEvents = sortedEvents.slice(0, 10);
+            
+            // Create table with headers if it doesn't exist
+            if (recentEventsTable.tagName !== 'TABLE') {
+                recentEventsTable.innerHTML = `
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Created By</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentEventsTableBody"></tbody>
+                    </table>
+                `;
+                recentEventsTableBody = document.getElementById('recentEventsTableBody');
+            }
+            
+            // Add rows for each event
+            recentEvents.forEach(event => {
+                const row = document.createElement('tr');
+                
+                const statusClass = getStatusClass(event.status);
+                const formattedStatus = formatStatus(event.status);
+                
+                row.innerHTML = `
+                    <td>${event.title}</td>
+                    <td>${event.description ? (event.description.length > 50 ? event.description.substring(0, 50) + '...' : event.description) : 'No description'}</td>
+                    <td><span class="badge bg-${statusClass}">${formattedStatus}</span></td>
+                    <td>${event.user_name || 'Unknown'}</td>
+                    <td>${new Date(event.created_at).toLocaleString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary view-event-details" data-event-id="${event.id}">View</button>
+                    </td>
+                `;
+                
+                recentEventsTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to view buttons
+            document.querySelectorAll('.view-event-details').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const eventId = e.target.getAttribute('data-event-id');
+                    const event = events.find(event => event.id.toString() === eventId);
+                    if (event) {
+                        showEventDetailsModal(event);
+                    }
+                });
+            });
+        }
+
+        // Initialize events page
+        function initializeEventsPage() {
+            console.log('Initializing events page');
+            // This function can be expanded to pre-load events data or set up event handlers
+            // For now, we'll just make sure the basic structure is prepared
+            
+            // Add event listeners to filter inputs if they exist
+            const projectFilter = document.getElementById('projectFilter');
+            const mapFilter = document.getElementById('mapFilter');
+            const statusFilter = document.getElementById('statusFilter');
+            
+            if (projectFilter) {
+                projectFilter.addEventListener('change', () => fetchAllEvents());
+            }
+            
+            if (mapFilter) {
+                mapFilter.addEventListener('change', () => fetchAllEvents());
+            }
+            
+            if (statusFilter) {
+                statusFilter.addEventListener('change', () => fetchAllEvents());
+            }
+        }
     </script>
 </body>
 </html> 
