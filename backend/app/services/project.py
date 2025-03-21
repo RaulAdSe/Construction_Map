@@ -56,33 +56,47 @@ def update_project(
 
 def delete_project(db: Session, project_id: int) -> bool:
     try:
-        # Create a new session for raw operations to avoid conflicts with tracked objects
-        from app.db.database import SessionLocal
-        raw_session = SessionLocal()
-        
-        try:
-            # 1. First delete all related records using raw SQL (prevent ORM tracking issues)
-            raw_session.execute(text("DELETE FROM events WHERE project_id = :project_id"), 
-                              {"project_id": project_id})
-            raw_session.execute(text("DELETE FROM maps WHERE project_id = :project_id"), 
-                              {"project_id": project_id})
-            raw_session.execute(text("DELETE FROM project_users WHERE project_id = :project_id"), 
-                              {"project_id": project_id})
-            raw_session.commit()
-        finally:
-            raw_session.close()
-        
-        # 2. Now that all related records are gone, delete the project
-        # First, get the project again (to ensure fresh state)
-        project = db.query(Project).filter(Project.id == project_id).with_for_update().first()
+        # Get the project first to check if it exists
+        project = get_project(db, project_id)
         if not project:
             return False
+            
+        # Important: Expire all objects from the session to avoid dependency tracking issues
+        db.expire_all()
         
-        # Now delete the project
-        db.delete(project)
+        # Get direct database connection for raw SQL execution
+        connection = db.connection()
+        
+        # Start a subtransaction
+        with connection.begin():
+            # Execute DELETE statements in the correct order to maintain referential integrity
+            # 1. First delete events (which have no dependencies)
+            connection.execute(
+                text("DELETE FROM events WHERE project_id = :project_id"),
+                {"project_id": project_id}
+            )
+            
+            # 2. Delete maps (which have no dependencies)
+            connection.execute(
+                text("DELETE FROM maps WHERE project_id = :project_id"),
+                {"project_id": project_id}
+            )
+            
+            # 3. Delete project_users associations
+            connection.execute(
+                text("DELETE FROM project_users WHERE project_id = :project_id"),
+                {"project_id": project_id}
+            )
+            
+            # 4. Finally, delete the project itself
+            connection.execute(
+                text("DELETE FROM projects WHERE id = :project_id"),
+                {"project_id": project_id}
+            )
+        
+        # Commit the main transaction
         db.commit()
         return True
-        
     except Exception as e:
         print(f"Error deleting project: {e}")
         db.rollback()
