@@ -420,13 +420,27 @@
                 }
                 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('API error response:', errorText);
-                    throw new Error(errorText || 'API request failed');
+                    let errorDetail = 'API request failed';
+                    try {
+                        const errorText = await response.text();
+                        console.error('API error response:', errorText);
+                        
+                        if (errorText) {
+                            try {
+                                const errorObj = JSON.parse(errorText);
+                                errorDetail = errorObj.detail || errorText;
+                            } catch (e) {
+                                errorDetail = errorText;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error parsing error response:', e);
+                    }
+                    throw new Error(errorDetail);
                 }
                 
                 if (response.status === 204) { // No content
-                    return {};
+                    return { success: true };
                 }
                 
                 const responseData = await response.json();
@@ -602,9 +616,10 @@
         // Fetch maps for a project
         async function fetchProjectMaps(projectId) {
             try {
-                const response = await apiRequest('/maps/');
-                // Filter maps by project
-                maps = response.data.filter(map => map.project_id === parseInt(projectId));
+                console.log('Fetching maps for project:', projectId);
+                const response = await apiRequest(`/maps/?project_id=${projectId}`);
+                maps = response;
+                console.log('Maps retrieved:', maps);
                 renderProjectMaps();
             } catch (error) {
                 console.error('Error fetching maps:', error);
@@ -694,9 +709,9 @@
         // Fetch events for a map
         async function fetchMapEvents(mapId) {
             try {
-                const response = await apiRequest(`/events/?map_id=${mapId}`);
-                // Get all events for this map
-                events = response.data;
+                const response = await apiRequest('/events/');
+                // Filter events by map
+                events = response.data.filter(event => event.map_id === parseInt(mapId));
                 
                 // Render events on map
                 renderMapEvents();
@@ -887,10 +902,12 @@
             }
             
             try {
-                await apiRequest('/projects/', 'POST', {
+                console.log('Creating project:', { name, description });
+                const response = await apiRequest('/projects/', 'POST', {
                     name,
                     description
                 });
+                console.log('Project created:', response);
                 
                 // Refresh projects list
                 fetchProjects();
@@ -899,7 +916,7 @@
                 createProjectModal.hide();
             } catch (error) {
                 console.error('Error creating project:', error);
-                alert('Failed to create project');
+                alert('Failed to create project: ' + error.message);
             }
         });
 
@@ -942,8 +959,10 @@
                 formData.append('file', fileInput.files[0]);
                 
                 console.log("Uploading map with project_id:", currentProject.id);
+                console.log("File:", fileInput.files[0]);
                 
-                await apiRequest('/maps/', 'POST', formData);
+                const response = await apiRequest('/maps/', 'POST', formData);
+                console.log('Map uploaded:', response);
                 
                 // Refresh maps list
                 fetchProjectMaps(currentProject.id);
@@ -972,7 +991,10 @@
             }
             
             try {
+                eventError.style.display = 'none';
+                
                 const formData = new FormData();
+                formData.append('project_id', currentMap.project_id);
                 formData.append('map_id', currentMap.id);
                 formData.append('title', title);
                 formData.append('description', description);
@@ -984,7 +1006,9 @@
                     formData.append('image', fileInput.files[0]);
                 }
                 
-                await apiRequest('/events/', 'POST', formData);
+                console.log('Creating event:', Object.fromEntries(formData.entries()));
+                const response = await apiRequest('/events/', 'POST', formData);
+                console.log('Event created:', response);
                 
                 // Refresh events
                 fetchMapEvents(currentMap.id);
@@ -999,7 +1023,7 @@
                 document.getElementById('eventImage').value = '';
             } catch (error) {
                 console.error('Error creating event:', error);
-                eventError.textContent = 'Failed to create event';
+                eventError.textContent = 'Failed to create event: ' + (error.message || 'Unknown error');
                 eventError.style.display = 'block';
             }
         });
