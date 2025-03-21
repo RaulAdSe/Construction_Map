@@ -9,7 +9,6 @@ import io
 
 from app.models.event import Event
 from app.core.config import settings
-from app.models.project_user import ProjectUser
 
 
 def get_event(db: Session, event_id: int) -> Optional[Event]:
@@ -27,41 +26,6 @@ def get_events(
     
     if user_id:
         query = query.filter(Event.created_by_user_id == user_id)
-    
-    return query.order_by(desc(Event.created_at)).offset(skip).limit(limit).all()
-
-
-def get_events_for_user(
-    db: Session, 
-    user_id: int,
-    project_id: Optional[int] = None,
-    map_id: Optional[int] = None,
-    skip: int = 0, 
-    limit: int = 100
-) -> List[Event]:
-    """
-    Get events for a user with optional filtering by project_id or map_id
-    """
-    # Start with a basic query
-    query = db.query(Event)
-    
-    # Filter by map_id if provided
-    if map_id:
-        query = query.filter(Event.map_id == map_id)
-    
-    # Filter by project_id if provided
-    if project_id:
-        query = query.filter(Event.project_id == project_id)
-    
-    # If neither map_id nor project_id specified, get all events
-    # that the user has access to through projects they belong to
-    if not map_id and not project_id:
-        # Subquery to get all projects the user has access to
-        project_ids = db.query(ProjectUser.project_id).filter(
-            ProjectUser.user_id == user_id
-        ).scalar_subquery()
-        
-        query = query.filter(Event.project_id.in_(project_ids))
     
     return query.order_by(desc(Event.created_at)).offset(skip).limit(limit).all()
 

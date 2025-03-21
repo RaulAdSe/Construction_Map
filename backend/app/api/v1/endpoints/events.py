@@ -13,26 +13,27 @@ router = APIRouter()
 
 @router.get("/", response_model=List[Event])
 def get_events(
-    project_id: Optional[int] = None,
-    map_id: Optional[int] = None,
+    project_id: int,
+    user_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
     skip: int = 0,
     limit: int = 100
 ):
     """
-    Get all events for the current user.
-    Filter by project_id or map_id if provided.
+    Get all events for a project.
     """
-    # Get events - can be filtered by project_id or map_id
-    events = event_service.get_events_for_user(
-        db, 
-        current_user.id, 
-        project_id=project_id,
-        map_id=map_id,
-        skip=skip, 
-        limit=limit
-    )
+    # Check if project exists and user has access
+    project = project_service.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check if user has access to project
+    if not any(pu.user_id == current_user.id for pu in project.users):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Get events
+    events = event_service.get_events(db, project_id, user_id, skip, limit)
     return events
 
 
