@@ -66,6 +66,7 @@
             z-index: 1000;
             max-height: 300px;
             overflow-y: auto;
+            min-width: 200px;
         }
         .map-iframe-container {
             position: relative;
@@ -112,6 +113,50 @@
                 height: 99%;
                 width: 99%;
             }
+        }
+        
+        /* Clean PDF view styling - remove all UI elements */
+        .clean-pdf-view {
+            background-color: white;
+            border: none;
+            overflow: hidden;
+        }
+        
+        /* Enhanced map layers control */
+        .map-layers-control {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 200px;
+        }
+        
+        .map-layer-checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        
+        .map-layer-checkbox-container:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .base-map-label {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        
+        .overlay-map-label {
+            color: #495057;
         }
     </style>
 </head>
@@ -1285,26 +1330,48 @@
                 return;
             }
             
+            // Find implantation map and other maps
+            const implantationMap = maps.find(map => (map.map_type || '').toLowerCase() === 'implantation');
+            
+            // Group maps: implantation (base) first, then others
+            const orderedMaps = [];
+            
+            // Add implantation map first if it exists
+            if (implantationMap) {
+                orderedMaps.push(implantationMap);
+                // Start with implantation map active by default
+                activeMaps[implantationMap.id] = true;
+            }
+            
+            // Add other maps
+            maps.forEach(map => {
+                if (map.id !== implantationMap?.id) {
+                    orderedMaps.push(map);
+                }
+            });
+            
+            // If no implantation map was found, activate the first map by default
+            if (!implantationMap && maps.length > 0) {
+                activeMaps[maps[0].id] = true;
+            }
+            
             // Create checkboxes for each map
-            maps.forEach((map, index) => {
-                const isFirst = index === 0;
+            orderedMaps.forEach((map, index) => {
+                const isImplantation = map.id === implantationMap?.id;
                 
                 // Create checkbox for this map
                 const checkboxDiv = document.createElement('div');
-                checkboxDiv.className = 'form-check';
+                checkboxDiv.className = 'form-check map-layer-checkbox-container';
+                
                 checkboxDiv.innerHTML = `
                     <input class="form-check-input map-layer-checkbox" type="checkbox" value="${map.id}" 
-                        id="mapLayer${map.id}" ${isFirst ? 'checked' : ''}>
-                    <label class="form-check-label" for="mapLayer${map.id}">
+                        id="mapLayer${map.id}" ${isImplantation ? 'checked' : ''}>
+                    <label class="form-check-label ${isImplantation ? 'base-map-label' : 'overlay-map-label'}" for="mapLayer${map.id}">
                         ${map.name} ${map.version ? `(v${map.version})` : ''}
+                        ${isImplantation ? ' (Base Map)' : ''}
                     </label>
                 `;
                 mapLayersList.appendChild(checkboxDiv);
-                
-                // Add to active maps if it's the first one
-                if (isFirst) {
-                    activeMaps[map.id] = true;
-                }
             });
             
             // Render the active maps
@@ -1379,6 +1446,21 @@
             mapContainer.style.border = '1px solid #ddd';
             mainMapViewer.appendChild(mapContainer);
             
+            // Find implantation map (base map) - it should be displayed first (at the bottom)
+            let implantationMap = activeMapsData.find(map => (map.map_type || '').toLowerCase() === 'implantation');
+            
+            // If no implantation map is found, use the first map as the base
+            if (!implantationMap && activeMapsData.length > 0) {
+                implantationMap = activeMapsData[0];
+            }
+            
+            // Sort maps to ensure implantation map is first, then others in order of selection
+            const sortedMaps = [...activeMapsData].sort((a, b) => {
+                if (a.id === implantationMap?.id) return -1;
+                if (b.id === implantationMap?.id) return 1;
+                return 0;
+            });
+            
             // Add map event containers
             const eventMarkersContainer = document.getElementById('eventMarkersContainer') || document.createElement('div');
             eventMarkersContainer.id = 'eventMarkersContainer';
@@ -1395,7 +1477,7 @@
             mapContainer.onclick = handleMainMapClick;
             
             // Add each active map as a layer
-            activeMapsData.forEach((map, index) => {
+            sortedMaps.forEach((map, index) => {
                 // Get base URL (without /api/v1)
                 const apiUrlBase = API_URL.split('/api/v1')[0];
                 
@@ -1426,22 +1508,28 @@
                 mapDiv.style.height = '100%';
                 mapDiv.style.zIndex = 10 + index; // Stack maps with increasing z-index
                 
-                if (index === 0) {
+                const isBaseMap = map.id === implantationMap?.id;
+                
+                if (isBaseMap) {
                     // Base map is fully visible
                     mapDiv.style.opacity = '1';
-                    mapDiv.style.pointerEvents = 'none'; // Allow clicks to pass through to container
                 } else {
                     // Overlay maps are semi-transparent
                     mapDiv.style.opacity = '0.7';
-                    mapDiv.style.pointerEvents = 'none';
                 }
                 
-                // Use object tag with fallback for better PDF compatibility
+                // All maps shouldn't receive pointer events to allow clicks to pass through to container
+                mapDiv.style.pointerEvents = 'none';
+                
+                // Use iframe with specific parameters to show only the PDF without controls
+                // This provides the cleanest view of just the PDF content
                 mapDiv.innerHTML = `
-                    <object data="${mapUrl}" type="application/pdf" width="100%" height="100%" class="pdf-object">
-                        <embed src="${mapUrl}" type="application/pdf" width="100%" height="100%" />
-                        <p>Your browser cannot display the PDF. <a href="${mapUrl}" target="_blank">Download the PDF</a> instead.</p>
-                    </object>
+                    <iframe 
+                        src="${mapUrl}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH"
+                        style="width:100%; height:100%; border:none;"
+                        frameborder="0"
+                        class="clean-pdf-view">
+                    </iframe>
                 `;
                 
                 mapContainer.appendChild(mapDiv);
