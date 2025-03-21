@@ -81,47 +81,48 @@ def delete_project(db: Session, project_id: int) -> bool:
         dependent_tables = connection.execute(text(check_query)).fetchall()
         print(f"Found dependent tables: {[table[0] for table in dependent_tables]}")
         
-        # Start a subtransaction
-        with connection.begin():
-            # 1. First check if there are any other tables referencing project_id that we need to handle
-            # The standard tables we know about are: events, maps, project_users
-            for table_name, _ in dependent_tables:
-                if table_name not in ['events', 'maps', 'project_users', 'projects']:
-                    print(f"Deleting records from additional table: {table_name}")
-                    connection.execute(
-                        text(f"DELETE FROM {table_name} WHERE project_id = :project_id"),
-                        {"project_id": project_id}
-                    )
-            
-            # 2. Delete events (which might have dependencies)
-            print(f"Deleting events for project {project_id}")
-            connection.execute(
-                text("DELETE FROM events WHERE project_id = :project_id"),
-                {"project_id": project_id}
-            )
-            
-            # 3. Delete maps
-            print(f"Deleting maps for project {project_id}")
-            connection.execute(
-                text("DELETE FROM maps WHERE project_id = :project_id"),
-                {"project_id": project_id}
-            )
-            
-            # 4. Delete project_users associations
-            print(f"Deleting project_users associations for project {project_id}")
-            connection.execute(
-                text("DELETE FROM project_users WHERE project_id = :project_id"),
-                {"project_id": project_id}
-            )
-            
-            # 5. Finally, delete the project itself
-            print(f"Deleting project {project_id}")
-            result = connection.execute(
-                text("DELETE FROM projects WHERE id = :project_id"),
-                {"project_id": project_id}
-            )
-            deleted_count = result.rowcount
-            print(f"Deleted {deleted_count} projects")
+        # Execute DELETE statements in the correct order to maintain referential integrity
+        # (No need for a nested transaction - the session already has one)
+        
+        # 1. First check if there are any other tables referencing project_id that we need to handle
+        # The standard tables we know about are: events, maps, project_users
+        for table_name, _ in dependent_tables:
+            if table_name not in ['events', 'maps', 'project_users', 'projects']:
+                print(f"Deleting records from additional table: {table_name}")
+                connection.execute(
+                    text(f"DELETE FROM {table_name} WHERE project_id = :project_id"),
+                    {"project_id": project_id}
+                )
+        
+        # 2. Delete events (which might have dependencies)
+        print(f"Deleting events for project {project_id}")
+        connection.execute(
+            text("DELETE FROM events WHERE project_id = :project_id"),
+            {"project_id": project_id}
+        )
+        
+        # 3. Delete maps
+        print(f"Deleting maps for project {project_id}")
+        connection.execute(
+            text("DELETE FROM maps WHERE project_id = :project_id"),
+            {"project_id": project_id}
+        )
+        
+        # 4. Delete project_users associations
+        print(f"Deleting project_users associations for project {project_id}")
+        connection.execute(
+            text("DELETE FROM project_users WHERE project_id = :project_id"),
+            {"project_id": project_id}
+        )
+        
+        # 5. Finally, delete the project itself
+        print(f"Deleting project {project_id}")
+        result = connection.execute(
+            text("DELETE FROM projects WHERE id = :project_id"),
+            {"project_id": project_id}
+        )
+        deleted_count = result.rowcount
+        print(f"Deleted {deleted_count} projects")
         
         # Commit the main transaction
         db.commit()
