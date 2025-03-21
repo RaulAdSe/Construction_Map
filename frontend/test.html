@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>API Test</h1>
+    <div>
+        <h2>API Connection Test</h2>
+        <button id="testRootBtn">Test Root Endpoint</button>
+        <button id="testLoginBtn">Test Login</button>
+        <div id="apiResult"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000';
+        const API_V1_URL = `${API_URL}/api/v1`;
+        
+        document.getElementById('testRootBtn').addEventListener('click', async () => {
+            const result = document.getElementById('apiResult');
+            result.innerHTML = '<p>Testing API connection...</p>';
+            
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <p>API Root Connection: <span style="color: green">Success</span></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <p>API Connection: <span style="color: red">Failed</span></p>
+                    <p>Error: ${error.message}</p>
+                    <p>Make sure the backend server is running at ${API_URL}</p>
+                `;
+            }
+        });
+        
+        document.getElementById('testLoginBtn').addEventListener('click', async () => {
+            const result = document.getElementById('apiResult');
+            result.innerHTML = '<p>Testing login...</p>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('username', 'admin');
+                formData.append('password', 'admin');
+                
+                const response = await fetch(`${API_V1_URL}/auth/login`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = `
+                        <p>Login: <span style="color: green">Success</span></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    // Store token in localStorage
+                    localStorage.setItem('token', data.access_token);
+                } else {
+                    result.innerHTML = `
+                        <p>Login: <span style="color: red">Failed</span></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <p>Login: <span style="color: red">Failed</span></p>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html> 
