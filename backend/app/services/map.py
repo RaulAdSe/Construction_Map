@@ -53,7 +53,6 @@ async def create_map(
     map_type: str, 
     name: str, 
     file: UploadFile,
-    version: float = 1.0,
     transform_data: Optional[Dict[str, Any]] = None
 ) -> Map:
     filename = await save_map_file(file)
@@ -63,7 +62,6 @@ async def create_map(
         map_type=map_type,
         name=name,
         filename=filename,
-        version=version,
         transform_data=transform_data
     )
     

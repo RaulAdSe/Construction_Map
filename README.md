@@ -1,45 +1,22 @@
 # Construction Map Application
 
-A web application for managing construction projects, maps, and events.
+A web application for construction project management that allows users to view and overlay construction maps/plans, create pinpoint events/issues on maps, and manage project data.
 
-## Key Features
+## Features
 
-- Project management with creation, viewing, and deletion functionality
-- Map uploads and visualization
-- Event tracking for construction projects
-- User authentication
+- User authentication and authorization
+- Project management
+- Map viewing with overlay capabilities
+- Event creation and management
+- Event list and filtering
+- Data export
 
 ## Tech Stack
 
-- Backend: FastAPI with SQLAlchemy ORM
-- Database: PostgreSQL
-- Frontend: HTML, CSS, JavaScript with fetch API
-- Authentication: JWT tokens
-
-## Development
-
-### Backend
-
-```
-cd backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Frontend
-
-```
-cd frontend
-python -m http.server 3000
-```
-
-## Database Setup
-
-PostgreSQL database with the following configuration:
-- Host: localhost
-- Port: 5432
-- User: postgres
-- Password: postgres
-- Database: construction_map
+- **Backend**: Python with FastAPI
+- **Database**: PostgreSQL
+- **Frontend**: React (in development)
+- **Map Visualization**: Leaflet or OpenLayers (in development)
 
 ## Project Structure
 
