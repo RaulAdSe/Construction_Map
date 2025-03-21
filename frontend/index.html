@@ -1312,10 +1312,23 @@
                 // Get base URL (without /api/v1)
                 const apiUrlBase = API_URL.split('/api/v1')[0];
                 
-                // Construct the correct URL for the PDF file - direct access to the file without '/uploads/'
-                // From the logs we can see the PDFs are available at the root level
-                const mapUrl = `${apiUrlBase}/${map.filename || map.file_path}`;
-                console.log(`Rendering map ${map.id} at URL: ${mapUrl}`);
+                // Fix URL construction - use the correct filename and path
+                let mapUrl;
+                if (map.filename) {
+                    mapUrl = `${apiUrlBase}/uploads/${map.filename}`;
+                } else if (map.file_path) {
+                    // Just in case file_path already includes 'uploads/'
+                    if (map.file_path.includes('uploads/')) {
+                        mapUrl = `${apiUrlBase}/${map.file_path}`;
+                    } else {
+                        mapUrl = `${apiUrlBase}/uploads/${map.file_path}`;
+                    }
+                } else {
+                    console.error('Map has no filename or file_path:', map);
+                    return;
+                }
+                
+                console.log(`Rendering map ${map.id} (${map.name}) at URL: ${mapUrl}`);
                 
                 const mapDiv = document.createElement('div');
                 mapDiv.className = 'map-overlay';
