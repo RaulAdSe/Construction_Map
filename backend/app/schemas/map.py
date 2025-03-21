@@ -7,6 +7,7 @@ class MapBase(BaseModel):
     project_id: int
     map_type: str  # 'implantation' or 'overlay'
     name: str
+    version: float = 1.0  # Default to 1.0
     transform_data: Optional[Dict[str, Any]] = None
 
 
@@ -16,6 +17,7 @@ class MapCreate(MapBase):
 
 class MapUpdate(BaseModel):
     name: Optional[str] = None
+    version: Optional[float] = None
     transform_data: Optional[Dict[str, Any]] = None
 
 

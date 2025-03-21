@@ -63,6 +63,7 @@ async def create_map(
     project_id: int = Form(...),
     map_type: str = Form(...),
     name: str = Form(...),
+    version: float = Form(1.0),
     transform_data: Optional[Dict[str, Any]] = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -80,28 +81,23 @@ async def create_map(
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Validate map_type
-    if map_type not in ["implantation", "overlay"]:
-        raise HTTPException(status_code=400, detail="Map type must be 'implantation' or 'overlay'")
+    # Validate file is PDF
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="File must be a PDF")
     
-    # Create map
     try:
         map_obj = await map_service.create_map(
-            db, 
-            project_id, 
-            map_type, 
-            name, 
-            file, 
-            transform_data
+            db=db,
+            project_id=project_id,
+            map_type=map_type,
+            name=name,
+            version=version,
+            file=file,
+            transform_data=transform_data
         )
         return map_obj
-    except HTTPException as e:
-        raise e
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create map: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.put("/{map_id}", response_model=Map)

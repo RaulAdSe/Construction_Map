@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, JSON, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -13,6 +13,7 @@ class Map(Base):
     map_type = Column(String, nullable=False)  # 'implantation' or 'overlay'
     filename = Column(String, nullable=False)
     name = Column(String, nullable=False)
+    version = Column(Float, nullable=False, default=1.0)  # Add version number field
     transform_data = Column(JSON, nullable=True)  # JSON field for alignment info
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
