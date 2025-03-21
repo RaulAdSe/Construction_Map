@@ -720,12 +720,17 @@
                 // Load map as iframe for PDF files
                 const mapContainer = document.getElementById('mapContainer');
                 
-                // Use filename property instead of file_path
+                // Fix the URL path - remove /api/v1 since uploads are mounted at the root level
                 let mapUrl;
-                if (currentMap.file_path) {
-                    mapUrl = `${API_URL}/uploads/${currentMap.file_path}`;
-                } else if (currentMap.filename) {
-                    mapUrl = `${API_URL}/uploads/${currentMap.filename}`;
+                if (currentMap.filename) {
+                    // Use hostname from API_URL but correct path
+                    const apiUrlBase = API_URL.split('/api/v1')[0];
+                    mapUrl = `${apiUrlBase}/uploads/${currentMap.filename}`;
+                    console.log('Using filename for map URL:', mapUrl);
+                } else if (currentMap.file_path) {
+                    const apiUrlBase = API_URL.split('/api/v1')[0];
+                    mapUrl = `${apiUrlBase}/uploads/${currentMap.file_path}`;
+                    console.log('Using file_path for map URL:', mapUrl);
                 } else {
                     console.error('Map file path or filename is missing');
                     mapUrl = '#'; // Set a fallback
