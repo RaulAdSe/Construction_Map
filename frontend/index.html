@@ -1309,8 +1309,13 @@
             
             // Add each active map as a layer
             activeMapsData.forEach((map, index) => {
+                // Get base URL (without /api/v1)
                 const apiUrlBase = API_URL.split('/api/v1')[0];
-                const mapUrl = `${apiUrlBase}/uploads/${map.filename || map.file_path}`;
+                
+                // Construct the correct URL for the PDF file - direct access to the file without '/uploads/'
+                // From the logs we can see the PDFs are available at the root level
+                const mapUrl = `${apiUrlBase}/${map.filename || map.file_path}`;
+                console.log(`Rendering map ${map.id} at URL: ${mapUrl}`);
                 
                 const mapDiv = document.createElement('div');
                 mapDiv.className = 'map-overlay';
