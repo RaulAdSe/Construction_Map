@@ -538,8 +538,10 @@
         // Fetch projects
         async function fetchProjects() {
             try {
+                console.log('Fetching projects...');
                 const response = await apiRequest('/projects/');
-                projects = response.data;
+                console.log('Projects response:', response);
+                projects = response; // The API returns an array directly
                 renderProjects();
                 
                 // Also populate project filter for events section
@@ -567,6 +569,8 @@
                 return;
             }
             
+            console.log('Rendering projects:', projects);
+            
             projects.forEach(project => {
                 const projectCard = document.createElement('div');
                 projectCard.className = 'col-md-4 mb-4';
@@ -576,30 +580,35 @@
                             <h5 class="card-title">${project.name}</h5>
                             <p class="card-text">${project.description || 'No description provided'}</p>
                         </div>
-                        <div class="card-footer">
-                            <button class="btn btn-outline-primary w-100 view-project" data-id="${project.id}">View Project</button>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-primary btn-sm view-project" data-id="${project.id}">View Project</button>
                         </div>
                     </div>
                 `;
                 
                 projectsList.appendChild(projectCard);
-                
-                // Add event listener
-                projectCard.querySelector('.view-project').addEventListener('click', () => {
-                    viewProject(project.id);
+            });
+            
+            // Add event listeners to view project buttons
+            document.querySelectorAll('.view-project').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const projectId = e.target.getAttribute('data-id');
+                    viewProject(projectId);
                 });
             });
         }
 
-        // View project details
+        // View a project
         async function viewProject(projectId) {
             try {
+                console.log('Viewing project:', projectId);
                 const response = await apiRequest(`/projects/${projectId}`);
-                currentProject = response.data;
+                console.log('Project details:', response);
+                currentProject = response;
                 
-                // Set project details
+                // Update project detail view
                 document.getElementById('projectTitle').textContent = currentProject.name;
-                document.getElementById('projectDescription').textContent = currentProject.description || 'No description provided.';
+                document.getElementById('projectDescription').textContent = currentProject.description || 'No description provided';
                 document.getElementById('projectCreated').textContent = `Created: ${new Date(currentProject.created_at).toLocaleString()}`;
                 document.getElementById('projectUpdated').textContent = `Last Updated: ${new Date(currentProject.updated_at).toLocaleString()}`;
                 
@@ -632,31 +641,41 @@
             mapsList.innerHTML = '';
             
             if (maps.length === 0) {
-                mapsList.innerHTML = '<div class="col-12"><div class="alert alert-info">No maps found for this project. Click "Upload Map" to add a new map.</div></div>';
+                mapsList.innerHTML = '<div class="col-12"><div class="alert alert-info">No maps found for this project. Click "Upload Map" to add a map.</div></div>';
                 return;
             }
+            
+            console.log('Rendering maps:', maps);
             
             maps.forEach(map => {
                 const mapCard = document.createElement('div');
                 mapCard.className = 'col-md-4 mb-4';
                 mapCard.innerHTML = `
                     <div class="card h-100">
-                        <img src="http://localhost:8000/uploads/${map.file_path}" class="card-img-top" alt="${map.name}" style="height: 180px; object-fit: cover;">
+                        <div class="card-img-top text-center bg-light" style="height: 200px;">
+                            <img src="${API_URL}/uploads/${map.file_path}" class="h-100" style="object-fit: contain;" alt="${map.name}">
+                        </div>
                         <div class="card-body">
                             <h5 class="card-title">${map.name}</h5>
-                            <p class="card-text">Uploaded: ${new Date(map.created_at).toLocaleDateString()}</p>
+                            <p class="card-text">
+                                <span class="badge bg-info">${map.map_type}</span>
+                                <small class="text-muted">Uploaded: ${new Date(map.created_at).toLocaleDateString()}</small>
+                            </p>
                         </div>
-                        <div class="card-footer">
-                            <button class="btn btn-primary w-100 view-map" data-id="${map.id}">View Map</button>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-primary btn-sm view-map" data-id="${map.id}">View Map</button>
                         </div>
                     </div>
                 `;
                 
                 mapsList.appendChild(mapCard);
-                
-                // Add event listener
-                mapCard.querySelector('.view-map').addEventListener('click', () => {
-                    viewMap(map.id);
+            });
+            
+            // Add event listeners to view map buttons
+            document.querySelectorAll('.view-map').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const mapId = e.target.getAttribute('data-id');
+                    viewMap(mapId);
                 });
             });
         }
@@ -777,17 +796,53 @@
             });
         }
 
-        // Fetch all events for the events section
+        // Fetch all events (for events page)
         async function fetchAllEvents() {
             try {
-                // Fetch all required data
-                const [eventsResponse, mapsResponse] = await Promise.all([
-                    apiRequest('/events/'),
-                    apiRequest('/maps/')
-                ]);
+                console.log('Fetching all events...');
+                // Fetch projects for the user
+                const projectsResponse = await apiRequest('/projects/');
+                console.log('Projects for events:', projectsResponse);
+                const projects = projectsResponse;
                 
-                const allEvents = eventsResponse.data;
-                const allMaps = mapsResponse.data;
+                // Initialize arrays for maps and events
+                const allMaps = [];
+                const events = [];
+                
+                // If there are no projects, just render empty tables
+                if (projects.length === 0) {
+                    renderAllEventsTable(events, allMaps);
+                    return;
+                }
+                
+                // Get maps for each project
+                for (const project of projects) {
+                    try {
+                        const mapsResponse = await apiRequest(`/maps/?project_id=${project.id}`);
+                        console.log(`Maps for project ${project.id}:`, mapsResponse);
+                        if (Array.isArray(mapsResponse)) {
+                            allMaps.push(...mapsResponse);
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching maps for project ${project.id}:`, err);
+                    }
+                }
+                
+                // Get events for each project
+                for (const project of projects) {
+                    try {
+                        const eventsResponse = await apiRequest(`/events/?project_id=${project.id}`);
+                        console.log(`Events for project ${project.id}:`, eventsResponse);
+                        if (Array.isArray(eventsResponse)) {
+                            events.push(...eventsResponse);
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching events for project ${project.id}:`, err);
+                    }
+                }
+                
+                console.log('All maps:', allMaps);
+                console.log('All events:', events);
                 
                 // Populate map filter dropdown
                 const mapFilter = document.getElementById('mapFilter');
@@ -801,12 +856,12 @@
                 });
                 
                 // Render all events
-                renderAllEventsTable(allEvents, allMaps);
+                renderAllEventsTable(events, allMaps);
                 
                 // Add event listeners for filters
-                document.getElementById('projectFilter').addEventListener('change', () => filterEvents(allEvents, allMaps));
-                document.getElementById('mapFilter').addEventListener('change', () => filterEvents(allEvents, allMaps));
-                document.getElementById('statusFilter').addEventListener('change', () => filterEvents(allEvents, allMaps));
+                document.getElementById('projectFilter').addEventListener('change', () => filterEvents(events, allMaps));
+                document.getElementById('mapFilter').addEventListener('change', () => filterEvents(events, allMaps));
+                document.getElementById('statusFilter').addEventListener('change', () => filterEvents(events, allMaps));
             } catch (error) {
                 console.error('Error fetching all events:', error);
             }
