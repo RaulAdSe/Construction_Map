@@ -63,11 +63,11 @@
             height: 100% !important;
         }
         .map-iframe-container {
-            background-color: white !important;
+            background-color: #f8f9fa !important;
             border: 1px solid #ddd;
         }
         .map-overlay {
-            background-color: white;
+            background-color: transparent;
         }
         #eventMarkersContainer {
             pointer-events: auto !important;
@@ -196,7 +196,6 @@
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            background-color: white !important;
         }
         
         /* Enhanced map layers control */
@@ -1625,6 +1624,7 @@
             mapContainer.style.position = 'relative';
             mapContainer.style.backgroundColor = '#f8f9fa';
             mapContainer.style.border = '1px solid #ddd';
+            mapContainer.style.overflow = 'hidden';
             
             // Add click handler to the container for event creation
             mapContainer.onclick = handleMainMapClick;
@@ -1710,7 +1710,7 @@
                 pdfWrapper.style.width = '100%';
                 pdfWrapper.style.height = '100%';
                 pdfWrapper.style.overflow = 'hidden';
-                pdfWrapper.style.backgroundColor = 'white';
+                pdfWrapper.style.backgroundColor = '#f8f9fa';
                 mapDiv.appendChild(pdfWrapper);
                 
                 // Use PDF.js for clean, UI-free rendering
@@ -1732,7 +1732,6 @@
                             canvas.style.maxHeight = '100%';
                             canvas.style.margin = '0 auto';
                             canvas.style.objectFit = 'contain';
-                            canvas.style.backgroundColor = 'transparent';
                             
                             // Add canvas to the wrapper
                             pdfWrapper.appendChild(canvas);
@@ -1756,7 +1755,7 @@
                                 // Calculate scale to fit properly (respecting aspect ratio)
                                 const scaleX = containerWidth / pdfWidth;
                                 const scaleY = containerHeight / pdfHeight;
-                                const scale = Math.min(scaleX, scaleY) * 0.99; // 0.99 for a very slight margin
+                                const scale = Math.min(scaleX, scaleY) * 0.95; // Use 0.95 for a small margin
                                 
                                 // Use the calculated scale for the viewport
                                 const viewport = page.getViewport({ scale: scale });
@@ -1770,19 +1769,17 @@
                                 canvas.style.left = '50%';
                                 canvas.style.top = '50%';
                                 canvas.style.transform = 'translate(-50%, -50%)';
-                                canvas.style.border = 'none';
                                 
                                 // Prepare render context
                                 const context = canvas.getContext('2d');
                                 
-                                // Set white background
-                                context.fillStyle = 'white';
+                                // Fill with very light gray background (not pure white)
+                                context.fillStyle = '#f8f9fa';
                                 context.fillRect(0, 0, canvas.width, canvas.height);
                                 
                                 const renderContext = {
                                     canvasContext: context,
-                                    viewport: viewport,
-                                    background: 'white'
+                                    viewport: viewport
                                 };
                                 
                                 // Render PDF page into canvas context
@@ -1823,15 +1820,14 @@
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
-                iframe.style.backgroundColor = 'white';
+                iframe.style.backgroundColor = 'transparent';
                 iframe.style.overflow = 'hidden';
                 iframe.setAttribute('frameborder', '0');
                 iframe.setAttribute('allowtransparency', 'true');
-                iframe.sandbox = 'allow-same-origin allow-scripts';
                 
                 // Build URL with all possible parameters to hide UI
                 // Different PDF viewers respond to different parameters
-                const cleanUrl = `${url}#view=FitH&toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&pagemode=none`;
+                const cleanUrl = `${url}#view=FitH&toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0`;
                 iframe.src = cleanUrl;
                 
                 container.appendChild(iframe);
