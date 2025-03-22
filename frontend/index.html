@@ -2288,17 +2288,14 @@
         
         // Render recent events table
         function renderRecentEventsTable() {
-            const recentEventsTableBody = document.getElementById('recentEventsTableBody');
+            // Get the container for the recent events table
             const recentEventsTable = document.getElementById('recentEventsTable');
-            
-            if (!recentEventsTableBody || !recentEventsTable) {
-                console.error('Recent events table elements not found');
+            if (!recentEventsTable) {
+                console.error('Recent events table element not found');
                 return;
             }
-            
-            // Clear existing rows
-            recentEventsTableBody.innerHTML = '';
-            
+
+            // Check if events array exists and has data
             if (!events || events.length === 0) {
                 recentEventsTable.innerHTML = '<div class="alert alert-info">No recent events found for this project.</div>';
                 return;
