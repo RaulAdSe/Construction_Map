@@ -1707,7 +1707,111 @@
                     mapDiv.style.opacity = '0.5';
                 }
                 
-                // Use iframe for clean PDF display without UI elements
+                // Create a wrapper for PDFjs rendering
+                const pdfWrapper = document.createElement('div');
+                pdfWrapper.className = 'pdf-content-only';
+                pdfWrapper.id = `pdf-container-${map.id}`;
+                pdfWrapper.style.position = 'absolute';
+                pdfWrapper.style.top = '0';
+                pdfWrapper.style.left = '0';
+                pdfWrapper.style.width = '100%';
+                pdfWrapper.style.height = '100%';
+                pdfWrapper.style.overflow = 'hidden';
+                mapDiv.appendChild(pdfWrapper);
+                
+                // Use PDF.js for clean, UI-free rendering
+                if (window.pdfjsLib) {
+                    console.log(`Using PDF.js to render map ${map.id}`);
+                    
+                    // Load the PDF document
+                    const loadingTask = pdfjsLib.getDocument(mapUrl);
+                    loadingTask.promise.then(function(pdf) {
+                        console.log(`PDF ${map.id} loaded successfully with ${pdf.numPages} pages`);
+                        
+                        // Get the first page
+                        pdf.getPage(1).then(function(page) {
+                            // Create canvas element for rendering
+                            const canvas = document.createElement('canvas');
+                            canvas.className = 'pdf-canvas';
+                            canvas.style.display = 'block';
+                            canvas.style.maxWidth = '100%';
+                            canvas.style.maxHeight = '100%';
+                            canvas.style.margin = '0 auto';
+                            canvas.style.objectFit = 'contain';
+                            
+                            // Add canvas to the wrapper
+                            pdfWrapper.appendChild(canvas);
+                            
+                            // Set proper canvas size only after it's in the DOM
+                            setTimeout(() => {
+                                // Get container dimensions
+                                const containerWidth = pdfWrapper.clientWidth;
+                                const containerHeight = pdfWrapper.clientHeight;
+                                
+                                if (!containerWidth || !containerHeight) {
+                                    console.warn(`Container size issue for map ${map.id}`);
+                                    return;
+                                }
+                                
+                                // Get original PDF dimensions at scale 1
+                                const originalViewport = page.getViewport({ scale: 1 });
+                                const pdfWidth = originalViewport.width;
+                                const pdfHeight = originalViewport.height;
+                                
+                                // Calculate scale to fit properly (respecting aspect ratio)
+                                const scaleX = containerWidth / pdfWidth;
+                                const scaleY = containerHeight / pdfHeight;
+                                const scale = Math.min(scaleX, scaleY) * 0.98; // 0.98 for a slight margin
+                                
+                                // Use the calculated scale for the viewport
+                                const viewport = page.getViewport({ scale: scale });
+                                
+                                // Set canvas dimensions
+                                canvas.width = viewport.width;
+                                canvas.height = viewport.height;
+                                
+                                // Center the canvas
+                                if (viewport.width < containerWidth) {
+                                    canvas.style.marginLeft = `${(containerWidth - viewport.width) / 2}px`;
+                                }
+                                
+                                // Prepare render context
+                                const context = canvas.getContext('2d');
+                                const renderContext = {
+                                    canvasContext: context,
+                                    viewport: viewport
+                                };
+                                
+                                // Render PDF page into canvas context
+                                const renderTask = page.render(renderContext);
+                                renderTask.promise.then(function() {
+                                    console.log(`Rendered PDF ${map.id} successfully`);
+                                }).catch(function(error) {
+                                    console.error(`Error rendering PDF ${map.id}:`, error);
+                                    fallbackToIframe(pdfWrapper, mapUrl);
+                                });
+                            }, 0);
+                        }).catch(function(error) {
+                            console.error(`Error getting page from PDF ${map.id}:`, error);
+                            fallbackToIframe(pdfWrapper, mapUrl);
+                        });
+                    }).catch(function(error) {
+                        console.error(`Error loading PDF ${map.id}:`, error);
+                        fallbackToIframe(pdfWrapper, mapUrl);
+                    });
+                } else {
+                    console.warn(`PDF.js not available for map ${map.id}, falling back to iframe`);
+                    fallbackToIframe(pdfWrapper, mapUrl);
+                }
+                
+                mapContainer.appendChild(mapDiv);
+            });
+            
+            // Fallback function for iframe when PDF.js fails
+            function fallbackToIframe(container, url) {
+                console.log('Falling back to iframe for URL:', url);
+                container.innerHTML = ''; // Clear the container first
+                
                 const iframe = document.createElement('iframe');
                 iframe.className = 'clean-pdf-view';
                 iframe.style.position = 'absolute';
@@ -1722,27 +1826,14 @@
                 iframe.setAttribute('allowtransparency', 'true');
                 
                 // Build URL with all possible parameters to hide UI
-                const cleanUrl = `${mapUrl}#view=FitH&scrollbar=0&toolbar=0&navpanes=0&statusbar=0&messages=0&page=1`;
+                // Different PDF viewers respond to different parameters
+                const cleanUrl = `${url}#view=FitH&toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0`;
                 iframe.src = cleanUrl;
                 
-                mapDiv.appendChild(iframe);
-                mapContainer.appendChild(mapDiv);
-                
-                // Fetch to check if URL is accessible
-                fetch(mapUrl)
-                    .then(response => {
-                        console.log(`Fetch response for ${mapUrl}:`, response.status, response.statusText);
-                        if (!response.ok) {
-                            console.error('PDF fetch error:', response.status, response.statusText);
-                        }
-                        return response;
-                    })
-                    .catch(error => {
-                        console.error(`Error fetching ${mapUrl}:`, error);
-                    });
-            });
+                container.appendChild(iframe);
+            }
             
-            // Apply additional styling to the container to ensure PDF is properly displayed
+            // Apply additional styling to the container
             mapContainer.style.overflow = 'hidden';
             
             // After rendering maps, render events
