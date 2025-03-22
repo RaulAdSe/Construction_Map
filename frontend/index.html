@@ -25,6 +25,51 @@
             height: 100%;
             object-fit: contain;
         }
+        
+        /* PDF viewer specific styles */
+        .clean-pdf-view {
+            background-color: white !important;
+            border: none !important;
+            overflow: hidden !important;
+        }
+        
+        .map-iframe-container {
+            background-color: #f8f9fa !important;
+            border: 1px solid #ddd;
+        }
+        
+        .map-overlay {
+            background-color: transparent;
+        }
+        
+        /* CSS to hide PDF.js viewer UI elements */
+        .pdf-content-only {
+            background-color: white;
+        }
+        
+        /* Hide PDF viewer UI in iframes */
+        iframe.clean-pdf-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        
+        /* This CSS will be injected into the iframe */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printContainer * {
+                visibility: visible;
+            }
+        }
+        
+        /* Event marker styles */
         .event-marker {
             position: absolute;
             width: 20px;
@@ -54,20 +99,6 @@
             padding: 15px;
             max-width: 300px;
             z-index: 2200;
-        }
-        .clean-pdf-view {
-            background-color: white !important;
-            border: none !important;
-            overflow: hidden !important;
-            width: 100% !important;
-            height: 100% !important;
-        }
-        .map-iframe-container {
-            background-color: #f8f9fa !important;
-            border: 1px solid #ddd;
-        }
-        .map-overlay {
-            background-color: transparent;
         }
         #eventMarkersContainer {
             pointer-events: auto !important;
@@ -1700,7 +1731,7 @@
                     mapDiv.style.opacity = '0.5';
                 }
                 
-                // Create a wrapper for PDFjs rendering
+                // Create a wrapper for PDF display
                 const pdfWrapper = document.createElement('div');
                 pdfWrapper.className = 'pdf-content-only';
                 pdfWrapper.id = `pdf-container-${map.id}`;
@@ -1709,109 +1740,11 @@
                 pdfWrapper.style.left = '0';
                 pdfWrapper.style.width = '100%';
                 pdfWrapper.style.height = '100%';
-                pdfWrapper.style.overflow = 'hidden';
-                pdfWrapper.style.backgroundColor = '#f8f9fa';
+                pdfWrapper.style.overflow = 'hidden'; 
+                pdfWrapper.style.backgroundColor = 'white';
                 mapDiv.appendChild(pdfWrapper);
                 
-                // Use PDF.js for clean, UI-free rendering
-                if (window.pdfjsLib) {
-                    console.log(`Using PDF.js to render map ${map.id}`);
-                    
-                    // Load the PDF document
-                    const loadingTask = pdfjsLib.getDocument(mapUrl);
-                    loadingTask.promise.then(function(pdf) {
-                        console.log(`PDF ${map.id} loaded successfully with ${pdf.numPages} pages`);
-                        
-                        // Get the first page
-                        pdf.getPage(1).then(function(page) {
-                            // Create canvas element for rendering
-                            const canvas = document.createElement('canvas');
-                            canvas.className = 'pdf-canvas';
-                            canvas.style.display = 'block';
-                            canvas.style.maxWidth = '100%';
-                            canvas.style.maxHeight = '100%';
-                            canvas.style.margin = '0 auto';
-                            canvas.style.objectFit = 'contain';
-                            
-                            // Add canvas to the wrapper
-                            pdfWrapper.appendChild(canvas);
-                            
-                            // Set proper canvas size only after it's in the DOM
-                            setTimeout(() => {
-                                // Get container dimensions
-                                const containerWidth = pdfWrapper.clientWidth;
-                                const containerHeight = pdfWrapper.clientHeight;
-                                
-                                if (!containerWidth || !containerHeight) {
-                                    console.warn(`Container size issue for map ${map.id}`);
-                                    return;
-                                }
-                                
-                                // Get original PDF dimensions at scale 1
-                                const originalViewport = page.getViewport({ scale: 1 });
-                                const pdfWidth = originalViewport.width;
-                                const pdfHeight = originalViewport.height;
-                                
-                                // Calculate scale to fit properly (respecting aspect ratio)
-                                const scaleX = containerWidth / pdfWidth;
-                                const scaleY = containerHeight / pdfHeight;
-                                const scale = Math.min(scaleX, scaleY) * 0.95; // Use 0.95 for a small margin
-                                
-                                // Use the calculated scale for the viewport
-                                const viewport = page.getViewport({ scale: scale });
-                                
-                                // Set canvas dimensions to match viewport exactly
-                                canvas.width = viewport.width;
-                                canvas.height = viewport.height;
-                                
-                                // Center the canvas
-                                canvas.style.position = 'absolute';
-                                canvas.style.left = '50%';
-                                canvas.style.top = '50%';
-                                canvas.style.transform = 'translate(-50%, -50%)';
-                                
-                                // Prepare render context
-                                const context = canvas.getContext('2d');
-                                
-                                // Fill with very light gray background (not pure white)
-                                context.fillStyle = '#f8f9fa';
-                                context.fillRect(0, 0, canvas.width, canvas.height);
-                                
-                                const renderContext = {
-                                    canvasContext: context,
-                                    viewport: viewport
-                                };
-                                
-                                // Render PDF page into canvas context
-                                const renderTask = page.render(renderContext);
-                                renderTask.promise.then(function() {
-                                    console.log(`Rendered PDF ${map.id} successfully`);
-                                }).catch(function(error) {
-                                    console.error(`Error rendering PDF ${map.id}:`, error);
-                                    fallbackToIframe(pdfWrapper, mapUrl);
-                                });
-                            }, 0);
-                        }).catch(function(error) {
-                            console.error(`Error getting page from PDF ${map.id}:`, error);
-                            fallbackToIframe(pdfWrapper, mapUrl);
-                        });
-                    }).catch(function(error) {
-                        console.error(`Error loading PDF ${map.id}:`, error);
-                        fallbackToIframe(pdfWrapper, mapUrl);
-                    });
-                } else {
-                    console.warn(`PDF.js not available for map ${map.id}, falling back to iframe`);
-                    fallbackToIframe(pdfWrapper, mapUrl);
-                }
-                
-                mapContainer.appendChild(mapDiv);
-            });
-            
-            // Fallback function for iframe when PDF.js fails
-            function fallbackToIframe(container, url) {
-                console.log('Falling back to iframe for URL:', url);
-                container.innerHTML = ''; // Clear the container first
-                
+                // Create iframe for PDF display
                 const iframe = document.createElement('iframe');
                 iframe.className = 'clean-pdf-view';
                 iframe.style.position = 'absolute';
@@ -1820,18 +1753,17 @@
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
-                iframe.style.backgroundColor = 'transparent';
+                iframe.style.backgroundColor = 'white';
                 iframe.style.overflow = 'hidden';
                 iframe.setAttribute('frameborder', '0');
                 iframe.setAttribute('allowtransparency', 'true');
                 
-                // Build URL with all possible parameters to hide UI
-                // Different PDF viewers respond to different parameters
-                const cleanUrl = `${url}#view=FitH&toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0`;
-                iframe.src = cleanUrl;
+                // Set the PDF URL with parameters to hide UI controls
+                iframe.src = mapUrl + '#view=FitH&pagemode=none&toolbar=0&navpanes=0&scrollbar=0';
                 
-                container.appendChild(iframe);
-            }
+                pdfWrapper.appendChild(iframe);
+                mapContainer.appendChild(mapDiv);
+            });
             
             // Apply additional styling to the container
             mapContainer.style.overflow = 'hidden';
