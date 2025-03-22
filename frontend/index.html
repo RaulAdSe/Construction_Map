@@ -6,7 +6,78 @@
     <title>Construction Map Viewer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.css" rel="stylesheet">
+    <!-- Login functionality fix -->
+    <script>
+        // Define global login function to ensure it's available
+        function handleLogin() {
+            console.log('Login button clicked');
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginError = document.getElementById('loginError');
+            
+            if (!username || !password) {
+                loginError.textContent = 'Please enter both username and password';
+                loginError.style.display = 'block';
+                return;
+            }
+            
+            loginError.style.display = 'none';
+            console.log('Sending login request for user:', username);
+            
+            // Create form data for the request
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            
+            // Send login request with CORS headers
+            fetch('http://localhost:8000/api/v1/auth/login', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                console.log('Login response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`Login failed with status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Login successful, data:', data);
+                
+                // Store token and show app section
+                if (data.access_token) {
+                    localStorage.setItem('token', data.access_token);
+                    
+                    // Hide login section
+                    document.getElementById('loginSection').style.display = 'none';
+                    // Show main app
+                    document.getElementById('appSection').style.display = 'block';
+                    
+                    // Try to load initial data
+                    if (typeof fetchProjects === 'function') {
+                        fetchProjects();
+                    } else {
+                        console.log('Projects will load when app initializes');
+                    }
+                } else {
+                    throw new Error('No access token received');
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                loginError.textContent = 'Login failed. Please check your credentials.';
+                loginError.style.display = 'block';
+            });
+        }
+        
+        // Make sure it's in global scope
+        window.handleLogin = handleLogin;
+    </script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -19,6 +90,7 @@
             border: 1px solid #ddd;
             margin-bottom: 20px;
             overflow: hidden;
+            background-color: white;
         }
         .map-container img, .map-container iframe {
             width: 100%;
@@ -34,17 +106,19 @@
         }
         
         .map-iframe-container {
-            background-color: #f8f9fa !important;
-            border: 1px solid #ddd;
+            background-color: white !important;
+            border: none !important;
+            box-shadow: none !important;
+            overflow: hidden;
         }
         
         .map-overlay {
-            background-color: transparent;
+            background-color: white !important;
         }
         
         /* CSS to hide PDF.js viewer UI elements */
         .pdf-content-only {
-            background-color: white;
+            background-color: white !important;
         }
         
         /* Hide PDF viewer UI in iframes */
@@ -57,16 +131,60 @@
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
+            background-color: white !important;
         }
         
-        /* This CSS will be injected into the iframe */
-        @media print {
-            body * {
-                visibility: hidden;
+        /* Improved PDF Object Styling */
+        .pdf-object {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            background-color: white;
+        }
+        
+        /* Fix for Firefox PDF rendering */
+        @-moz-document url-prefix() {
+            .pdf-object {
+                height: 99%;
+                width: 99%;
             }
-            #printContainer * {
-                visibility: visible;
-            }
+        }
+        
+        /* Hide PDF viewer UI controls and dark areas */
+        object[type="application/pdf"] {
+            background-color: white !important;
+        }
+        
+        /* Remove dark borders and viewer UI */
+        :root {
+            --pdf-viewer-chrome-height: 0px !important;
+        }
+        
+        /* Full content view styles - hide UI and show only content */
+        .full-content-view {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            overflow: hidden;
+        }
+        
+        /* Hide all PDF viewer UI */
+        .pdf-viewer-custom {
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: white !important;
+        }
+        
+        /* Custom PDF rendering container */
+        .pdf-content-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            overflow: hidden;
+            border: none;
         }
         
         /* Event marker styles */
@@ -86,11 +204,13 @@
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             pointer-events: auto !important;
         }
+        
         .event-marker:hover {
             transform: translate(-50%, -50%) scale(1.2);
             box-shadow: 0 0 0 3px white, 0 0 8px 3px rgba(0,0,0,0.7);
             z-index: 2100;
         }
+        
         .event-popup {
             position: fixed;
             background: white;
@@ -100,178 +220,12 @@
             max-width: 300px;
             z-index: 2200;
         }
-        #eventMarkersContainer {
-            pointer-events: auto !important;
-        }
-        .event-marker * {
-            pointer-events: none;
-        }
+        
         .user-color-1 { background-color: #ff5733; }
         .user-color-2 { background-color: #33a8ff; }
         .user-color-3 { background-color: #33ff57; }
         .user-color-4 { background-color: #c133ff; }
         .user-color-5 { background-color: #ff33a8; }
-        .map-layer-checkbox-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-            padding: 5px;
-            border-radius: 4px;
-            background-color: #f8f9fa;
-        }
-        .map-layer-checkbox-container:hover {
-            background-color: #e9ecef;
-        }
-        .implantation-map-label {
-            font-weight: bold;
-            color: #212529;
-        }
-        .overlay-map-label {
-            color: #495057;
-        }
-        .login-form {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        .event-form {
-            display: none;
-            position: absolute;
-            background: white;
-            border: 1px solid #ddd;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-        .table-responsive {
-            margin-top: 20px;
-        }
-        .map-layers-control {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-            max-height: 300px;
-            overflow-y: auto;
-            min-width: 200px;
-        }
-        .map-iframe-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        .map-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            pointer-events: none;
-        }
-        .event-popup {
-            position: absolute;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 15px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            z-index: 1500;
-            max-width: 300px;
-            min-width: 200px;
-            animation: fadeIn 0.3s ease;
-        }
-        .user-color-1 { background-color: #FF5733; }
-        .user-color-2 { background-color: #33FF57; }
-        .user-color-3 { background-color: #3357FF; }
-        .user-color-4 { background-color: #F033FF; }
-        .user-color-5 { background-color: #FF9933; }
-        
-        /* Improved PDF Object Styling */
-        .pdf-object {
-            display: block;
-            width: 100%;
-            height: 100%;
-            border: none;
-            background-color: white;
-        }
-        
-        /* Fix for Firefox PDF rendering */
-        @-moz-document url-prefix() {
-            .pdf-object {
-                height: 99%;
-                width: 99%;
-            }
-        }
-        
-        /* Special wrapper for PDF content only */
-        .pdf-content-only {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            overflow: hidden;
-            background-color: white !important;
-        }
-        
-        /* Canvas styling for PDF.js rendering */
-        .pdf-canvas {
-            display: block;
-            margin: 0 auto;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-        
-        /* Enhanced map layers control */
-        .map-layers-control {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-            max-height: 300px;
-            overflow-y: auto;
-            min-width: 200px;
-        }
-        
-        .map-layer-checkbox-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-            padding: 5px;
-            border-radius: 3px;
-            transition: background-color 0.2s;
-        }
-        
-        .map-layer-checkbox-container:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .base-map-label {
-            font-weight: bold;
-            color: #0d6efd;
-        }
-        
-        .overlay-map-label {
-            color: #495057;
-        }
-        .marker-content {
-            color: white;
-            font-size: 10px;
-            font-weight: bold;
-            pointer-events: none;
-            text-shadow: 0 0 2px rgba(0,0,0,0.7);
-        }
     </style>
 </head>
 <body>
@@ -652,60 +606,6 @@
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://mozilla.github.io/pdf.js/build/pdf.worker.js';
         }
 
-        // Direct login handler function (directly in global scope)
-        function handleLogin() {
-            console.log('Login button clicked');
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const loginError = document.getElementById('loginError');
-            
-            if (!username || !password) {
-                loginError.textContent = 'Please enter both username and password';
-                loginError.style.display = 'block';
-                return;
-            }
-            
-            loginError.style.display = 'none';
-            console.log('Sending login request for user:', username);
-            
-            // Create form data for the request
-            const formData = new FormData();
-            formData.append('username', username);
-            formData.append('password', password);
-            
-            // Send login request
-            fetch('http://localhost:8000/api/v1/auth/login', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                console.log('Login response status:', response.status);
-                if (!response.ok) {
-                    throw new Error('Login failed with status: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Login successful');
-                if (data.access_token) {
-                    // Store token and show app
-                    localStorage.setItem('token', data.access_token);
-                    token = data.access_token;
-                    checkAuth();
-                } else {
-                    console.error('No token in response');
-                    loginError.textContent = 'Login failed: No authentication token received';
-                    loginError.style.display = 'block';
-                }
-            })
-            .catch(error => {
-                console.error('Login error:', error);
-                loginError.textContent = 'Login failed: ' + error.message;
-                loginError.style.display = 'block';
-            });
-        }
-        
         // Global variables
         const API_URL = 'http://127.0.0.1:8000/api/v1';
         let currentProject = null;
@@ -1133,67 +1033,38 @@
             });
         }
 
-        // View map details
-        async function viewMap(mapId) {
-            try {
-                console.log('Viewing map with ID:', mapId);
-                const response = await apiRequest(`/maps/${mapId}`);
-                console.log('Map details response:', response);
-                
-                // Handle potential response formats
-                currentMap = response.data || response;
-                
-                if (!currentMap) {
-                    console.error('Invalid map data received:', response);
-                    alert('Error: Could not load map data');
-                    return;
-                }
-                
-                console.log('Current map set to:', currentMap);
-                
-                // Set map details
-                document.getElementById('mapTitle').textContent = currentMap.name;
-                
-                // Get base URL (without /api/v1)
-                const apiUrlBase = API_URL.split('/api/v1')[0];
-                
-                // Construct proper URL for the map
-                let mapUrl;
-                if (currentMap.filename) {
-                    mapUrl = `${apiUrlBase}/uploads/${currentMap.filename}`;
-                } else if (currentMap.file_path) {
-                    if (currentMap.file_path.includes('uploads/')) {
-                        mapUrl = `${apiUrlBase}/${currentMap.file_path}`;
-                    } else {
-                        mapUrl = `${apiUrlBase}/uploads/${currentMap.file_path}`;
-                    }
-                } else {
-                    console.error('Map has no filename or file_path:', currentMap);
-                    alert('Error: Map file information is missing');
-                    return;
-                }
-                
-                console.log('Loading map from URL:', mapUrl);
-                
-                // Load map with PDF object for better PDF display
-                const mapContainer = document.getElementById('mapContainer');
-                mapContainer.innerHTML = `
-                    <object data="${mapUrl}" type="application/pdf" width="100%" height="600px" class="map-viewer">
-                        <div class="alert alert-warning">
-                            Unable to display PDF. <a href="${mapUrl}" target="_blank">Download Instead</a>
-                        </div>
-                    </object>
-                `;
-                
-                // Fetch events for this map
-                fetchMapEvents(mapId);
-                
-                // Show map detail section
-                showSection('mapDetail');
-            } catch (error) {
-                console.error('Error viewing map:', error);
-                alert('Failed to load map details: ' + error.message);
+        // View a single map in full screen
+        function viewMap(mapId) {
+            console.log('Viewing map:', mapId);
+            const map = maps.find(m => m.id === parseInt(mapId));
+            
+            if (!map) {
+                console.error('Map not found:', mapId);
+                return;
             }
+            
+            currentMap = map;
+            
+            // Update UI
+            document.getElementById('projectContent').style.display = 'none';
+            document.getElementById('singleMapView').style.display = 'block';
+            document.getElementById('mapName').textContent = map.name;
+            
+            // Clear and update the container
+            const mapContainer = document.getElementById('singleMapContainer');
+            
+            // Create clean PDF display without viewer UI or dark borders
+            mapContainer.innerHTML = `
+                <div class="full-content-view">
+                    <iframe 
+                        class="pdf-viewer-custom" 
+                        src="${API_URL}/maps/${map.id}/view#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH&pagemode=none" 
+                        style="width:100%; height:100%; border:none; background-color:white;" 
+                        frameborder="0" 
+                        allowtransparency="true">
+                    </iframe>
+                </div>
+            `;
         }
 
         // Handle map click for adding events
@@ -1631,7 +1502,7 @@
             fetchProjectEvents();
         }
         
-        // Render the active maps in the overlay
+        // Render active maps with improved opacity settings
         function renderActiveMaps() {
             const mainMapViewer = document.getElementById('mainMapViewer');
             mainMapViewer.innerHTML = '';
@@ -1649,12 +1520,12 @@
             
             // Create container for maps with explicit height and width
             const mapContainer = document.createElement('div');
-            mapContainer.className = 'map-iframe-container';
+            mapContainer.className = 'pdf-content-container';
             mapContainer.style.width = '100%';
             mapContainer.style.height = '600px';
             mapContainer.style.position = 'relative';
-            mapContainer.style.backgroundColor = '#f8f9fa';
-            mapContainer.style.border = '1px solid #ddd';
+            mapContainer.style.backgroundColor = 'white';
+            mapContainer.style.border = 'none';
             mapContainer.style.overflow = 'hidden';
             
             // Add click handler to the container for event creation
@@ -1671,25 +1542,11 @@
             }
             
             // Sort maps to ensure implantation map is first, then others in order of selection
-            const sortedMaps = [...activeMapsData].sort((a, b) => {
-                if (a.id === implantationMap?.id) return -1;
-                if (b.id === implantationMap?.id) return 1;
-                return 0;
-            });
+            const sortedMaps = [
+                ...(implantationMap ? [implantationMap] : []),
+                ...activeMapsData.filter(map => map.id !== implantationMap?.id)
+            ];
             
-            // Add map event containers
-            const eventMarkersContainer = document.createElement('div');
-            eventMarkersContainer.id = 'eventMarkersContainer';
-            eventMarkersContainer.style.position = 'absolute';
-            eventMarkersContainer.style.top = '0';
-            eventMarkersContainer.style.left = '0';
-            eventMarkersContainer.style.width = '100%';
-            eventMarkersContainer.style.height = '100%';
-            eventMarkersContainer.style.zIndex = '1500'; // Increased z-index to ensure it's above all map layers
-            eventMarkersContainer.style.pointerEvents = 'none';
-            mainMapViewer.appendChild(eventMarkersContainer);
-            
-            // Add each active map as a layer
             sortedMaps.forEach((map, index) => {
                 // Get base URL (without /api/v1)
                 const apiUrlBase = API_URL.split('/api/v1')[0];
@@ -1710,6 +1567,9 @@
                     return;
                 }
                 
+                // Debug the URL
+                debugPdfUrl(mapUrl);
+                
                 console.log(`Rendering map ${map.id} (${map.name}) at URL: ${mapUrl}`);
                 
                 const mapDiv = document.createElement('div');
@@ -1727,13 +1587,14 @@
                     // Base map is fully visible
                     mapDiv.style.opacity = '1';
                 } else {
-                    // Overlay maps are semi-transparent - reduced opacity for better overlay effect
-                    mapDiv.style.opacity = '0.5';
+                    // Overlay maps are semi-transparent - improved transparency for better visibility
+                    mapDiv.style.opacity = '0.7';
+                    mapDiv.style.mixBlendMode = 'multiply';
                 }
                 
                 // Create a wrapper for PDF display
                 const pdfWrapper = document.createElement('div');
-                pdfWrapper.className = 'pdf-content-only';
+                pdfWrapper.className = 'full-content-view';
                 pdfWrapper.id = `pdf-container-${map.id}`;
                 pdfWrapper.style.position = 'absolute';
                 pdfWrapper.style.top = '0';
@@ -1744,9 +1605,9 @@
                 pdfWrapper.style.backgroundColor = 'white';
                 mapDiv.appendChild(pdfWrapper);
                 
-                // Create iframe for PDF display
+                // Create iframe for PDF display - clean content only, no viewer UI
                 const iframe = document.createElement('iframe');
-                iframe.className = 'clean-pdf-view';
+                iframe.className = 'pdf-viewer-custom';
                 iframe.style.position = 'absolute';
                 iframe.style.top = '0';
                 iframe.style.left = '0';
@@ -1758,10 +1619,11 @@
                 iframe.setAttribute('frameborder', '0');
                 iframe.setAttribute('allowtransparency', 'true');
                 
-                // Set the PDF URL with parameters to hide UI controls
-                iframe.src = mapUrl + '#view=FitH&pagemode=none&toolbar=0&navpanes=0&scrollbar=0';
+                // Set the PDF URL with parameters to hide ALL UI controls
+                iframe.src = mapUrl + '#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH&pagemode=none';
                 
                 pdfWrapper.appendChild(iframe);
+                
                 mapContainer.appendChild(mapDiv);
             });
             
@@ -2412,4 +2274,5 @@
         }
     </script>
 </body>
+</html> 
 </html> 
