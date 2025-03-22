@@ -31,19 +31,67 @@
             height: 20px;
             background-color: red;
             border-radius: 50%;
-            border: 2px solid white;
             transform: translate(-50%, -50%);
             cursor: pointer;
-            z-index: 1050; /* Above map layers but below UI controls */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            transition: all 0.2s ease;
+            box-shadow: 0 0 0 2px white, 0 0 5px 2px rgba(0,0,0,0.5);
+            z-index: 2000;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            pointer-events: auto !important;
         }
         .event-marker:hover {
             transform: translate(-50%, -50%) scale(1.2);
-            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+            box-shadow: 0 0 0 3px white, 0 0 8px 3px rgba(0,0,0,0.7);
+            z-index: 2100;
+        }
+        .event-popup {
+            position: fixed;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            padding: 15px;
+            max-width: 300px;
+            z-index: 2200;
+        }
+        .clean-pdf-view {
+            background-color: transparent !important;
+        }
+        .map-iframe-container {
+            background-color: white !important;
+        }
+        .map-overlay {
+            pointer-events: none !important;
+        }
+        #eventMarkersContainer {
+            pointer-events: auto !important;
+        }
+        .event-marker * {
+            pointer-events: none;
+        }
+        .user-color-1 { background-color: #ff5733; }
+        .user-color-2 { background-color: #33a8ff; }
+        .user-color-3 { background-color: #33ff57; }
+        .user-color-4 { background-color: #c133ff; }
+        .user-color-5 { background-color: #ff33a8; }
+        .map-layer-checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .map-layer-checkbox-container:hover {
+            background-color: #e9ecef;
+        }
+        .implantation-map-label {
+            font-weight: bold;
+            color: #212529;
+        }
+        .overlay-map-label {
+            color: #495057;
         }
         .login-form {
             max-width: 400px;
@@ -1584,6 +1632,10 @@
             mapContainer.style.position = 'relative';
             mapContainer.style.backgroundColor = '#f8f9fa';
             mapContainer.style.border = '1px solid #ddd';
+            
+            // Add click handler to the container for event creation
+            mapContainer.onclick = handleMainMapClick;
+            
             mainMapViewer.appendChild(mapContainer);
             
             // Find implantation map (base map) - it should be displayed first (at the bottom)
@@ -1602,19 +1654,16 @@
             });
             
             // Add map event containers
-            const eventMarkersContainer = document.getElementById('eventMarkersContainer') || document.createElement('div');
+            const eventMarkersContainer = document.createElement('div');
             eventMarkersContainer.id = 'eventMarkersContainer';
             eventMarkersContainer.style.position = 'absolute';
             eventMarkersContainer.style.top = '0';
             eventMarkersContainer.style.left = '0';
             eventMarkersContainer.style.width = '100%';
             eventMarkersContainer.style.height = '100%';
-            eventMarkersContainer.style.zIndex = '1000';
+            eventMarkersContainer.style.zIndex = '1500'; // Increased z-index to ensure it's above all map layers
             eventMarkersContainer.style.pointerEvents = 'none';
             mainMapViewer.appendChild(eventMarkersContainer);
-            
-            // Add click handler to the container for event creation
-            mapContainer.onclick = handleMainMapClick;
             
             // Add each active map as a layer
             sortedMaps.forEach((map, index) => {
@@ -1654,87 +1703,29 @@
                     // Base map is fully visible
                     mapDiv.style.opacity = '1';
                 } else {
-                    // Overlay maps are semi-transparent
-                    mapDiv.style.opacity = '0.7';
+                    // Overlay maps are semi-transparent - reduced opacity for better overlay effect
+                    mapDiv.style.opacity = '0.5';
                 }
                 
-                // All maps shouldn't receive pointer events to allow clicks to pass through to container
-                mapDiv.style.pointerEvents = 'none';
+                // Use iframe for clean PDF display without UI elements
+                const iframe = document.createElement('iframe');
+                iframe.className = 'clean-pdf-view';
+                iframe.style.position = 'absolute';
+                iframe.style.top = '0';
+                iframe.style.left = '0';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.backgroundColor = 'transparent';
+                iframe.style.overflow = 'hidden';
+                iframe.setAttribute('frameborder', '0');
+                iframe.setAttribute('allowtransparency', 'true');
                 
-                // Create a wrapper for better control of PDF display
-                const pdfWrapper = document.createElement('div');
-                pdfWrapper.className = 'pdf-content-only';
-                pdfWrapper.id = `pdf-container-${map.id}`;
-                mapDiv.appendChild(pdfWrapper);
+                // Build URL with all possible parameters to hide UI
+                const cleanUrl = `${mapUrl}#view=FitH&scrollbar=0&toolbar=0&navpanes=0&statusbar=0&messages=0&page=1`;
+                iframe.src = cleanUrl;
                 
-                // Use PDF.js to render PDF without UI controls
-                if (window.pdfjsLib) {
-                    console.log(`Using PDF.js to render map ${map.id}`);
-                    
-                    // Load the PDF document
-                    const loadingTask = pdfjsLib.getDocument(mapUrl);
-                    loadingTask.promise.then(function(pdf) {
-                        console.log(`PDF ${map.id} loaded successfully with ${pdf.numPages} pages`);
-                        
-                        // Get the first page
-                        pdf.getPage(1).then(function(page) {
-                            // Calculate scale to fit container
-                            const containerWidth = pdfWrapper.clientWidth;
-                            const containerHeight = pdfWrapper.clientHeight;
-                            
-                            // Get page dimensions
-                            const pdfWidth = page.getViewport({ scale: 1 }).width;
-                            const pdfHeight = page.getViewport({ scale: 1 }).height;
-                            
-                            // Calculate scale to fit width and height
-                            const scaleX = containerWidth / pdfWidth;
-                            const scaleY = containerHeight / pdfHeight;
-                            
-                            // Use the smaller scale to ensure the entire PDF fits
-                            const scale = Math.min(scaleX, scaleY) * 0.95; // 0.95 for a small margin
-                            
-                            const viewport = page.getViewport({ scale });
-                            
-                            // Create canvas element
-                            const canvas = document.createElement('canvas');
-                            canvas.className = 'pdf-canvas';
-                            
-                            // Set canvas dimensions
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-                            
-                            // Add canvas to the wrapper
-                            pdfWrapper.appendChild(canvas);
-                            
-                            // Render PDF page into canvas context
-                            const context = canvas.getContext('2d');
-                            const renderContext = {
-                                canvasContext: context,
-                                viewport: viewport
-                            };
-                            
-                            page.render(renderContext).promise.then(function() {
-                                console.log(`Rendered PDF ${map.id}`);
-                            }).catch(function(error) {
-                                console.error(`Error rendering PDF ${map.id}:`, error);
-                            });
-                        }).catch(function(error) {
-                            console.error(`Error getting page from PDF ${map.id}:`, error);
-                        });
-                    }).catch(function(error) {
-                        console.error(`Error loading PDF ${map.id}:`, error);
-                        
-                        // Fallback to iframe as a backup option
-                        fallbackToIframe(pdfWrapper, mapUrl);
-                    });
-                } else {
-                    console.warn("PDF.js not available, falling back to iframe");
-                    fallbackToIframe(pdfWrapper, mapUrl);
-                }
-                
-                // Apply additional styling to the container to ensure PDF is properly displayed
-                mapContainer.style.overflow = 'hidden';
-                
+                mapDiv.appendChild(iframe);
                 mapContainer.appendChild(mapDiv);
                 
                 // Fetch to check if URL is accessible
@@ -1751,27 +1742,8 @@
                     });
             });
             
-            // Fallback function for iframe rendering when PDF.js fails
-            function fallbackToIframe(container, url) {
-                const iframe = document.createElement('iframe');
-                iframe.className = 'clean-pdf-view';
-                iframe.style.position = 'absolute';
-                iframe.style.top = '0';
-                iframe.style.left = '0';
-                iframe.style.width = '100%';
-                iframe.style.height = '100%';
-                iframe.style.border = 'none';
-                iframe.style.backgroundColor = 'transparent';
-                iframe.style.overflow = 'hidden';
-                iframe.setAttribute('frameborder', '0');
-                iframe.setAttribute('allowtransparency', 'true');
-                
-                // Build URL with all possible parameters to hide UI
-                const cleanUrl = `${url}#view=FitH&scrollbar=0&toolbar=0&navpanes=0&statusbar=0&messages=0&page=1&viewrect=0,0,1,1`;
-                iframe.src = cleanUrl;
-                
-                container.appendChild(iframe);
-            }
+            // Apply additional styling to the container to ensure PDF is properly displayed
+            mapContainer.style.overflow = 'hidden';
             
             // After rendering maps, render events
             renderProjectEvents();
@@ -1779,6 +1751,8 @@
         
         // Handle click on the main map
         function handleMainMapClick(e) {
+            console.log('Map clicked, creating event at click position');
+            
             if (Object.keys(activeMaps).length === 0) {
                 alert('Please select at least one map layer.');
                 return;
@@ -1794,6 +1768,8 @@
             
             selectedPosition = { x: xPercent, y: yPercent };
             
+            console.log(`Event position: X: ${xPercent.toFixed(2)}%, Y: ${yPercent.toFixed(2)}%`);
+            
             // Show coordinates in the event form
             document.getElementById('eventCoordinates').textContent = `Incident coordinates: X: ${xPercent.toFixed(2)}%, Y: ${yPercent.toFixed(2)}%`;
             
@@ -1805,8 +1781,27 @@
             
             document.getElementById('activeMapLayers').textContent = `Active map layers: ${activeMapNames}`;
             
-            // Show event creation modal
-            createEventModal.show();
+            // Initialize event form fields
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventDesc').value = '';
+            document.getElementById('eventStatus').value = 'open';
+            document.getElementById('eventImage').value = '';
+            document.getElementById('capturedImagePreview').style.display = 'none';
+            document.getElementById('eventError').style.display = 'none';
+            
+            // Show event creation modal using Bootstrap API
+            try {
+                console.log('Attempting to show create event modal');
+                if (!createEventModal) {
+                    console.error('Create event modal not initialized');
+                    alert('Error: Could not open event creation form');
+                    return;
+                }
+                createEventModal.show();
+            } catch (error) {
+                console.error('Error showing event modal:', error);
+                alert('Error opening event form. Please try refreshing the page.');
+            }
         }
         
         // Fetch events for the current project
