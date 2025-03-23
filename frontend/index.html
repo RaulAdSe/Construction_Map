@@ -190,17 +190,19 @@
             align-items: center;
             color: white;
             font-weight: bold;
-            cursor: pointer;
+            cursor: pointer !important;
             z-index: 1600;
             pointer-events: auto !important; /* Make markers clickable */
             user-select: none;
             transform: translate(-50%, -50%); /* Center the marker on its position */
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         
         .event-marker:hover {
             background-color: darkred;
             transform: translate(-50%, -50%) scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
             transition: all 0.2s ease;
         }
         
@@ -819,7 +821,8 @@
             
             const options = {
                 method,
-                headers
+                headers,
+                credentials: 'include' // Include cookies if any
             };
             
             if (data) {
@@ -827,7 +830,17 @@
                     // For FormData, don't set Content-Type (browser will set it with boundary)
                     // But still add the Authorization header
                     options.body = data;
-                    console.log('Sending FormData:', Object.fromEntries(data.entries()));
+                    
+                    // Log form data entries for debugging
+                    console.log('Sending FormData with fields:', Array.from(data.keys()));
+                    for (const key of data.keys()) {
+                        const value = data.get(key);
+                        if (value instanceof File) {
+                            console.log(`FormData field: ${key} = File: ${value.name} (${value.type}, ${value.size} bytes)`);
+                        } else {
+                            console.log(`FormData field: ${key} = ${value}`);
+                        }
+                    }
                 } else {
                     headers['Content-Type'] = 'application/json';
                     options.body = JSON.stringify(data);
@@ -835,9 +848,14 @@
                 }
             }
             
-            console.log('Request options:', { method, endpoint, headers: { ...headers, Authorization: 'Bearer [REDACTED]' } });
+            console.log('Request options:', { 
+                method, 
+                endpoint, 
+                headers: { ...headers, Authorization: 'Bearer [REDACTED]' }
+            });
             
             try {
+                console.log(`Sending ${method} request to ${API_URL}${endpoint}`);
                 const response = await fetch(`${API_URL}${endpoint}`, options);
                 console.log(`Response status: ${response.status}`);
                 
@@ -851,9 +869,16 @@
                 }
                 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    console.error('API Error:', errorData);
-                    throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`);
+                    // Try to get error details from response
+                    let errorMessage = `HTTP error! Status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        console.error('API Error details:', errorData);
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        console.error('Could not parse error response:', e);
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 // For DELETE requests or other responses with no content
@@ -1759,6 +1784,13 @@
         function handleMainMapClick(e) {
             console.log('Map clicked, creating event at click position');
             
+            // Only process clicks on the map container itself, not on markers or other elements
+            if (e.target.classList.contains('event-marker') || 
+                !e.currentTarget.classList.contains('pdf-content-container')) {
+                console.log('Click on a marker or non-map element, ignoring');
+                return;
+            }
+            
             if (Object.keys(activeMaps).length === 0) {
                 alert('Please select at least one map layer.');
                 return;
@@ -1798,11 +1830,7 @@
             // Show event creation modal using Bootstrap API
             try {
                 console.log('Attempting to show create event modal');
-                if (!createEventModal) {
-                    console.error('Create event modal not initialized');
-                    alert('Error: Could not open event creation form');
-                    return;
-                }
+                const createEventModal = new bootstrap.Modal(document.getElementById('createEventModal'));
                 createEventModal.show();
             } catch (error) {
                 console.error('Error showing event modal:', error);
@@ -1907,8 +1935,8 @@
             
             console.log(`Rendering ${events.length} events on map`);
             
-            // Enable pointer events on marker container to allow interaction
-            eventMarkersContainer.style.pointerEvents = 'auto';
+            // Enable pointer events on marker container to allow interaction with markers
+            eventMarkersContainer.style.pointerEvents = 'none'; // Allow clicks to pass through to map
             
             // Make sure the z-index is high enough to appear above maps
             eventMarkersContainer.style.zIndex = '1500';
@@ -1932,6 +1960,7 @@
                 marker.title = event.title;
                 marker.style.left = `${event.x_coordinate}%`;
                 marker.style.top = `${event.y_coordinate}%`;
+                marker.style.pointerEvents = 'auto'; // Make marker clickable
                 
                 // Add marker content to make it more visible
                 const markerContent = document.createElement('div');
@@ -1952,6 +1981,8 @@
                 // Add click event to show details popup
                 marker.addEventListener('click', (e) => {
                     e.stopPropagation(); // Prevent triggering map click
+                    e.preventDefault(); // Prevent default action
+                    console.log('Event marker clicked, showing details for event:', event);
                     showEventDetailsPopup(event, e.clientX, e.clientY);
                 });
                 
@@ -2096,6 +2127,12 @@
                 return;
             }
             
+            if (!selectedPosition || typeof selectedPosition.x !== 'number' || typeof selectedPosition.y !== 'number') {
+                eventError.textContent = 'Invalid position selected. Please try again.';
+                eventError.style.display = 'block';
+                return;
+            }
+            
             try {
                 eventError.style.display = 'none';
                 
@@ -2122,16 +2159,18 @@
                     formData.append('image', fileInput.files[0]);
                 }
                 
-                console.log('Creating event:', Object.fromEntries(formData.entries()));
+                // Show loading state
+                const saveBtn = document.getElementById('saveEventBtn');
+                const originalBtnText = saveBtn.textContent;
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Creating...';
+                
+                console.log('Creating event with data:', Object.fromEntries(formData.entries()));
+                
                 const response = await apiRequest('/events/', 'POST', formData);
-                console.log('Event created:', response);
+                console.log('Event created successfully:', response);
                 
-                // Refresh events
-                await fetchProjectEvents();
-                
-                // Hide modal and reset form
-                createEventModal.hide();
-                
+                // Reset form and hide modal
                 document.getElementById('eventTitle').value = '';
                 document.getElementById('eventDesc').value = '';
                 document.getElementById('eventStatus').value = 'open';
@@ -2139,10 +2178,28 @@
                 document.getElementById('capturedImagePreview').style.display = 'none';
                 document.getElementById('eventCoordinates').textContent = '';
                 document.getElementById('activeMapLayers').textContent = '';
+                
+                // Close the modal
+                const eventModal = bootstrap.Modal.getInstance(document.getElementById('createEventModal'));
+                if (eventModal) {
+                    eventModal.hide();
+                }
+                
+                // Refresh events list
+                await fetchProjectEvents();
+                
+                // Show success message
+                alert('Event created successfully!');
+                
             } catch (error) {
                 console.error('Error creating event:', error);
                 eventError.textContent = 'Failed to create event: ' + (error.message || 'Unknown error');
                 eventError.style.display = 'block';
+            } finally {
+                // Reset button state
+                const saveBtn = document.getElementById('saveEventBtn');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Create Incident';
             }
         });
 
