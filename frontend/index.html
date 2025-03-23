@@ -79,23 +79,129 @@
         window.handleLogin = handleLogin;
     </script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding-top: 20px;
+        /* Global styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden;
         }
+        
+        /* Map container */
         .map-container {
+            height: 600px;
+            width: 100%;
+            position: relative;
+            overflow: hidden !important;
+            touch-action: none !important; /* Disable pinch zoom on touch devices */
+            -ms-touch-action: none !important;
+            -webkit-touch-callout: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
+        }
+        
+        /* Map images and iframes */
+        .map-container img, 
+        .map-container iframe {
+            touch-action: none !important;
+            pointer-events: none !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            user-drag: none !important;
+            -webkit-user-drag: none !important;
+        }
+        
+        /* Map overlay */
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden !important;
+            background-color: transparent !important;
+            box-shadow: none !important;
+        }
+        
+        /* Main map container */
+        #mainMapContainer {
+            box-shadow: none !important;
+            border: none !important;
+            background-color: transparent !important;
+        }
+        
+        /* PDF viewer */
+        .pdf-viewer-custom {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #f8f8f8;
+            overflow: hidden !important;
+        }
+        
+        /* PDF container */
+        .pdf-content-container {
             position: relative;
             width: 100%;
             height: 600px;
-            border: 1px solid #ddd;
-            margin-bottom: 20px;
-            overflow: hidden;
-            background-color: white;
+            overflow: hidden !important;
+            background-color: #ffffff;
         }
-        .map-container img, .map-container iframe {
+        
+        /* Full content view */
+        .full-content-view {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            overflow: hidden !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none; /* Allow clicks to pass through to map */
+        }
+        
+        /* Event markers container */
+        #eventMarkersContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1500;
+            pointer-events: none; /* Allow clicks to pass through to map */
+            overflow: visible;
+        }
+        
+        /* Event marker styling */
+        .event-marker {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            background-color: red;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1600;
+            pointer-events: auto !important; /* Make markers clickable */
+            user-select: none;
+            transform: translate(-50%, -50%); /* Center the marker on its position */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .event-marker:hover {
+            background-color: darkred;
+            transform: translate(-50%, -50%) scale(1.1);
+            transition: all 0.2s ease;
         }
         
         /* PDF viewer specific styles */
@@ -110,10 +216,6 @@
             border: none !important;
             box-shadow: none !important;
             overflow: hidden;
-        }
-        
-        .map-overlay {
-            background-color: white !important;
         }
         
         /* CSS to hide PDF.js viewer UI elements */
@@ -159,22 +261,6 @@
         /* Remove dark borders and viewer UI */
         :root {
             --pdf-viewer-chrome-height: 0px !important;
-        }
-        
-        /* Full content view styles - hide UI and show only content */
-        .full-content-view {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            overflow: hidden;
-        }
-        
-        /* Hide all PDF viewer UI */
-        .pdf-viewer-custom {
-            margin: 0 !important;
-            padding: 0 !important;
-            background-color: white !important;
         }
         
         /* Custom PDF rendering container */
@@ -1520,15 +1606,15 @@
             
             console.log('Rendering active maps:', activeMapsData);
             
-            // Create container for maps with explicit height and width
+            // Create container for maps with proper height
             const mapContainer = document.createElement('div');
             mapContainer.className = 'pdf-content-container';
             mapContainer.style.width = '100%';
-            mapContainer.style.height = '600px';
+            mapContainer.style.height = '600px'; // Fixed height that works correctly
             mapContainer.style.position = 'relative';
-            mapContainer.style.backgroundColor = 'white';
-            mapContainer.style.border = 'none';
-            mapContainer.style.overflow = 'hidden';
+            mapContainer.style.backgroundColor = 'transparent'; // Transparent background instead of white
+            mapContainer.style.border = 'none'; // Remove border
+            mapContainer.style.overflow = 'hidden'; // Prevent scrolling
             
             // Add click handler to the container for event creation
             mapContainer.onclick = handleMainMapClick;
@@ -1558,9 +1644,9 @@
                 if (map.filename) {
                     mapUrl = `${apiUrlBase}/uploads/${map.filename}`;
                 } else if (map.file_path) {
-                    // Just in case file_path already includes 'uploads/'
-                    if (map.file_path.includes('uploads/')) {
-                        mapUrl = `${apiUrlBase}/${map.file_path}`;
+                    // Handle file_path correctly regardless of whether it already includes 'uploads/'
+                    if (map.file_path.startsWith('/')) {
+                        mapUrl = `${apiUrlBase}${map.file_path}`;
                     } else {
                         mapUrl = `${apiUrlBase}/uploads/${map.file_path}`;
                     }
@@ -1582,6 +1668,8 @@
                 mapDiv.style.width = '100%';
                 mapDiv.style.height = '100%';
                 mapDiv.style.zIndex = 10 + index; // Stack maps with increasing z-index
+                mapDiv.style.backgroundColor = 'transparent'; // Transparent background
+                mapDiv.style.boxShadow = 'none'; // Remove any shadow
                 
                 const isBaseMap = map.id === implantationMap?.id;
                 
@@ -1589,9 +1677,9 @@
                     // Base map is fully visible
                     mapDiv.style.opacity = '1';
                 } else {
-                    // Overlay maps are semi-transparent - improved transparency for better visibility
-                    mapDiv.style.opacity = '0.7';
-                    mapDiv.style.mixBlendMode = 'multiply';
+                    // Overlay maps are semi-transparent but more visible
+                    mapDiv.style.opacity = '0.9'; // Increased from 0.85 for better visibility
+                    mapDiv.style.mixBlendMode = 'normal'; // Normal blend mode
                 }
                 
                 // Create a wrapper for PDF display
@@ -1603,8 +1691,11 @@
                 pdfWrapper.style.left = '0';
                 pdfWrapper.style.width = '100%';
                 pdfWrapper.style.height = '100%';
-                pdfWrapper.style.overflow = 'hidden'; 
-                pdfWrapper.style.backgroundColor = 'white';
+                pdfWrapper.style.overflow = 'hidden'; // Prevent scrolling
+                pdfWrapper.style.backgroundColor = 'transparent'; // Transparent background
+                pdfWrapper.style.display = 'flex';
+                pdfWrapper.style.justifyContent = 'center'; // Center horizontally
+                pdfWrapper.style.alignItems = 'center'; // Center vertically
                 mapDiv.appendChild(pdfWrapper);
                 
                 // Create iframe for PDF display - clean content only, no viewer UI
@@ -1616,13 +1707,41 @@
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
-                iframe.style.backgroundColor = 'white';
-                iframe.style.overflow = 'hidden';
+                iframe.style.backgroundColor = '#f8f8f8';
+                iframe.style.overflow = 'hidden'; // Prevent scrolling
+                iframe.style.objectFit = 'contain'; // Maintain aspect ratio while fitting container
                 iframe.setAttribute('frameborder', '0');
                 iframe.setAttribute('allowtransparency', 'true');
+                iframe.setAttribute('scrolling', 'no'); // Disable scrolling
                 
-                // Set the PDF URL with parameters to hide ALL UI controls
-                iframe.src = mapUrl + '#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=FitH&pagemode=none';
+                // Set the PDF URL with parameters specifically for optimal viewing
+                iframe.src = `${mapUrl}#view=Fit&toolbar=0&navpanes=0&statusbar=0`;
+                
+                // Add event listeners to prevent zooming and scrolling
+                iframe.onload = function() {
+                    try {
+                        // Try to access iframe content
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        
+                        // Prevent zooming with ctrl/cmd + wheel
+                        iframeDoc.addEventListener('wheel', function(e) {
+                            if (e.ctrlKey || e.metaKey) {
+                                e.preventDefault();
+                                return false;
+                            }
+                        }, { passive: false });
+                        
+                        // Prevent keyboard zoom shortcuts
+                        iframeDoc.addEventListener('keydown', function(e) {
+                            if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0')) {
+                                e.preventDefault();
+                                return false;
+                            }
+                        }, { passive: false });
+                    } catch (e) {
+                        console.log('Could not add event listeners to iframe content due to same-origin policy');
+                    }
+                };
                 
                 pdfWrapper.appendChild(iframe);
                 
@@ -2297,5 +2416,4 @@
         }
     </script>
 </body>
-</html> 
 </html> 
