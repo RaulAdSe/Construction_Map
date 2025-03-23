@@ -931,7 +931,9 @@
             
             // Add event listeners to view project buttons
             document.querySelectorAll('.view-project').forEach(button => {
+                console.log('Adding click listener to button:', button);
                 button.addEventListener('click', (e) => {
+                    console.log('View project button clicked');
                     const projectId = e.target.getAttribute('data-id');
                     viewProject(projectId);
                 });
@@ -2271,6 +2273,27 @@
             if (statusFilter) {
                 statusFilter.addEventListener('change', () => fetchAllEvents());
             }
+        }
+
+        // Add this function near other utility functions
+        // Utility function to debug PDF URLs
+        function debugPdfUrl(url) {
+            console.log('Loading PDF from URL:', url);
+            
+            // Check if URL is valid
+            fetch(url, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('PDF URL is valid:', url);
+                    } else {
+                        console.error('PDF URL returned status:', response.status, url);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking PDF URL:', error, url);
+                });
+                
+            return url;
         }
     </script>
 </body>
