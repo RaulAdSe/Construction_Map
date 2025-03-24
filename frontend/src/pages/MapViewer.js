@@ -118,9 +118,28 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleMapAdded = (newMap) => {
-    setMaps([...maps, newMap]);
-    setSelectedMap(newMap);
-    showNotification('Map added successfully!');
+    // Check if the map already exists (update case)
+    const existingMapIndex = maps.findIndex(m => m.id === newMap.id);
+    
+    if (existingMapIndex >= 0) {
+      // Update existing map
+      const updatedMaps = [...maps];
+      updatedMaps[existingMapIndex] = newMap;
+      setMaps(updatedMaps);
+      
+      // If it was the selected map, update that too
+      if (selectedMap && selectedMap.id === newMap.id) {
+        setSelectedMap(newMap);
+      }
+      
+      showNotification('Map updated successfully!');
+    } else {
+      // Add new map
+      setMaps([...maps, newMap]);
+      setSelectedMap(newMap);
+      showNotification('Map added successfully!');
+    }
+    
     setShowAddMapModal(false);
   };
   

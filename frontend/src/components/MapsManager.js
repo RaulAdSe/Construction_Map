@@ -52,43 +52,33 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
       setUpdatingMap(map.id);
       
       // First update the current map to be the main map
-      const updatedMap = await updateMap(map.id, {
+      const updatedCurrentMap = await updateMap(map.id, {
         name: map.name,
         map_type: 'implantation'
       });
       
       // Then update the previous main map to be an overlay
+      let updatedPreviousMain = null;
       if (selectedMainMap) {
-        await updateMap(selectedMainMap.id, {
+        updatedPreviousMain = await updateMap(selectedMainMap.id, {
           name: selectedMainMap.name,
           map_type: 'overlay'
         });
       }
       
-      // Now update the local state and parent component
-      setSelectedMainMap(updatedMap);
+      // Now update the local state
+      setSelectedMainMap(updatedCurrentMap);
       
-      // Update parent component with all changes
+      // Notify parent component of the updates
       if (onMapAdded) {
-        // Instead of calling onMapAdded, we should notify of updates
-        // without creating new map items
-        const updatedMaps = maps.map(m => {
-          if (m.id === map.id) {
-            return {...m, map_type: 'implantation'};
-          } else if (selectedMainMap && m.id === selectedMainMap.id) {
-            return {...m, map_type: 'overlay'};
-          }
-          return m;
-        });
+        // First update the new main map
+        onMapAdded(updatedCurrentMap);
         
-        // Let the parent know about all updated maps
-        updatedMaps.forEach(m => {
-          if (m.id === map.id || (selectedMainMap && m.id === selectedMainMap.id)) {
-            onMapAdded(m);
-          }
-        });
+        // Then update the previous main map if it exists
+        if (updatedPreviousMain) {
+          onMapAdded(updatedPreviousMain);
+        }
       }
-      
     } catch (error) {
       console.error('Error setting map as main:', error);
     } finally {
