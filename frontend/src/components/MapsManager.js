@@ -119,15 +119,18 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
         </Modal.Header>
         <Modal.Body className="p-0">
           {selectedMap?.content_url && (
-            <iframe
-              src={selectedMap.content_url}
-              title={selectedMap.name}
-              style={{ 
-                width: '100%', 
-                height: '70vh', 
-                border: 'none' 
-              }}
-            />
+            <div style={{ height: '70vh', width: '100%', overflow: 'hidden' }}>
+              <iframe
+                src={selectedMap.content_url}
+                title={selectedMap.name}
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  border: 'none' 
+                }}
+                frameBorder="0"
+              />
+            </div>
           )}
         </Modal.Body>
       </Modal>

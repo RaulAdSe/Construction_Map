@@ -39,7 +39,26 @@ export const fetchEvents = async (mapId) => {
 
 export const addEvent = async (eventData) => {
   try {
-    const response = await api.post(`${API_URL}/events`, eventData);
+    let response;
+    
+    // Check if eventData is FormData (for multipart/form-data with file upload)
+    if (eventData instanceof FormData) {
+      // Get token for authorization header
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      // FormData requires different content type header
+      response = await axios.post(`${API_URL}/events`, eventData, {
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+    } else {
+      // Regular JSON data
+      response = await api.post(`${API_URL}/events`, eventData);
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error adding event:', error);

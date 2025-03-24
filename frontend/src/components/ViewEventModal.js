@@ -2,8 +2,26 @@ import React from 'react';
 import { Modal, Button, Row, Col, Badge, Image } from 'react-bootstrap';
 import { format } from 'date-fns';
 
-const ViewEventModal = ({ show, onHide, event }) => {
+const ViewEventModal = ({ show, onHide, event, allMaps = [] }) => {
   if (!event) return null;
+  
+  // Parse active maps configuration from event
+  let activeMapSettings = {};
+  try {
+    if (event.active_maps && typeof event.active_maps === 'string') {
+      activeMapSettings = JSON.parse(event.active_maps);
+    } else if (event.active_maps) {
+      activeMapSettings = event.active_maps;
+    }
+  } catch (error) {
+    console.error('Error parsing active maps settings:', error);
+  }
+  
+  // Get map names for display
+  const getMapName = (mapId) => {
+    const map = allMaps.find(m => m.id === parseInt(mapId));
+    return map ? map.name : `Map ID: ${mapId}`;
+  };
   
   return (
     <Modal
@@ -45,6 +63,26 @@ const ViewEventModal = ({ show, onHide, event }) => {
               <p>Map: {event.map_name || `ID: ${event.map_id}`}</p>
               <p>Coordinates: X: {event.x_coordinate.toFixed(2)}%, Y: {event.y_coordinate.toFixed(2)}%</p>
             </div>
+            
+            {Object.keys(activeMapSettings).length > 0 && (
+              <div className="mb-3">
+                <h6>Map Overlay Configuration</h6>
+                <div className="map-settings-list">
+                  {Object.entries(activeMapSettings).map(([mapId, settings]) => (
+                    <div key={mapId} className="d-flex justify-content-between align-items-center mb-1">
+                      <span>
+                        {parseInt(mapId) === event.map_id ? (
+                          <strong>{getMapName(mapId)} (Main)</strong>
+                        ) : (
+                          getMapName(mapId)
+                        )}
+                      </span>
+                      <span>Opacity: {Math.round((settings.opacity || 1) * 100)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {event.tags && event.tags.length > 0 && (
               <div className="mb-3">

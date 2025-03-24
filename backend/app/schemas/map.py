@@ -1,6 +1,7 @@
 from pydantic import BaseModel, computed_field
 from typing import Optional, Dict, Any
 from datetime import datetime
+from app.core.config import settings
 
 
 class MapBase(BaseModel):
@@ -26,7 +27,8 @@ class Map(MapBase):
     
     @computed_field
     def content_url(self) -> str:
-        return f"/uploads/{self.filename}"
+        # Use absolute URL with the backend base URL
+        return f"http://localhost:8000/uploads/{self.filename}"
     
     class Config:
         orm_mode = True

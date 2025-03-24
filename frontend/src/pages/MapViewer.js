@@ -272,6 +272,7 @@ const MapViewer = ({ onLogout }) => {
                     onMapClick={handleMapClick}
                     isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
                     onEventClick={handleViewEvent}
+                    allMaps={maps.filter(m => m.project_id === project.id)}
                   />
                 ) : (
                   <div className="text-center p-5 bg-light rounded">
@@ -334,12 +335,14 @@ const MapViewer = ({ onLogout }) => {
         position={eventPosition}
         onEventAdded={handleEventAdded}
         projectId={project?.id}
+        allMaps={maps}
       />
       
       <ViewEventModal
         show={showViewEventModal}
         onHide={() => setShowViewEventModal(false)}
         event={selectedEvent}
+        allMaps={maps}
       />
       
       <EditEventModal
