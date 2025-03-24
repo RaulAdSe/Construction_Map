@@ -46,6 +46,16 @@ export const createProject = async (projectData) => {
   }
 };
 
+export const deleteProject = async (projectId) => {
+  try {
+    const response = await api.delete(`${API_URL}/projects/${projectId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting project ${projectId}:`, error);
+    throw error;
+  }
+};
+
 export const fetchProjectById = async (projectId) => {
   try {
     const response = await api.get(`${API_URL}/projects/${projectId}`);

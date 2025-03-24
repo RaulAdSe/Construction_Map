@@ -6,14 +6,15 @@
 }
 
 .project-card {
-  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s;
   cursor: pointer;
   border: 1px solid #ddd;
 }
 
 .project-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
 .project-card .card-title {
@@ -50,6 +51,37 @@
   margin-right: 0.5rem;
 }
 
+/* Delete Project Button Styles */
+.delete-project-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0.7;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s;
+  border: none;
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-project-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  background-color: #c82333;
+}
+
+.delete-project-btn i {
+  font-size: 1.2rem;
+}
+
 /* Modal Form Styles */
 .project-form .form-label {
   font-weight: 500;
@@ -58,4 +90,24 @@
 .project-form .form-control:focus {
   border-color: #80bdff;
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Override Bootstrap's styles for the confirm delete button */
+.modal-footer .btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  transition: all 0.2s;
+}
+
+.modal-footer .btn-danger:hover:not(:disabled) {
+  background-color: #c82333;
+  border-color: #bd2130;
+  transform: translateY(-2px);
+}
+
+/* Add a danger icon to warning alert */
+.alert-warning .bi-exclamation-triangle {
+  color: #f0ad4e;
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
 } 

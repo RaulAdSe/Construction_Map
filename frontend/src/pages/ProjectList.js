@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Navbar, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { fetchProjects, createProject } from '../services/mapService';
+import { fetchProjects, createProject, deleteProject } from '../services/mapService';
 import '../assets/styles/ProjectList.css';
 
 const ProjectList = ({ onLogout }) => {
@@ -9,8 +9,11 @@ const ProjectList = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
   const [newProject, setNewProject] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +56,31 @@ const ProjectList = ({ onLogout }) => {
       setError('Failed to create project. Please try again.');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDeleteClick = (e, project) => {
+    e.stopPropagation(); // Prevent card click from triggering
+    setProjectToDelete(project);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+    
+    try {
+      setDeleting(true);
+      await deleteProject(projectToDelete.id);
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
+      // Show success message and reload projects
+      setError('');
+      await loadProjects();
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      setError('Failed to delete project. Please try again.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -102,17 +130,23 @@ const ProjectList = ({ onLogout }) => {
           <Row xs={1} md={2} lg={3} className="g-4">
             {projects.map(project => (
               <Col key={project.id}>
-                <Card 
-                  className="project-card h-100" 
-                  onClick={() => handleProjectSelect(project.id)}
-                >
-                  <Card.Body>
+                <Card className="project-card h-100">
+                  <Button 
+                    variant="danger" 
+                    size="sm" 
+                    className="delete-project-btn"
+                    onClick={(e) => handleDeleteClick(e, project)}
+                    aria-label={`Delete ${project.name} project`}
+                  >
+                    <i className="bi bi-trash"></i>
+                  </Button>
+                  <Card.Body onClick={() => handleProjectSelect(project.id)}>
                     <Card.Title>{project.name}</Card.Title>
                     <Card.Text>
                       {project.description || 'No description available'}
                     </Card.Text>
                   </Card.Body>
-                  <Card.Footer>
+                  <Card.Footer onClick={() => handleProjectSelect(project.id)}>
                     <small className="text-muted">
                       Created: {new Date(project.created_at).toLocaleDateString()}
                     </small>
@@ -168,6 +202,38 @@ const ProjectList = ({ onLogout }) => {
                 Creating...
               </>
             ) : 'Create Project'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Delete Project Confirmation Modal */}
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Delete Project</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>Are you sure you want to delete project <strong>{projectToDelete?.name}</strong>?</p>
+          <Alert variant="warning">
+            <i className="bi bi-exclamation-triangle me-2"></i>
+            This action will permanently delete this project and all its associated maps and events. 
+            This cannot be undone.
+          </Alert>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={handleDeleteProject}
+            disabled={deleting}
+          >
+            {deleting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" className="me-2" />
+                Deleting...
+              </>
+            ) : 'Delete Project'}
           </Button>
         </Modal.Footer>
       </Modal>
