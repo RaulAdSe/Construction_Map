@@ -6,11 +6,26 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const mapContainerRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [visibleMaps, setVisibleMaps] = useState([]);
   
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
   const overlayMaps = allMaps.filter(m => m.id !== implantationMap?.id);
+  
+  // Initialize visibleMaps - but we need to do this after finding implantationMap
+  const [visibleMaps, setVisibleMaps] = useState([]);
+  
+  // Ensure main map ID is always in visibleMaps - with high priority
+  useEffect(() => {
+    if (implantationMap && implantationMap.id) {
+      console.log("Ensuring main map is in visible maps:", implantationMap.id);
+      setVisibleMaps(prev => {
+        if (!prev.includes(implantationMap.id)) {
+          return [implantationMap.id, ...prev.filter(id => id !== implantationMap.id)];
+        }
+        return prev;
+      });
+    }
+  }, [implantationMap]);
   
   // Track dependency on map types to refresh when they change
   useEffect(() => {
@@ -237,13 +252,17 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
-  // Always include events from the main map, plus any events from visible overlay maps
+  
+  // ALWAYS include events from the main map, plus any events from visible overlay maps
   const visibleEvents = events.filter(event => {
-    // Always show events from the main map
+    if (!event || !event.map_id) return false;
+    
+    // Always show events from the main map, regardless of visibility state
     if (event.map_id === implantationMap?.id) {
       return true;
     }
-    // For other maps, only show events if the map is visible
+    
+    // For overlay maps, only show events if that map is toggled on
     return visibleMaps.includes(event.map_id);
   });
   
