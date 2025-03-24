@@ -36,6 +36,16 @@ export const fetchProjects = async () => {
   }
 };
 
+export const createProject = async (projectData) => {
+  try {
+    const response = await api.post(`${API_URL}/projects`, projectData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating project:', error);
+    throw error;
+  }
+};
+
 export const fetchProjectById = async (projectId) => {
   try {
     const response = await api.get(`${API_URL}/projects/${projectId}`);

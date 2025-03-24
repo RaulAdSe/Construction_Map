@@ -28,4 +28,34 @@
 .project-card .card-footer {
   background-color: rgba(0, 0, 0, 0.03);
   border-top: 1px solid #ddd;
+}
+
+/* Create Project Button Styles */
+.create-project-btn {
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.create-project-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.create-project-btn i {
+  margin-right: 0.5rem;
+}
+
+/* Modal Form Styles */
+.project-form .form-label {
+  font-weight: 500;
+}
+
+.project-form .form-control:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 } 

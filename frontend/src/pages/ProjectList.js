@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Navbar, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Navbar, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { fetchProjects } from '../services/mapService';
+import { fetchProjects, createProject } from '../services/mapService';
 import '../assets/styles/ProjectList.css';
 
 const ProjectList = ({ onLogout }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [newProject, setNewProject] = useState({ name: '', description: '' });
+  const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,6 +35,32 @@ const ProjectList = ({ onLogout }) => {
     navigate(`/project/${projectId}`);
   };
 
+  const handleCreateProject = async () => {
+    if (!newProject.name.trim()) {
+      setError('Project name is required');
+      return;
+    }
+    
+    try {
+      setCreating(true);
+      await createProject(newProject);
+      setShowModal(false);
+      setNewProject({ name: '', description: '' });
+      setError('');
+      await loadProjects(); // Reload the projects list
+    } catch (err) {
+      console.error('Error creating project:', err);
+      setError('Failed to create project. Please try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const resetForm = () => {
+    setNewProject({ name: '', description: '' });
+    setError('');
+  };
+
   return (
     <div className="project-list-page">
       <Navbar bg="dark" variant="dark" expand="lg">
@@ -42,7 +71,12 @@ const ProjectList = ({ onLogout }) => {
       </Navbar>
 
       <Container className="mt-4">
-        <h2 className="text-center mb-4">Select a Project</h2>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h2>Select a Project</h2>
+          <Button variant="primary" className="create-project-btn" onClick={() => setShowModal(true)}>
+            <i className="bi bi-plus-lg"></i>Create New Project
+          </Button>
+        </div>
         
         {error && (
           <Alert variant="danger" onClose={() => setError('')} dismissible>
@@ -59,7 +93,10 @@ const ProjectList = ({ onLogout }) => {
         ) : projects.length === 0 ? (
           <div className="text-center p-5 bg-light rounded">
             <h3>No Projects Available</h3>
-            <p>There are no projects in the system yet.</p>
+            <p>There are no projects in the system yet. Create your first project to get started!</p>
+            <Button variant="primary" size="lg" onClick={() => setShowModal(true)}>
+              Create Your First Project
+            </Button>
           </div>
         ) : (
           <Row xs={1} md={2} lg={3} className="g-4">
@@ -86,6 +123,54 @@ const ProjectList = ({ onLogout }) => {
           </Row>
         )}
       </Container>
+
+      {/* Create Project Modal */}
+      <Modal show={showModal} onHide={() => { setShowModal(false); resetForm(); }}>
+        <Modal.Header closeButton>
+          <Modal.Title>Create New Project</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form className="project-form">
+            <Form.Group className="mb-3">
+              <Form.Label>Project Name <span className="text-danger">*</span></Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Enter project name"
+                value={newProject.name}
+                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                required
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Enter project description (optional)"
+                value={newProject.description}
+                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleCreateProject}
+            disabled={creating}
+          >
+            {creating ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" className="me-2" />
+                Creating...
+              </>
+            ) : 'Create Project'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
