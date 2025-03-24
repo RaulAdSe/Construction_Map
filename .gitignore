@@ -20,6 +20,7 @@ var/
 .installed.cfg
 *.egg
 venv/
+venv311/
 .env
 
 # Logs
@@ -66,4 +67,8 @@ htmlcov/
 
 # Uploaded files
 /uploads
-/backend/uploads 
+/backend/uploads
+
+# Project specific
+.server_pids
+token.txt 
