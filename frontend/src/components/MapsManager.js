@@ -11,13 +11,15 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   const [loading, setLoading] = useState(false);
   const [updatingMap, setUpdatingMap] = useState(null);
   
-  // Ensure first map is main by default
+  // Ensure first map is main by default and fix any map type issues
   useEffect(() => {
     if (maps && maps.length > 0) {
-      const mainMap = maps.find(m => m.map_type === 'implantation');
+      // Count how many main maps we have
+      const mainMaps = maps.filter(m => m.map_type === 'implantation');
       
-      // If no main map exists, set the first one as main
-      if (!mainMap && maps.length > 0) {
+      // If we have no main maps, set the first one as main
+      if (mainMaps.length === 0 && maps.length > 0) {
+        console.log("No main map found, setting first map as main");
         const firstMap = maps[0];
         updateMap(firstMap.id, {
           name: firstMap.name,
@@ -27,8 +29,39 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
           window.location.reload();
         });
       }
+      // If we have multiple main maps, fix by keeping only the first one as main
+      else if (mainMaps.length > 1) {
+        console.log("Multiple main maps found, fixing...");
+        
+        // Keep the first main map as main, change others to overlay
+        const promises = [];
+        let keptFirst = false;
+        
+        for (const map of mainMaps) {
+          if (!keptFirst) {
+            keptFirst = true;
+            continue; // Keep the first one
+          }
+          
+          // Change this map to overlay
+          promises.push(
+            updateMap(map.id, {
+              name: map.name,
+              map_type: 'overlay'
+            }).then(updatedMap => {
+              onMapAdded(updatedMap);
+            })
+          );
+        }
+        
+        // When all updates are done, reload
+        Promise.all(promises).then(() => {
+          console.log("Fixed multiple main maps");
+          window.location.reload();
+        });
+      }
     }
-  }, [maps]);
+  }, [maps, onMapAdded]);
   
   const handleViewMap = (map) => {
     setSelectedMap(map);
