@@ -79,6 +79,15 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
           onMapAdded(updatedPreviousMain);
         }
       }
+      
+      // Force refresh the component with current maps
+      if (onMapDeleted && updatedPreviousMain) {
+        // This is a hack to force the parent to refresh the maps list
+        // We delete and immediately re-add the map to force a refresh
+        onMapDeleted(updatedPreviousMain.id);
+        onMapAdded(updatedPreviousMain);
+      }
+      
     } catch (error) {
       console.error('Error setting map as main:', error);
     } finally {
@@ -120,7 +129,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
             <Card>
               <Card.Header className="d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">{map.name}</h5>
-                {selectedMainMap && selectedMainMap.id === map.id ? (
+                {map.map_type === 'implantation' ? (
                   <Badge bg="primary">Main Map</Badge>
                 ) : (
                   <Badge bg="info">Overlay</Badge>
@@ -147,7 +156,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
                     <Button variant="outline-primary" onClick={() => handleViewMap(map)}>
                       View
                     </Button>
-                    {(!selectedMainMap || selectedMainMap.id !== map.id) && (
+                    {map.map_type !== 'implantation' && (
                       <Button 
                         variant="warning" 
                         onClick={() => handleSetAsMainMap(map)}
