@@ -12,6 +12,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   const [fixingMapTypes, setFixingMapTypes] = useState(false);
   const [showFixMapTypesButton, setShowFixMapTypesButton] = useState(false);
   const [selectedMainMap, setSelectedMainMap] = useState(null);
+  const [updatingMap, setUpdatingMap] = useState(null);
   
   const handleViewMap = (map) => {
     setSelectedMap(map);
@@ -88,6 +89,24 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
     } finally {
       setFixingMapTypes(false);
       setShowFixMapTypesButton(false);
+    }
+  };
+  
+  const handleSetAsMainMap = async (map) => {
+    if (!maps || maps.length === 0) return;
+    
+    try {
+      setUpdatingMap(map.id);
+      const updatedMap = await updateMap(map.id, {
+        name: map.name,
+        map_type: 'implantation'
+      });
+      setSelectedMainMap(updatedMap);
+      onMapAdded(updatedMap);
+    } catch (error) {
+      console.error('Error setting map as main:', error);
+    } finally {
+      setUpdatingMap(null);
     }
   };
   
@@ -171,9 +190,24 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
                 </div>
                 
                 <div className="d-flex justify-content-between">
-                  <Button variant="outline-primary" onClick={() => handleViewMap(map)}>
-                    View
-                  </Button>
+                  <div className="d-flex gap-2">
+                    <Button variant="outline-primary" onClick={() => handleViewMap(map)}>
+                      View
+                    </Button>
+                    {map.map_type !== 'implantation' && (
+                      <Button 
+                        variant="warning" 
+                        onClick={() => handleSetAsMainMap(map)}
+                        disabled={updatingMap === map.id}
+                      >
+                        {updatingMap === map.id ? (
+                          <><Spinner animation="border" size="sm" /> Setting...</>
+                        ) : (
+                          "Set as Main"
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   <Button 
                     variant="outline-danger"
                     onClick={() => setDeletingMap(map)}
