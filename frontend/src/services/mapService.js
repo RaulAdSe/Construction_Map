@@ -57,12 +57,13 @@ export const fetchMaps = async (projectId) => {
   }
 };
 
-export const addMap = async (projectId, name, file) => {
+export const addMap = async (projectId, name, file, mapType = 'implantation') => {
   try {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('file', file);
     formData.append('project_id', projectId);
+    formData.append('map_type', mapType);
     
     const response = await axios.post(`${API_URL}/maps`, formData, {
       headers: {

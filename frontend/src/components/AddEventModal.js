@@ -127,13 +127,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     });
   };
   
-  const handleOpacityChange = (id, value) => {
-    setMapOpacities(prev => ({
-      ...prev,
-      [id]: value / 100
-    }));
-  };
-  
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setUploadFile(e.target.files[0]);
@@ -204,13 +197,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                     checked={true}
                     disabled={true}
                   />
-                  <Form.Range
-                    value={(mapOpacities[mainMap?.id] || 1.0) * 100}
-                    onChange={(e) => handleOpacityChange(mainMap?.id, parseInt(e.target.value))}
-                    min="50"
-                    max="100"
-                    className="w-50"
-                  />
+                  <small className="text-muted">100% opacity (fixed)</small>
                 </div>
                 
                 {overlayMaps.map(map => (
@@ -223,19 +210,13 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                       onChange={() => toggleMapVisibility(map.id)}
                     />
                     {visibleMapIds.includes(map.id) && (
-                      <Form.Range
-                        value={(mapOpacities[map.id] || 0.5) * 100}
-                        onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value))}
-                        min="10"
-                        max="100"
-                        className="w-50"
-                      />
+                      <small className="text-muted">50% opacity (fixed)</small>
                     )}
                   </div>
                 ))}
               </div>
               <Form.Text className="text-muted">
-                The selected maps and their opacity settings will be saved with this event for future reference.
+                The selected maps will be saved with this event. Main map is always at 100% opacity, overlays at 50%.
               </Form.Text>
             </Form.Group>
           )}
