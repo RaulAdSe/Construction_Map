@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Badge } from 'react-bootstrap';
 import { addEvent } from '../services/eventService';
 
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = [] }) => {
@@ -22,10 +22,12 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     return [mapId];
   });
   
-  // Create a list of all available maps for the overlay configuration
+  // Create a list of all available maps for reference
   const availableMaps = allMaps.filter(m => m.project_id === parseInt(projectId));
   const mainMap = availableMaps.find(m => m.id === parseInt(mapId));
-  const overlayMaps = availableMaps.filter(m => m.id !== parseInt(mapId));
+  const overlayMaps = availableMaps.filter(m => 
+    m.id !== parseInt(mapId) && visibleMapIds.includes(m.id)
+  );
   
   // Update visibleMapIds when visibleMaps prop changes
   useEffect(() => {
@@ -114,19 +116,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     onHide();
   };
   
-  const toggleMapVisibility = (id) => {
-    setVisibleMapIds(prev => {
-      // Main map is always visible
-      if (id === mainMap?.id) return prev;
-      
-      if (prev.includes(id)) {
-        return prev.filter(mapId => mapId !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
-  
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setUploadFile(e.target.files[0]);
@@ -140,6 +129,38 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
+          <Form.Group className="mb-3">
+            <div className="event-location-summary mb-3">
+              <div className="d-flex align-items-center mb-2">
+                <h6 className="mb-0 me-2">Current View:</h6>
+                <Badge bg="info">{visibleMapIds.length} visible map layers</Badge>
+              </div>
+              
+              <div className="map-layers-info">
+                <p className="mb-1">
+                  <strong>Primary Map:</strong> {mainMap?.name || 'Unknown'}
+                </p>
+                
+                {overlayMaps.length > 0 && (
+                  <div className="overlay-maps">
+                    <p className="mb-1"><strong>Overlay Maps:</strong></p>
+                    <ul className="list-unstyled ms-3">
+                      {overlayMaps.map(map => (
+                        <li key={map.id}>{map.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                <p className="mb-0">
+                  <strong>Event Position:</strong> X: {position.x.toFixed(2)}%, Y: {position.y.toFixed(2)}%
+                </p>
+              </div>
+            </div>
+          </Form.Group>
+          
+          <hr />
+          
           <Form.Group className="mb-3">
             <Form.Label>Event Title</Form.Label>
             <Form.Control
@@ -174,52 +195,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               Separate tags with commas
             </Form.Text>
           </Form.Group>
-          
-          <Form.Group className="mb-3">
-            <Form.Label>Event Location</Form.Label>
-            <p className="mb-1">
-              <strong>Map:</strong> {mainMap?.name || `ID: ${mapId}`}
-            </p>
-            <p className="mb-0">
-              <strong>Position:</strong> X: {position.x.toFixed(2)}%, Y: {position.y.toFixed(2)}%
-            </p>
-          </Form.Group>
-          
-          {overlayMaps.length > 0 && (
-            <Form.Group className="mb-3">
-              <Form.Label>Map Overlay Configuration</Form.Label>
-              <div className="overlay-maps-list">
-                <div className="main-map mb-2 d-flex justify-content-between align-items-center">
-                  <Form.Check
-                    type="checkbox"
-                    id={`map-toggle-main-${mainMap?.id}`}
-                    label={`${mainMap?.name || 'Main Map'} (Main)`}
-                    checked={true}
-                    disabled={true}
-                  />
-                  <small className="text-muted">100% opacity (fixed)</small>
-                </div>
-                
-                {overlayMaps.map(map => (
-                  <div key={map.id} className="mb-2 d-flex justify-content-between align-items-center">
-                    <Form.Check
-                      type="checkbox"
-                      id={`map-toggle-${map.id}`}
-                      label={map.name}
-                      checked={visibleMapIds.includes(map.id)}
-                      onChange={() => toggleMapVisibility(map.id)}
-                    />
-                    {visibleMapIds.includes(map.id) && (
-                      <small className="text-muted">50% opacity (fixed)</small>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <Form.Text className="text-muted">
-                The selected maps will be saved with this event. Main map is always at 100% opacity, overlays at 50%.
-              </Form.Text>
-            </Form.Group>
-          )}
           
           <Form.Group className="mb-3">
             <Form.Label>Attach Image (optional)</Form.Label>

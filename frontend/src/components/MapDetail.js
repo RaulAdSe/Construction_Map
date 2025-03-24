@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Spinner, Alert, Form, ListGroup } from 'react-bootstrap';
 import EventMarker from './EventMarker';
 
-const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick, allMaps = [], projectId }) => {
+const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick, allMaps = [], projectId, onVisibleMapsChanged }) => {
   const mapContainerRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -229,6 +229,14 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   const visibleEvents = events.filter(event => visibleMapIds.includes(event.map_id));
+  
+  // Add a useEffect to notify parent component when visibleMaps changes
+  useEffect(() => {
+    // Only notify parent if callback is provided
+    if (onVisibleMapsChanged) {
+      onVisibleMapsChanged(visibleMaps);
+    }
+  }, [visibleMaps, onVisibleMapsChanged]);
   
   return (
     <div className="map-detail-container">
