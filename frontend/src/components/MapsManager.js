@@ -1,303 +1,238 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Button, Modal, ListGroup, Spinner, Badge } from 'react-bootstrap';
-import { deleteMap, updateMap } from '../services/mapService';
+import { deleteMap, getMaps, updateMap } from '../services/mapService';
 import AddMapModal from './AddMapModal';
+import './../assets/styles/MapViewer.css';
 
-const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
+const MapsManager = ({ projectId }) => {
+  const [maps, setMaps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [deletingMapId, setDeletingMapId] = useState(null);
+  const [updatingMapId, setUpdatingMapId] = useState(null);
   const [selectedMap, setSelectedMap] = useState(null);
   const [showViewMapModal, setShowViewMapModal] = useState(false);
-  const [showAddMapModal, setShowAddMapModal] = useState(false);
-  const [deletingMap, setDeletingMap] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [updatingMap, setUpdatingMap] = useState(null);
   const [selectedMainMap, setSelectedMainMap] = useState(null);
 
-  // Initialize selectedMainMap on component mount and fix any incorrect map types
+  const refreshKey = `mapFixAttempted_${projectId}`;
+
   useEffect(() => {
-    const fixMaps = async () => {
-      if (!maps || maps.length === 0) return;
+    fetchMaps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const fetchMaps = async () => {
+    try {
+      setLoading(true);
+      const response = await getMaps(projectId);
+      setMaps(response);
       
-      // Find all maps with implantation type
-      const mainMaps = maps.filter(m => m.map_type === 'implantation');
-      console.log(`Found ${mainMaps.length} main maps out of ${maps.length} total maps`);
+      // Check if we've already tried to fix maps this session
+      const fixAttempted = localStorage.getItem(refreshKey);
       
-      // Normal case: exactly one main map
-      if (mainMaps.length === 1) {
-        setSelectedMainMap(mainMaps[0]);
-        return;
+      if (!fixAttempted) {
+        // Only attempt to fix maps once per session
+        await checkAndFixMaps(response);
+        // Mark that we've attempted a fix
+        localStorage.setItem(refreshKey, 'true');
+      } else {
+        console.log('Map fix already attempted in this session, skipping check');
       }
       
-      // Problem case: No main maps, set the first map as main
-      if (mainMaps.length === 0) {
-        console.log("No main maps found. Setting first map as main.");
-        const firstMap = maps[0];
-        try {
-          const updatedMap = await updateMap(firstMap.id, {
-            name: firstMap.name, 
-            map_type: 'implantation'
-          });
-          onMapAdded(updatedMap);
-          window.location.reload();
-        } catch (error) {
-          console.error("Error setting first map as main:", error);
-        }
-        return;
-      }
-      
-      // Problem case: Multiple main maps, keep only the first one
-      if (mainMaps.length > 1) {
-        console.log("Multiple main maps found. Fixing...");
-        try {
-          // Keep the first as main, change others to overlay
-          for (let i = 1; i < mainMaps.length; i++) {
-            const map = mainMaps[i];
-            const updatedMap = await updateMap(map.id, {
-              name: map.name,
-              map_type: 'overlay'
-            });
-            onMapAdded(updatedMap);
-          }
-          
-          // Force reload to show changes
-          window.location.reload();
-        } catch (error) {
-          console.error("Error fixing multiple main maps:", error);
-        }
-      }
-    };
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching maps:', error);
+      setLoading(false);
+    }
+  };
+
+  // Function to check and fix map types
+  const checkAndFixMaps = async (mapsList) => {
+    // Count how many main maps (implantation) we have
+    const mainMaps = mapsList.filter(map => map.map_type === 'implantation');
+    console.log(`Found ${mainMaps.length} main maps`);
     
-    fixMaps();
-  }, [maps, onMapAdded]);
-  
+    // No main maps found, set the first map as main
+    if (mainMaps.length === 0 && mapsList.length > 0) {
+      console.log('No main maps found. Setting first map as main map.');
+      try {
+        const firstMap = mapsList[0];
+        await updateMap(firstMap.id, { map_type: 'implantation' });
+        // Alert before refresh
+        alert('Setting first map as main map. Page will refresh once.');
+        window.location.reload();
+      } catch (error) {
+        console.error('Error setting main map:', error);
+      }
+    }
+    
+    // Multiple main maps found, keep only the first one as main
+    if (mainMaps.length > 1) {
+      console.log(`Multiple main maps found (${mainMaps.length}). Fixing to keep only one main map.`);
+      try {
+        // Update all but the first main map to be overlays
+        const updatePromises = mainMaps.slice(1).map(map => 
+          updateMap(map.id, { map_type: 'overlay' })
+        );
+        
+        await Promise.all(updatePromises);
+        
+        // Alert before refresh
+        alert(`Fixed ${mainMaps.length - 1} maps that were incorrectly set as main. Page will refresh once.`);
+        
+        // Use setTimeout to ensure the alert is seen before refresh
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } catch (error) {
+        console.error('Error fixing main maps:', error);
+      }
+    }
+  };
+
+  const handleDeleteMap = async (mapId) => {
+    setDeletingMapId(mapId);
+    setDeleteLoading(true);
+    try {
+      await deleteMap(mapId);
+      setMaps(maps.filter(map => map.id !== mapId));
+    } catch (error) {
+      console.error('Error deleting map:', error);
+    }
+    setDeleteLoading(false);
+    setDeletingMapId(null);
+  };
+
+  const handleSetAsMainMap = async (mapId) => {
+    setUpdatingMapId(mapId);
+    try {
+      // Find the current main map
+      const currentMainMap = maps.find(map => map.map_type === 'implantation');
+      
+      // Change current main map to overlay
+      if (currentMainMap) {
+        await updateMap(currentMainMap.id, { map_type: 'overlay' });
+      }
+      
+      // Set the selected map as main
+      await updateMap(mapId, { map_type: 'implantation' });
+      
+      // Update local state to reflect changes
+      setMaps(maps.map(map => {
+        if (map.id === currentMainMap?.id) {
+          return { ...map, map_type: 'overlay' };
+        }
+        if (map.id === mapId) {
+          return { ...map, map_type: 'implantation' };
+        }
+        return map;
+      }));
+    } catch (error) {
+      console.error('Error setting map as main:', error);
+    }
+    setUpdatingMapId(null);
+  };
+
+  const handleAddMap = (newMap) => {
+    setMaps([...maps, newMap]);
+  };
+
   const handleViewMap = (map) => {
     setSelectedMap(map);
     setShowViewMapModal(true);
   };
-  
-  const handleMapAdded = (newMap) => {
-    setShowAddMapModal(false);
-    onMapAdded(newMap);
-  };
-  
-  const handleDeleteMap = async (mapId) => {
-    try {
-      setLoading(true);
-      await deleteMap(mapId);
-      setDeletingMap(null);
-      onMapDeleted(mapId);
-    } catch (error) {
-      console.error('Error deleting map:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleSetAsMainMap = async (map) => {
-    if (selectedMainMap && selectedMainMap.id === map.id) {
-      return;
-    }
-    
-    try {
-      setUpdatingMap(map.id);
-      
-      // First update the current map to be the main map
-      const updatedCurrentMap = await updateMap(map.id, {
-        name: map.name,
-        map_type: 'implantation'
-      });
-      
-      // Then update the previous main map to be an overlay
-      let updatedPreviousMain = null;
-      if (selectedMainMap) {
-        updatedPreviousMain = await updateMap(selectedMainMap.id, {
-          name: selectedMainMap.name,
-          map_type: 'overlay'
-        });
-      }
-      
-      // Now update the local state
-      setSelectedMainMap(updatedCurrentMap);
-      
-      // Notify parent component of the updates
-      if (onMapAdded) {
-        // First update the new main map
-        onMapAdded(updatedCurrentMap);
-        
-        // Then update the previous main map if it exists
-        if (updatedPreviousMain) {
-          onMapAdded(updatedPreviousMain);
-        }
-      }
-      
-      // Force refresh the component with current maps
-      if (onMapDeleted && updatedPreviousMain) {
-        // This is a hack to force the parent to refresh the maps list
-        // We delete and immediately re-add the map to force a refresh
-        onMapDeleted(updatedPreviousMain.id);
-        onMapAdded(updatedPreviousMain);
-      }
-      
-    } catch (error) {
-      console.error('Error setting map as main:', error);
-    } finally {
-      setUpdatingMap(null);
-    }
-  };
-  
-  if (!maps || maps.length === 0) {
+
+  if (loading) {
     return (
-      <div className="text-center p-5 mb-4">
-        <h4>No Maps Available</h4>
-        <p>This project doesn't have any maps yet.</p>
-        <Button variant="primary" onClick={() => setShowAddMapModal(true)}>
-          Add Your First Map
-        </Button>
-        
-        <AddMapModal 
-          show={showAddMapModal}
-          onHide={() => setShowAddMapModal(false)}
-          onMapAdded={handleMapAdded}
-          projectId={projectId}
-        />
+      <div className="d-flex justify-content-center mt-5">
+        <Spinner animation="border" />
       </div>
     );
   }
-  
+
   return (
-    <div className="maps-manager">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3>Project Maps</h3>
-        <Button variant="primary" onClick={() => setShowAddMapModal(true)}>
+    <div className="maps-container">
+      <div className="mb-4 d-flex justify-content-between align-items-center">
+        <h2>Project Maps</h2>
+        <Button variant="primary" onClick={() => setShowModal(true)}>
           Add New Map
         </Button>
       </div>
-      
-      <Row>
-        {maps.map(map => (
-          <Col md={4} key={`map-${map.id}`} className="mb-4">
-            <Card>
-              <Card.Header className="d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">{map.name}</h5>
-                {map.map_type === 'implantation' ? (
-                  <Badge bg="primary">Main Map</Badge>
-                ) : (
-                  <Badge bg="info">Overlay</Badge>
-                )}
-              </Card.Header>
-              <Card.Body className="text-center">
-                <div 
-                  className="map-preview mb-3" 
-                  style={{ 
-                    height: '150px', 
-                    background: '#f8f9fa',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => handleViewMap(map)}
-                >
-                  <i className="bi bi-map" style={{ fontSize: '3rem', color: '#6c757d' }}></i>
+
+      {maps.length === 0 ? (
+        <p>No maps available for this project.</p>
+      ) : (
+        <div className="map-cards">
+          {maps.map((map) => (
+            <Card key={map.id} className="map-card">
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <Card.Title>{map.name}</Card.Title>
+                  <Badge bg={map.map_type === 'implantation' ? 'success' : 'secondary'}>
+                    {map.map_type === 'implantation' ? 'Main Map' : 'Overlay'}
+                  </Badge>
                 </div>
-                
-                <div className="d-flex justify-content-between">
-                  <div className="d-flex gap-2">
-                    <Button variant="outline-primary" onClick={() => handleViewMap(map)}>
-                      View
+                <Card.Text className="text-muted mb-2">{map.description || 'No description'}</Card.Text>
+                <div className="d-flex justify-content-between mt-3">
+                  {map.map_type !== 'implantation' && (
+                    <Button
+                      variant="warning"
+                      onClick={() => handleSetAsMainMap(map.id)}
+                      disabled={updatingMapId !== null}
+                    >
+                      {updatingMapId === map.id ? (
+                        <>
+                          <Spinner as="span" animation="border" size="sm" className="me-1" />
+                          Setting...
+                        </>
+                      ) : (
+                        'Set as Main'
+                      )}
                     </Button>
-                    {map.map_type !== 'implantation' && (
-                      <Button 
-                        variant="warning" 
-                        onClick={() => handleSetAsMainMap(map)}
-                        disabled={updatingMap === map.id}
-                      >
-                        {updatingMap === map.id ? (
-                          <><Spinner animation="border" size="sm" /> Setting...</>
-                        ) : (
-                          "Set as Main"
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                  <Button 
-                    variant="outline-danger"
-                    onClick={() => setDeletingMap(map)}
-                    disabled={updatingMap === map.id}
+                  )}
+                  <Button
+                    variant="danger"
+                    onClick={() => handleDeleteMap(map.id)}
+                    disabled={deleteLoading}
+                    className="ms-auto" // Push to the right
                   >
-                    Delete
+                    {deletingMapId === map.id && deleteLoading ? (
+                      <>
+                        <Spinner as="span" animation="border" size="sm" className="me-1" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
                   </Button>
                 </div>
               </Card.Body>
-              <Card.Footer className="text-muted">
-                <small>Uploaded: {new Date(map.uploaded_at).toLocaleDateString()}</small>
-              </Card.Footer>
             </Card>
-          </Col>
-        ))}
-      </Row>
-      
+          ))}
+        </div>
+      )}
+
+      <AddMapModal
+        show={showModal}
+        onHide={() => setShowModal(false)}
+        projectId={projectId}
+        onMapAdded={handleAddMap}
+      />
+
       {/* View Map Modal */}
-      <Modal
-        show={showViewMapModal}
-        onHide={() => setShowViewMapModal(false)}
-        size="lg"
-        centered
-      >
+      <Modal show={showViewMapModal} onHide={() => setShowViewMapModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>{selectedMap?.name}</Modal.Title>
         </Modal.Header>
-        <Modal.Body className="p-0">
-          {selectedMap?.content_url && (
-            <div style={{ height: '70vh', width: '100%', overflow: 'hidden' }}>
-              <iframe
-                src={`${selectedMap.content_url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
-                title={selectedMap.name}
-                style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  border: 'none',
-                  backgroundColor: 'white'
-                }}
-                frameBorder="0"
-              />
-            </div>
-          )}
-        </Modal.Body>
-      </Modal>
-      
-      {/* Delete Confirmation Modal */}
-      <Modal
-        show={!!deletingMap}
-        onHide={() => setDeletingMap(null)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Confirm Deletion</Modal.Title>
-        </Modal.Header>
         <Modal.Body>
-          Are you sure you want to delete the map "{deletingMap?.name}"? This action cannot be undone.
+          {/* Map preview content would go here */}
+          <div className="text-center p-5">
+            <h4>Map Preview</h4>
+            <p>A preview of the map would be displayed here.</p>
+          </div>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setDeletingMap(null)}>
-            Cancel
-          </Button>
-          <Button 
-            variant="danger" 
-            onClick={() => handleDeleteMap(deletingMap?.id)}
-            disabled={loading}
-          >
-            {loading ? <><Spinner animation="border" size="sm" /> Deleting...</> : 'Delete'}
-          </Button>
-        </Modal.Footer>
       </Modal>
-      
-      {/* Add Map Modal */}
-      <AddMapModal 
-        show={showAddMapModal}
-        onHide={() => setShowAddMapModal(false)}
-        onMapAdded={handleMapAdded}
-        projectId={projectId}
-      />
     </div>
   );
 };
