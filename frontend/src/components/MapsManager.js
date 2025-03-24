@@ -10,6 +10,9 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   const [deletingMap, setDeletingMap] = useState(null);
   const [loading, setLoading] = useState(false);
   const [updatingMap, setUpdatingMap] = useState(null);
+  const [selectedMainMap, setSelectedMainMap] = useState(() => {
+    return maps.find(m => m.map_type === 'implantation') || maps[0];
+  });
   
   const handleViewMap = (map) => {
     setSelectedMap(map);
@@ -35,36 +38,32 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   };
   
   const handleSetAsMainMap = async (map) => {
-    if (map.map_type === 'implantation') {
-      // Already the main map
+    if (selectedMainMap && selectedMainMap.id === map.id) {
       return;
     }
     
     try {
       setUpdatingMap(map.id);
       
-      // First, find current implantation map and set it to overlay
-      const currentMainMap = maps.find(m => m.map_type === 'implantation');
-      if (currentMainMap) {
-        await updateMap(currentMainMap.id, {
-          name: currentMainMap.name,
+      if (selectedMainMap) {
+        await updateMap(selectedMainMap.id, {
+          name: selectedMainMap.name,
           map_type: 'overlay'
         });
       }
       
-      // Then set the selected map as implantation
       const updatedMap = await updateMap(map.id, {
         name: map.name,
         map_type: 'implantation'
       });
       
-      // Call a function to update the map in the parent component
+      setSelectedMainMap(updatedMap);
+      
       handleMapUpdated(updatedMap);
       
-      // If there was a previous main map, update it in the UI too
-      if (currentMainMap) {
+      if (selectedMainMap) {
         handleMapUpdated({
-          ...currentMainMap,
+          ...selectedMainMap,
           map_type: 'overlay'
         });
       }
@@ -77,12 +76,10 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   };
   
   const handleMapUpdated = (updatedMap) => {
-    // Create a new array with the updated map
     const updatedMaps = maps.map(m => 
       m.id === updatedMap.id ? updatedMap : m
     );
     
-    // Call the parent's onMapAdded function to update the state
     onMapAdded(updatedMap);
   };
   
@@ -120,9 +117,11 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
             <Card>
               <Card.Header className="d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">{map.name}</h5>
-                <Badge bg={map.map_type === 'implantation' ? 'primary' : 'info'}>
-                  {map.map_type === 'implantation' ? 'Main Map' : 'Overlay'}
-                </Badge>
+                {selectedMainMap && selectedMainMap.id === map.id ? (
+                  <Badge bg="primary">Main Map</Badge>
+                ) : (
+                  <Badge bg="info">Overlay</Badge>
+                )}
               </Card.Header>
               <Card.Body className="text-center">
                 <div 
@@ -145,7 +144,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
                     <Button variant="outline-primary" onClick={() => handleViewMap(map)}>
                       View
                     </Button>
-                    {map.map_type !== 'implantation' && (
+                    {(!selectedMainMap || selectedMainMap.id !== map.id) && (
                       <Button 
                         variant="warning" 
                         onClick={() => handleSetAsMainMap(map)}
