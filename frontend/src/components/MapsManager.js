@@ -95,17 +95,11 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
         }
       }
       
-      // Set a success message
-      alert("Map set as main successfully!");
+      // Set a success message and tell user we need to reload to see changes
+      alert("Map set as main successfully! The page will reload to show the changes.");
       
-      // Instead of reloading, force a re-render by telling the parent to refresh data
-      if (window.refreshMapsData) {
-        window.refreshMapsData();
-      } else {
-        // Fallback if no refreshMapsData function exists
-        // We'll try to reload just this component without full page refresh
-        window.location.hash = 'project-maps'; // Force focus on the project maps tab
-      }
+      // Force a full page reload to the project maps tab
+      window.location.href = `/projects/${projectId}?tab=project-maps`;
       
     } catch (error) {
       console.error('Error setting map as main:', error);
@@ -157,26 +151,11 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
       // Update all maps in parent
       updatedMaps.forEach(m => onMapAdded(m));
       
-      // Set a success message
-      alert("Map types fixed successfully!");
+      // Set a success message and tell user we need to reload to see changes
+      alert("Map types fixed successfully! The page will reload to show the changes.");
       
-      // Instead of reloading, force a re-render by telling the parent to refresh data
-      if (window.refreshMapsData) {
-        window.refreshMapsData();
-      } else {
-        // Fallback if no refreshMapsData function exists
-        // We'll try to reload just this component without full page refresh
-        window.location.hash = 'project-maps'; // Force focus on the project maps tab
-        setShowFixMapTypesButton(false); // Hide the fix button
-        
-        // Manually refresh the state to reflect changes
-        updatedMaps.forEach(map => {
-          if (map.id === firstMap.id) {
-            // Set the selected main map to the first map
-            setSelectedMainMap(map);
-          }
-        });
-      }
+      // Force a full page reload - this is the most reliable way to make sure all components update
+      window.location.href = `/projects/${projectId}?tab=project-maps`;
       
     } catch (error) {
       console.error('Error fixing map types:', error);
