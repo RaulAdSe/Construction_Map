@@ -100,6 +100,21 @@ const MapViewer = ({ onLogout }) => {
     }
   };
   
+  // Add a function to window that can be called from anywhere to refresh maps data
+  window.refreshMapsData = async () => {
+    if (projectId) {
+      try {
+        // Only fetch maps, not the entire project data
+        const mapsData = await fetchMaps(parseInt(projectId, 10));
+        setMaps(mapsData);
+        showNotification('Maps updated successfully!', 'success');
+      } catch (error) {
+        console.error('Error refreshing maps:', error);
+        showNotification('Error refreshing maps data.', 'error');
+      }
+    }
+  };
+  
   const handleBackToProjects = () => {
     navigate('/projects');
   };

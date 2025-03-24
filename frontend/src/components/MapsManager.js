@@ -53,7 +53,12 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
     }
   };
   
-  const handleSetAsMainMap = async (map) => {
+  const handleSetAsMainMap = async (map, e) => {
+    // Prevent default form behavior if this is triggered by a form
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
     if (selectedMainMap && selectedMainMap.id === map.id) {
       return;
     }
@@ -91,10 +96,16 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
       }
       
       // Set a success message
-      alert("Map set as main successfully. The page will now refresh.");
+      alert("Map set as main successfully!");
       
-      // Force a page refresh with the current URL to preserve the route
-      window.location.href = window.location.href;
+      // Instead of reloading, force a re-render by telling the parent to refresh data
+      if (window.refreshMapsData) {
+        window.refreshMapsData();
+      } else {
+        // Fallback if no refreshMapsData function exists
+        // We'll try to reload just this component without full page refresh
+        window.location.hash = 'project-maps'; // Force focus on the project maps tab
+      }
       
     } catch (error) {
       console.error('Error setting map as main:', error);
@@ -105,7 +116,12 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   };
   
   // Fix function to correct map types if all are implantation or none are
-  const handleFixMapTypes = async () => {
+  const handleFixMapTypes = async (e) => {
+    // Prevent default form behavior if this is triggered by a form
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
     if (!maps || maps.length === 0) return;
     
     try {
@@ -142,10 +158,25 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
       updatedMaps.forEach(m => onMapAdded(m));
       
       // Set a success message
-      alert("Map types fixed successfully. The page will now refresh.");
+      alert("Map types fixed successfully!");
       
-      // Force a page refresh with the current URL to preserve the route
-      window.location.href = window.location.href;
+      // Instead of reloading, force a re-render by telling the parent to refresh data
+      if (window.refreshMapsData) {
+        window.refreshMapsData();
+      } else {
+        // Fallback if no refreshMapsData function exists
+        // We'll try to reload just this component without full page refresh
+        window.location.hash = 'project-maps'; // Force focus on the project maps tab
+        setShowFixMapTypesButton(false); // Hide the fix button
+        
+        // Manually refresh the state to reflect changes
+        updatedMaps.forEach(map => {
+          if (map.id === firstMap.id) {
+            // Set the selected main map to the first map
+            setSelectedMainMap(map);
+          }
+        });
+      }
       
     } catch (error) {
       console.error('Error fixing map types:', error);
@@ -250,7 +281,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
                     {map.map_type !== 'implantation' && (
                       <Button 
                         variant="warning" 
-                        onClick={() => handleSetAsMainMap(map)}
+                        onClick={(e) => handleSetAsMainMap(map, e)}
                         disabled={updatingMap === map.id}
                       >
                         {updatingMap === map.id ? (
