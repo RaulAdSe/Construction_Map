@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { addEvent } from '../services/eventService';
 
-const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [] }) => {
+const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = [] }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
@@ -11,21 +11,32 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const [uploadFile, setUploadFile] = useState(null);
   
   // Get visible maps and their settings from the parent component
-  const [visibleMapIds, setVisibleMapIds] = useState([mapId]);
-  const [mapOpacities, setMapOpacities] = useState({});
+  const [visibleMapIds, setVisibleMapIds] = useState(() => {
+    // Initialize with the visibleMaps prop and ensure the main map is included
+    if (visibleMaps.length > 0) {
+      if (!visibleMaps.includes(mapId)) {
+        return [...visibleMaps, mapId];
+      }
+      return [...visibleMaps];
+    }
+    return [mapId];
+  });
   
   // Create a list of all available maps for the overlay configuration
   const availableMaps = allMaps.filter(m => m.project_id === parseInt(projectId));
   const mainMap = availableMaps.find(m => m.id === parseInt(mapId));
   const overlayMaps = availableMaps.filter(m => m.id !== parseInt(mapId));
   
-  // Initialize map opacities if needed
-  if (mainMap && !mapOpacities[mainMap.id]) {
-    setMapOpacities(prev => ({
-      ...prev,
-      [mainMap.id]: 1.0
-    }));
-  }
+  // Update visibleMapIds when visibleMaps prop changes
+  useEffect(() => {
+    if (visibleMaps.length > 0) {
+      let updatedMaps = [...visibleMaps];
+      if (!visibleMaps.includes(mapId)) {
+        updatedMaps.push(mapId);
+      }
+      setVisibleMapIds(updatedMaps);
+    }
+  }, [visibleMaps, mapId]);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,11 +54,13 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     setError('');
     setLoading(true);
     
-    // Prepare map overlay configuration
+    // Prepare map overlay configuration with fixed opacity values
     const activeMapSettings = {};
     visibleMapIds.forEach(id => {
+      // Main map gets 100% opacity, overlays get 50%
+      const isMainMap = parseInt(id) === parseInt(mapId);
       activeMapSettings[id] = {
-        opacity: mapOpacities[id] || 1.0
+        opacity: isMainMap ? 1.0 : 0.5
       };
     });
     
