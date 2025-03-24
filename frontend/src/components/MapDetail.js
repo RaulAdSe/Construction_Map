@@ -237,7 +237,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
-  const visibleEvents = events.filter(event => visibleMapIds.includes(event.map_id));
+  // Always include events from the main map, plus any events from visible overlay maps
+  const visibleEvents = events.filter(event => {
+    // Always show events from the main map
+    if (event.map_id === implantationMap?.id) {
+      return true;
+    }
+    // For other maps, only show events if the map is visible
+    return visibleMaps.includes(event.map_id);
+  });
   
   // Add a useEffect to notify parent component when visibleMaps changes
   useEffect(() => {
