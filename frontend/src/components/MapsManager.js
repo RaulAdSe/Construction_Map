@@ -18,11 +18,11 @@ const MapsManager = ({ projectId }) => {
   const refreshKey = `mapFixAttempted_${projectId}`;
 
   useEffect(() => {
-    fetchMaps();
+    loadMaps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  const fetchMaps = async () => {
+  const loadMaps = async () => {
     try {
       setLoading(true);
       const response = await fetchMaps(projectId);
