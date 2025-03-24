@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Button, Modal, ListGroup, Spinner, Badge } from 'react-bootstrap';
+import { Row, Col, Card, Button, Modal, ListGroup, Spinner, Badge, Alert } from 'react-bootstrap';
 import { deleteMap, updateMap } from '../services/mapService';
 import AddMapModal from './AddMapModal';
 
@@ -11,12 +11,21 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   const [loading, setLoading] = useState(false);
   const [updatingMap, setUpdatingMap] = useState(null);
   const [selectedMainMap, setSelectedMainMap] = useState(null);
+  const [showFixMapTypesButton, setShowFixMapTypesButton] = useState(false);
+  const [fixingMapTypes, setFixingMapTypes] = useState(false);
 
   // Initialize selectedMainMap on component mount or when maps change
   useEffect(() => {
     if (maps && maps.length > 0) {
+      // Find the main map (implantation type)
       const mainMap = maps.find(m => m.map_type === 'implantation');
       setSelectedMainMap(mainMap || maps[0]);
+      
+      // Check if there's a problem with map types (all implantation or none)
+      const implantationCount = maps.filter(m => m.map_type === 'implantation').length;
+      
+      // Show fix button if all maps are implantation or if no maps are implantation
+      setShowFixMapTypesButton(implantationCount === maps.length || implantationCount === 0);
     }
   }, [maps]);
   
@@ -95,6 +104,54 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
     }
   };
   
+  // Fix function to correct map types if all are implantation or none are
+  const handleFixMapTypes = async () => {
+    if (!maps || maps.length === 0) return;
+    
+    try {
+      setFixingMapTypes(true);
+      
+      // Select the first map as implantation and rest as overlay
+      const firstMap = maps[0];
+      
+      // Update the first map to be implantation
+      const mainMap = await updateMap(firstMap.id, {
+        name: firstMap.name,
+        map_type: 'implantation'
+      });
+      
+      // Update all other maps to be overlay
+      const updatedMaps = [mainMap];
+      
+      // Process remaining maps
+      for (let i = 1; i < maps.length; i++) {
+        const currentMap = maps[i];
+        // Only update if not already overlay
+        if (currentMap.map_type !== 'overlay') {
+          const overlayMap = await updateMap(currentMap.id, {
+            name: currentMap.name,
+            map_type: 'overlay'
+          });
+          updatedMaps.push(overlayMap);
+        } else {
+          updatedMaps.push(currentMap);
+        }
+      }
+      
+      // Update all maps in parent
+      updatedMaps.forEach(m => onMapAdded(m));
+      
+      // Force a page refresh to ensure all maps are updated properly
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error fixing map types:', error);
+    } finally {
+      setFixingMapTypes(false);
+      setShowFixMapTypesButton(false);
+    }
+  };
+  
   if (!maps || maps.length === 0) {
     return (
       <div className="text-center p-5 mb-4">
@@ -118,10 +175,37 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
     <div className="maps-manager">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>Project Maps</h3>
-        <Button variant="primary" onClick={() => setShowAddMapModal(true)}>
-          Add New Map
-        </Button>
+        <div>
+          {showFixMapTypesButton && (
+            <Button 
+              variant="danger" 
+              onClick={handleFixMapTypes} 
+              disabled={fixingMapTypes}
+              className="me-2"
+            >
+              {fixingMapTypes ? (
+                <><Spinner animation="border" size="sm" /> Fixing Map Types...</>
+              ) : (
+                "Fix Map Types"
+              )}
+            </Button>
+          )}
+          <Button variant="primary" onClick={() => setShowAddMapModal(true)}>
+            Add New Map
+          </Button>
+        </div>
       </div>
+      
+      {showFixMapTypesButton && (
+        <Alert variant="warning" className="mb-4">
+          <Alert.Heading>Map Type Issue Detected</Alert.Heading>
+          <p>
+            All maps appear to be set as Main Maps or no Main Map is set. 
+            This can cause issues with displaying overlays correctly. 
+            Click "Fix Map Types" to automatically designate the first map as Main and others as overlays.
+          </p>
+        </Alert>
+      )}
       
       <Row>
         {maps.map(map => (
