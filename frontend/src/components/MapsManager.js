@@ -4,7 +4,7 @@ import { deleteMap, fetchMaps, updateMap } from '../services/mapService';
 import AddMapModal from './AddMapModal';
 import './../assets/styles/MapViewer.css';
 
-const MapsManager = ({ projectId }) => {
+const MapsManager = ({ projectId, onMapUpdated }) => {
   const [maps, setMaps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -128,6 +128,11 @@ const MapsManager = ({ projectId }) => {
         }
         return map;
       }));
+
+      // Notify parent component that map has been updated
+      if (onMapUpdated) {
+        onMapUpdated();
+      }
     } catch (error) {
       console.error('Error setting map as main:', error);
     }

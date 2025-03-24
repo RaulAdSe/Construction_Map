@@ -411,10 +411,29 @@ const MapViewer = ({ onLogout }) => {
           
           <Tab eventKey="project-maps" title="Project Maps">
             <MapsManager 
-              maps={maps}
-              onMapAdded={handleMapAdded}
-              onMapDeleted={handleMapDeleted}
               projectId={project.id}
+              onMapUpdated={() => {
+                // Force reload the maps data when a map is updated (e.g., set as main)
+                const refreshData = async () => {
+                  try {
+                    // Fetch fresh map data
+                    const mapsData = await fetchMaps(parseInt(projectId, 10));
+                    setMaps(mapsData);
+                    
+                    // Find and select the main map
+                    const mainMap = mapsData.find(map => map.map_type === 'implantation');
+                    if (mainMap) {
+                      setSelectedMap(mainMap);
+                      showNotification('Map updated successfully! Main map has been changed.', 'success');
+                    }
+                  } catch (error) {
+                    console.error('Error refreshing maps after update:', error);
+                    showNotification('Error updating maps. Please refresh the page.', 'error');
+                  }
+                };
+                
+                refreshData();
+              }}
             />
           </Tab>
           

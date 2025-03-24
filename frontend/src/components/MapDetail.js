@@ -12,6 +12,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
   const overlayMaps = allMaps.filter(m => m.id !== implantationMap?.id);
   
+  // Track dependency on map types to refresh when they change
+  useEffect(() => {
+    // Recalculate implantation map and overlay maps when allMaps changes
+    const mainMap = allMaps.find(m => m.map_type === 'implantation');
+    if (mainMap) {
+      console.log("MapDetail detected main map change to:", mainMap.name);
+    }
+  }, [allMaps]);
+  
   // Store map visibility settings in localStorage
   const localStorageKey = `map_overlays_${projectId}`;
   

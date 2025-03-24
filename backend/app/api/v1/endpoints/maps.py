@@ -132,7 +132,8 @@ def update_map(
         db,
         map_id,
         name=map_update.name,
-        transform_data=map_update.transform_data
+        transform_data=map_update.transform_data,
+        map_type=map_update.map_type
     )
     
     return updated_map
