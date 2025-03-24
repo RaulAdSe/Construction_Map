@@ -59,6 +59,29 @@ wait_for_service() {
   return 0
 }
 
+# Function to check if the backend API is responding
+check_backend_api() {
+  local max_attempts=$1
+  local attempt=1
+  
+  echo -e "${YELLOW}Checking if backend API is responding...${NC}"
+  
+  while [ $attempt -le $max_attempts ]; do
+    if curl -s http://localhost:8000/ > /dev/null; then
+      echo -e "${GREEN}Backend API is responding!${NC}"
+      return 0
+    fi
+    
+    echo -e "${YELLOW}Waiting for backend API to respond (attempt $attempt/$max_attempts)...${NC}"
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+  
+  echo -e "${RED}Backend API failed to respond after $max_attempts attempts.${NC}"
+  echo -e "${YELLOW}Check logs/backend.log for errors.${NC}"
+  return 1
+}
+
 # Kill any existing servers on ports 3000 and 8000
 kill_process_on_port 3000
 kill_process_on_port 8000
@@ -106,6 +129,13 @@ fi
 # Wait for backend to be available
 if ! wait_for_service 8000 "backend" 10; then
   echo -e "${RED}Terminating startup script due to backend failure.${NC}"
+  kill $BACKEND_PID 2>/dev/null || true
+  exit 1
+fi
+
+# Additionally check if backend API is responding
+if ! check_backend_api 5; then
+  echo -e "${RED}Terminating startup script due to backend API failure.${NC}"
   kill $BACKEND_PID 2>/dev/null || true
   exit 1
 fi
