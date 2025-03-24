@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Button, Modal, Spinner, Badge } from 'react-bootstrap';
+import { Row, Col, Card, Button, Modal, ListGroup, Spinner, Badge } from 'react-bootstrap';
 import { deleteMap, updateMap } from '../services/mapService';
 import AddMapModal from './AddMapModal';
 
@@ -10,57 +10,63 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   const [deletingMap, setDeletingMap] = useState(null);
   const [loading, setLoading] = useState(false);
   const [updatingMap, setUpdatingMap] = useState(null);
-  
-  // Ensure first map is main by default and fix any map type issues
+  const [selectedMainMap, setSelectedMainMap] = useState(null);
+
+  // Initialize selectedMainMap on component mount and fix any incorrect map types
   useEffect(() => {
-    if (maps && maps.length > 0) {
-      // Count how many main maps we have
-      const mainMaps = maps.filter(m => m.map_type === 'implantation');
+    const fixMaps = async () => {
+      if (!maps || maps.length === 0) return;
       
-      // If we have no main maps, set the first one as main
-      if (mainMaps.length === 0 && maps.length > 0) {
-        console.log("No main map found, setting first map as main");
+      // Find all maps with implantation type
+      const mainMaps = maps.filter(m => m.map_type === 'implantation');
+      console.log(`Found ${mainMaps.length} main maps out of ${maps.length} total maps`);
+      
+      // Normal case: exactly one main map
+      if (mainMaps.length === 1) {
+        setSelectedMainMap(mainMaps[0]);
+        return;
+      }
+      
+      // Problem case: No main maps, set the first map as main
+      if (mainMaps.length === 0) {
+        console.log("No main maps found. Setting first map as main.");
         const firstMap = maps[0];
-        updateMap(firstMap.id, {
-          name: firstMap.name,
-          map_type: 'implantation'
-        }).then(updatedMap => {
+        try {
+          const updatedMap = await updateMap(firstMap.id, {
+            name: firstMap.name, 
+            map_type: 'implantation'
+          });
           onMapAdded(updatedMap);
           window.location.reload();
-        });
+        } catch (error) {
+          console.error("Error setting first map as main:", error);
+        }
+        return;
       }
-      // If we have multiple main maps, fix by keeping only the first one as main
-      else if (mainMaps.length > 1) {
-        console.log("Multiple main maps found, fixing...");
-        
-        // Keep the first main map as main, change others to overlay
-        const promises = [];
-        let keptFirst = false;
-        
-        for (const map of mainMaps) {
-          if (!keptFirst) {
-            keptFirst = true;
-            continue; // Keep the first one
-          }
-          
-          // Change this map to overlay
-          promises.push(
-            updateMap(map.id, {
+      
+      // Problem case: Multiple main maps, keep only the first one
+      if (mainMaps.length > 1) {
+        console.log("Multiple main maps found. Fixing...");
+        try {
+          // Keep the first as main, change others to overlay
+          for (let i = 1; i < mainMaps.length; i++) {
+            const map = mainMaps[i];
+            const updatedMap = await updateMap(map.id, {
               name: map.name,
               map_type: 'overlay'
-            }).then(updatedMap => {
-              onMapAdded(updatedMap);
-            })
-          );
-        }
-        
-        // When all updates are done, reload
-        Promise.all(promises).then(() => {
-          console.log("Fixed multiple main maps");
+            });
+            onMapAdded(updatedMap);
+          }
+          
+          // Force reload to show changes
           window.location.reload();
-        });
+        } catch (error) {
+          console.error("Error fixing multiple main maps:", error);
+        }
       }
-    }
+    };
+    
+    fixMaps();
   }, [maps, onMapAdded]);
   
   const handleViewMap = (map) => {
@@ -87,31 +93,52 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   };
   
   const handleSetAsMainMap = async (map) => {
+    if (selectedMainMap && selectedMainMap.id === map.id) {
+      return;
+    }
+    
     try {
       setUpdatingMap(map.id);
       
-      // Find current main map
-      const currentMainMap = maps.find(m => m.map_type === 'implantation');
-      
-      // Update this map to be main
-      await updateMap(map.id, {
+      // First update the current map to be the main map
+      const updatedCurrentMap = await updateMap(map.id, {
         name: map.name,
         map_type: 'implantation'
       });
       
-      // Update previous main map to be overlay
-      if (currentMainMap) {
-        await updateMap(currentMainMap.id, {
-          name: currentMainMap.name,
+      // Then update the previous main map to be an overlay
+      let updatedPreviousMain = null;
+      if (selectedMainMap) {
+        updatedPreviousMain = await updateMap(selectedMainMap.id, {
+          name: selectedMainMap.name,
           map_type: 'overlay'
         });
       }
       
-      // Reload page to show changes
-      window.location.reload();
+      // Now update the local state
+      setSelectedMainMap(updatedCurrentMap);
+      
+      // Notify parent component of the updates
+      if (onMapAdded) {
+        // First update the new main map
+        onMapAdded(updatedCurrentMap);
+        
+        // Then update the previous main map if it exists
+        if (updatedPreviousMain) {
+          onMapAdded(updatedPreviousMain);
+        }
+      }
+      
+      // Force refresh the component with current maps
+      if (onMapDeleted && updatedPreviousMain) {
+        // This is a hack to force the parent to refresh the maps list
+        // We delete and immediately re-add the map to force a refresh
+        onMapDeleted(updatedPreviousMain.id);
+        onMapAdded(updatedPreviousMain);
+      }
+      
     } catch (error) {
       console.error('Error setting map as main:', error);
-      alert('Error setting map as main');
     } finally {
       setUpdatingMap(null);
     }
