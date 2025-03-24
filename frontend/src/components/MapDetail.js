@@ -23,7 +23,13 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     // Initialize visible maps and opacity
     if (implantationMap) {
       // Always show the implantation map first
-      setVisibleMaps([implantationMap.id]);
+      setVisibleMaps(prev => {
+        if (!prev.includes(implantationMap.id)) {
+          return [...prev, implantationMap.id];
+        }
+        return prev;
+      });
+      
       setMapOpacity(prev => ({
         ...prev,
         [implantationMap.id]: 1.0
@@ -114,13 +120,19 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     };
     
     if (fileExt === 'pdf') {
+      // For PDFs, use an iframe with direct embed and hide UI controls
       return (
-        <div key={currentMap.id} style={layerStyle}>
+        <div key={currentMap.id} style={layerStyle} className="pdf-container">
           <iframe 
-            src={url} 
-            className="clean-pdf-view"
+            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=fitH`}
             title={currentMap.name}
-            style={{ width: '100%', height: '100%', border: 'none' }}
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              border: 'none',
+              backgroundColor: 'transparent'
+            }}
+            frameBorder="0"
             onLoad={() => handleImageLoad()}
             onError={() => handleImageError()}
           />
@@ -269,7 +281,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
                 </div>
                 {visibleMaps.includes(overlayMap.id) && (
                   <Form.Range 
-                    value={mapOpacity[overlayMap.id] * 100 || 50}
+                    value={(mapOpacity[overlayMap.id] * 100) || 50}
                     onChange={(e) => handleOpacityChange(overlayMap.id, parseInt(e.target.value) / 100)}
                     min="10"
                     max="100"

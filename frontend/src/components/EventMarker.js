@@ -30,25 +30,23 @@ const EventMarker = ({ event, onClick }) => {
     position: 'absolute',
     left: `${event.x_coordinate}%`,
     top: `${event.y_coordinate}%`,
-    transform: 'translate(-50%, -50%)',
-    width: isHovered ? '18px' : '14px',
-    height: isHovered ? '18px' : '14px',
-    borderRadius: '50%',
+    width: isHovered ? '20px' : '16px',
+    height: isHovered ? '20px' : '16px',
     backgroundColor: color,
     border: '2px solid white',
-    boxShadow: '0 0 3px rgba(0, 0, 0, 0.3)',
+    borderRadius: '50%',
+    transform: 'translate(-50%, -50%)',
+    boxShadow: isHovered 
+      ? `0 0 8px ${color}, 0 0 12px rgba(0, 0, 0, 0.4)` 
+      : '0 0 4px rgba(0, 0, 0, 0.4)',
     cursor: 'pointer',
-    zIndex: isHovered ? 1001 : 1000,
-    transition: 'width 0.2s, height 0.2s, box-shadow 0.2s'
+    zIndex: 2000,
+    transition: 'all 0.2s ease',
+    pointerEvents: 'auto'
   };
-  
-  // Add a pulsing effect when hovered
-  if (isHovered) {
-    markerStyle.boxShadow = `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.3)`;
-  }
-  
+
   const tooltip = (
-    <Tooltip id={`tooltip-${event.id}`}>
+    <Tooltip id={`tooltip-${event.id}`} className="event-tooltip">
       <div>
         <strong>{event.title}</strong>
       </div>
