@@ -59,6 +59,34 @@ const MapViewer = ({ onLogout }) => {
     }
   }, [selectedMap]);
   
+  // Reload map data when switching to Map View tab
+  useEffect(() => {
+    if (activeTab === 'map-view' && projectId) {
+      // We only want to reload the maps to get any updated main map
+      const refreshMaps = async () => {
+        try {
+          const mapsData = await fetchMaps(parseInt(projectId, 10));
+          
+          // If the map types have changed, we need to update our state
+          const mainMap = mapsData.find(map => map.map_type === 'implantation');
+          
+          // Update the maps list
+          setMaps(mapsData);
+          
+          // If we have a main map and it's different from the currently selected map
+          if (mainMap && (!selectedMap || mainMap.id !== selectedMap.id)) {
+            console.log('Main map changed, updating selected map');
+            setSelectedMap(mainMap);
+          }
+        } catch (error) {
+          console.error('Error refreshing maps on tab change:', error);
+        }
+      };
+      
+      refreshMaps();
+    }
+  }, [activeTab, projectId, selectedMap]);
+  
   const loadProjectData = async (pid) => {
     try {
       setLoading(true);
@@ -86,9 +114,16 @@ const MapViewer = ({ onLogout }) => {
       }
       setEvents(allEvents);
       
-      // If there are maps, select the first one
+      // Select the main map (implantation type) if available, otherwise select the first map
       if (mapsData.length > 0) {
-        setSelectedMap(mapsData[0]);
+        const mainMap = mapsData.find(map => map.map_type === 'implantation');
+        if (mainMap) {
+          console.log('Found and selected main map:', mainMap.name);
+          setSelectedMap(mainMap);
+        } else {
+          console.log('No main map found, selecting first map');
+          setSelectedMap(mapsData[0]);
+        }
       } else {
         setSelectedMap(null);
       }
@@ -321,7 +356,12 @@ const MapViewer = ({ onLogout }) => {
                     <h6>Current View</h6>
                     {selectedMap && (
                       <div className="current-map-info mb-3">
-                        <p className="mb-1"><strong>Main Map:</strong> {selectedMap.name}</p>
+                        <p className="mb-1">
+                          <strong>Main Map:</strong> {selectedMap.name}
+                          {selectedMap.map_type === 'implantation' && (
+                            <span className="badge bg-success ms-2">Primary</span>
+                          )}
+                        </p>
                         <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
                         <p className="mb-0">
                           <strong>Events:</strong> {events.filter(e => visibleMapIds.includes(e.map_id)).length}
