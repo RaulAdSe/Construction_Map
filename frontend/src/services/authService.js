@@ -2,10 +2,9 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:8000/api/v1/auth';
 
-// Configure axios with longer timeout
+// Create instance with default config
 const api = axios.create({
-  baseURL: API_URL,
-  timeout: 20000, // 20 seconds
+  withCredentials: true,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'
@@ -14,37 +13,21 @@ const api = axios.create({
 
 export const login = async (username, password) => {
   try {
-    console.log(`Attempting to login at ${API_URL}/login with username: ${username}`);
-    
-    // Create form data
+    // Create form data for the request
     const formData = new FormData();
     formData.append('username', username);
     formData.append('password', password);
     
-    // Use axios directly with explicit configuration
-    const response = await axios({
-      method: 'post',
-      url: `${API_URL}/login`,
-      data: formData,
-      headers: { 
-        'Accept': 'application/json',
-        'Content-Type': 'multipart/form-data'
-      },
-      timeout: 20000, // 20 seconds timeout
-      withCredentials: false // Disable credentials for development
+    const response = await axios.post(`${API_URL}/login`, formData, {
+      withCredentials: true,
+      headers: {
+        'Accept': 'application/json'
+      }
     });
     
-    console.log('Login response:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Login error details:', {
-      message: error.message,
-      code: error.code,
-      response: error.response ? {
-        status: error.response.status,
-        data: error.response.data
-      } : 'No response'
-    });
+    console.error('Login error:', error);
     throw error;
   }
 };

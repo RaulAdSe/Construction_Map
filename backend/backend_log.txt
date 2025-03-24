@@ -1,0 +1,67 @@
+INFO:     Will watch for changes in these directories: ['/Users/rauladell/Work/Servitec/Map/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [98434] using StatReload
+/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/pydantic/_internal/_config.py:345: UserWarning: Valid config keys have changed in V2:
+* 'orm_mode' has been renamed to 'from_attributes'
+  warnings.warn(message, UserWarning)
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/Users/rauladell/.pyenv/versions/3.11.0/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/Users/rauladell/.pyenv/versions/3.11.0/lib/python3.11/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/uvicorn/_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/uvicorn/server.py", line 66, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/rauladell/.pyenv/versions/3.11.0/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Users/rauladell/.pyenv/versions/3.11.0/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/rauladell/.pyenv/versions/3.11.0/lib/python3.11/asyncio/base_events.py", line 650, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/uvicorn/server.py", line 70, in serve
+    await self._serve(sockets)
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/uvicorn/server.py", line 77, in _serve
+    config.load()
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/uvicorn/config.py", line 435, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/rauladell/.pyenv/versions/3.11.0/lib/python3.11/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1206, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1178, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1149, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/Users/rauladell/Work/Servitec/Map/backend/app/main.py", line 6, in <module>
+    from app.api.v1.api import api_router
+  File "/Users/rauladell/Work/Servitec/Map/backend/app/api/v1/api.py", line 9, in <module>
+    api_router.include_router(maps.router, prefix="/projects/{project_id}/maps", tags=["maps"])
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/fastapi/routing.py", line 1302, in include_router
+    self.add_api_route(
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/fastapi/routing.py", line 933, in add_api_route
+    route = route_class(
+            ^^^^^^^^^^^^
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/fastapi/routing.py", line 554, in __init__
+    self.dependant = get_dependant(path=self.path_format, call=self.endpoint)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/fastapi/dependencies/utils.py", line 285, in get_dependant
+    param_details = analyze_param(
+                    ^^^^^^^^^^^^^^
+  File "/Users/rauladell/Work/Servitec/Map/venv311/lib/python3.11/site-packages/fastapi/dependencies/utils.py", line 467, in analyze_param
+    assert isinstance(field_info, params.Path), (
+AssertionError: Cannot use `Form` for path param 'project_id'
+Checking/creating database...
+Database construction_map already exists.
+Using database URI: postgresql://postgres:postgres@localhost:5432/construction_map
+INFO:     Stopping reloader process [98434]

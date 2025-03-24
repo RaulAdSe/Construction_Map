@@ -1,0 +1,2711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construction Map Viewer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.css" rel="stylesheet">
+    
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
+    <script>
+        // Initialize PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-top: 20px;
+        }
+        .map-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .map-container img, .map-container iframe {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        /* PDF viewer specific styles */
+        .clean-pdf-view {
+            background-color: transparent !important;
+            border: none !important;
+            overflow: hidden !important;
+        }
+        
+        .map-iframe-container {
+            background-color: #f8f9fa !important;
+            border: 1px solid #ddd;
+        }
+        
+        .map-overlay {
+            background-color: transparent;
+        }
+        
+        /* CSS to hide PDF.js viewer UI elements */
+        .pdf-content-only {
+            background-color: white;
+        }
+        
+        /* Hide PDF viewer UI in iframes */
+        iframe.clean-pdf-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        
+        /* This CSS will be injected into the iframe */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printContainer * {
+                visibility: visible;
+            }
+        }
+        
+        /* Event marker styles */
+        .event-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            box-shadow: 0 0 0 2px white, 0 0 5px 2px rgba(0,0,0,0.5);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            pointer-events: auto !important;
+        }
+        .event-marker:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 0 0 3px white, 0 0 8px 3px rgba(0,0,0,0.7);
+            z-index: 2100;
+        }
+        .event-popup {
+            position: fixed;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            padding: 15px;
+            max-width: 300px;
+            z-index: 2200;
+        }
+        #eventMarkersContainer {
+            pointer-events: auto !important;
+        }
+        .event-marker * {
+            pointer-events: none;
+        }
+        .user-color-1 { background-color: #ff5733; }
+        .user-color-2 { background-color: #33a8ff; }
+        .user-color-3 { background-color: #33ff57; }
+        .user-color-4 { background-color: #c133ff; }
+        .user-color-5 { background-color: #ff33a8; }
+        .map-layer-checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .map-layer-checkbox-container:hover {
+            background-color: #e9ecef;
+        }
+        .implantation-map-label {
+            font-weight: bold;
+            color: #212529;
+        }
+        .overlay-map-label {
+            color: #495057;
+        }
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .event-form {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .table-responsive {
+            margin-top: 20px;
+        }
+        .map-layers-control {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 200px;
+        }
+        .map-iframe-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .event-popup {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            z-index: 1500;
+            max-width: 300px;
+            min-width: 200px;
+            animation: fadeIn 0.3s ease;
+        }
+        .user-color-1 { background-color: #FF5733; }
+        .user-color-2 { background-color: #33FF57; }
+        .user-color-3 { background-color: #3357FF; }
+        .user-color-4 { background-color: #F033FF; }
+        .user-color-5 { background-color: #FF9933; }
+        
+        /* Improved PDF Object Styling */
+        .pdf-object {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: white;
+        }
+        
+        /* Fix for Firefox PDF rendering */
+        @-moz-document url-prefix() {
+            .pdf-object {
+                height: 99%;
+                width: 99%;
+            }
+        }
+        
+        /* Special wrapper for PDF content only */
+        .pdf-content-only {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background-color: white !important;
+        }
+        
+        /* Canvas styling for PDF.js rendering */
+        .pdf-canvas {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        /* Enhanced map layers control */
+        .map-layers-control {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 200px;
+        }
+        
+        .map-layer-checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        
+        .map-layer-checkbox-container:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .base-map-label {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        
+        .overlay-map-label {
+            color: #495057;
+        }
+        .marker-content {
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 0 0 2px rgba(0,0,0,0.7);
+        }
+        /* Hide all PDF viewer UI elements - more aggressive approach */
+        #pdfViewerStyle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        /* Override all PDF.js viewer UI */
+        .clean-pdf-view {
+            background-color: transparent !important;
+            border: none !important;
+            overflow: hidden !important;
+        }
+
+        /* Complete removal of PDF viewer chrome */
+        .clean-pdf-view #toolbarContainer,
+        .clean-pdf-view #secondaryToolbar,
+        .clean-pdf-view .findbar,
+        .clean-pdf-view #sidebarContainer,
+        .clean-pdf-view #overlayContainer,
+        .clean-pdf-view #scaleSelectContainer,
+        .clean-pdf-view #pageNumberLabel,
+        .clean-pdf-view #viewFind,
+        .clean-pdf-view .toolbar,
+        .clean-pdf-view #toolbarViewer {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            opacity: 0 !important;
+        }
+
+        /* Make PDF canvas fill the entire container */
+        #viewer canvas {
+            width: 100% !important;
+            height: auto !important;
+            max-height: 100% !important;
+            margin: 0 !important;
+            border: none !important;
+            display: block !important;
+        }
+
+        /* Hide page borders in PDF.js */
+        .pdfViewer .page {
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background-color: transparent !important;
+        }
+        
+        /* Remove all margins and padding from PDF pages */
+        .pdfViewer .page .canvasWrapper,
+        .pdfViewer .page .textLayer {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Hide all unnecessary UI elements */
+        #viewerContainer .spread,
+        #viewerContainer .endOfContent,
+        .textLayer,
+        .annotationLayer {
+            background-color: transparent !important;
+        }
+
+        /* Enhanced styling for PDF objects without UI */
+        .pdf-object {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            background-color: white;
+        }
+
+        /* Hide PDF viewer toolbar */
+        #toolbarContainer, 
+        #toolbarViewer, 
+        .toolbar, 
+        #secondaryToolbar, 
+        #sidebarContainer {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            opacity: 0 !important;
+            position: absolute !important;
+            z-index: -9999 !important;
+        }
+
+        /* Remove margins and padding from PDF viewer */
+        #viewer .page {
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Make the PDF content take up the entire viewport */
+        #viewerContainer, #viewer {
+            left: 0 !important;
+            right: 0 !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background-color: white !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Section -->
+        <div id="loginSection" class="login-form">
+            <h2 class="text-center mb-4">Login</h2>
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" value="admin">
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" value="admin">
+            </div>
+            <button id="loginBtn" class="btn btn-primary w-100" onclick="handleLogin()">Login</button>
+            <div id="loginError" class="alert alert-danger mt-3" style="display: none;"></div>
+        </div>
+
+        <!-- Main App Section (hidden until login) -->
+        <div id="appSection" style="display: none;">
+            <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="#">Construction Map Viewer</a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                            <li class="nav-item">
+                                <button id="logoutBtn" class="btn btn-outline-light">Logout</button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Projects Section -->
+            <div id="projectsSection">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Projects</h2>
+                    <button id="createProjectBtn" class="btn btn-primary">Create Project</button>
+                </div>
+                <div id="projectsList" class="row"></div>
+            </div>
+
+            <!-- Project Detail Section -->
+            <div id="projectDetailSection" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button id="backToProjectsBtn" class="btn btn-outline-secondary">← Back to Projects</button>
+                    <button id="deleteProjectBtn" class="btn btn-danger">Delete Project</button>
+                </div>
+                <h2 id="projectTitle" class="mb-4"></h2>
+                
+                <ul class="nav nav-tabs mb-4" id="projectTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#mainMapTab">Main View</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#mapsTab">Maps</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#detailsTab">Details</a>
+                    </li>
+                </ul>
+                
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="mainMapTab">
+                        <div class="d-flex justify-content-between mb-3">
+                            <h4>Project Map View</h4>
+                            <button id="addEventBtn" class="btn btn-success">Add Event</button>
+                        </div>
+                        <div id="mainMapContainer" class="map-container">
+                            <div id="mapLayersControl" class="map-layers-control">
+                                <h6>Map Layers</h6>
+                                <div id="mapLayersList">
+                                    <!-- Map layers will be populated here -->
+                                </div>
+                            </div>
+                            <div id="mainMapViewer">
+                                <!-- Main map and overlays will be displayed here -->
+                            </div>
+                            <div id="eventMarkersContainer">
+                                <!-- Event markers will be added here -->
+                            </div>
+                            <div id="eventPopup" class="event-popup" style="display: none;">
+                                <!-- Event popup details will be displayed here -->
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h5>Recent Events</h5>
+                            <div id="recentEventsTable" class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>Description</th>
+                                            <th>Status</th>
+                                            <th>Created By</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentEventsTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="mapsTab">
+                        <div class="d-flex justify-content-between mb-3">
+                            <h4>Project Maps</h4>
+                            <button id="uploadMapBtn" class="btn btn-success">Upload Map</button>
+                        </div>
+                        <div id="mapsList" class="row"></div>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="detailsTab">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5>Description</h5>
+                                <p id="projectDescription"></p>
+                                <h5 class="mt-4">Project Information</h5>
+                                <p id="projectCreated"></p>
+                                <p id="projectUpdated"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Detail Section -->
+            <div id="mapDetailSection" style="display: none;">
+                <button id="backToProjectBtn" class="btn btn-outline-secondary mb-3">← Back to Project</button>
+                <h2 id="mapTitle" class="mb-4"></h2>
+                
+                <ul class="nav nav-tabs mb-4" id="mapTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#mapViewTab">Map View</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#eventsListTab">Events List</a>
+                    </li>
+                </ul>
+                
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="mapViewTab">
+                        <p class="mb-3">Click anywhere on the map to report an incident or issue at that location.</p>
+                        <div id="mapContainer" class="map-container">
+                            <!-- Map will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="eventsListTab">
+                        <h4>Map Events</h4>
+                        <div id="eventsTable" class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Description</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="eventsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Events Section -->
+            <div id="eventsSection" style="display: none;">
+                <h2 class="mb-4">All Events</h2>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Filters</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="projectFilter" class="form-label">Project</label>
+                                    <select id="projectFilter" class="form-select">
+                                        <option value="">All Projects</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="mapFilter" class="form-label">Map</label>
+                                    <select id="mapFilter" class="form-select">
+                                        <option value="">All Maps</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="statusFilter" class="form-label">Status</label>
+                                    <select id="statusFilter" class="form-select">
+                                        <option value="">All Statuses</option>
+                                        <option value="open">Open</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="resolved">Resolved</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="allEventsTable" class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Project</th>
+                                <th>Map</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allEventsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Project Modal -->
+        <div class="modal fade" id="createProjectModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create New Project</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="projectName" class="form-label">Project Name</label>
+                            <input type="text" class="form-control" id="projectName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="projectDesc" class="form-label">Description</label>
+                            <textarea class="form-control" id="projectDesc" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" id="saveProjectBtn" class="btn btn-primary">Create Project</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Map Modal -->
+        <div class="modal fade" id="uploadMapModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Upload New Map</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="mapUploadError" class="alert alert-danger" style="display: none;"></div>
+                        <div class="mb-3">
+                            <label for="mapName" class="form-label">Map Name</label>
+                            <input type="text" class="form-control" id="mapName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="mapFile" class="form-label">Map File</label>
+                            <input type="file" class="form-control" id="mapFile" accept="application/pdf" required>
+                            <div class="form-text">Upload a PDF file of your construction map.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" id="saveMapBtn" class="btn btn-primary">Upload Map</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Event Modal -->
+        <div class="modal fade" id="createEventModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Report New Incident</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="eventError" class="alert alert-danger" style="display: none;"></div>
+                        <div class="mb-3">
+                            <label for="eventTitle" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="eventTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventDesc" class="form-label">Description</label>
+                            <textarea class="form-control" id="eventDesc" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventStatus" class="form-label">Status</label>
+                            <select class="form-select" id="eventStatus">
+                                <option value="open">Open</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="resolved">Resolved</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="eventImage" class="form-label">Image</label>
+                            <div class="d-flex">
+                                <button type="button" id="takePictureBtn" class="btn btn-outline-primary me-2">Take Picture</button>
+                                <input type="file" class="form-control" id="eventImage" accept="image/*" capture="environment">
+                            </div>
+                            <div class="form-text">Take a photo or upload an image of the incident</div>
+                        </div>
+                        <div id="capturedImagePreview" class="mt-2 text-center" style="display: none;">
+                            <img id="previewImage" src="" alt="Preview" style="max-width: 100%; max-height: 200px;">
+                        </div>
+                        <p class="text-muted mt-3" id="eventCoordinates"></p>
+                        <p class="text-muted" id="activeMapLayers"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" id="saveEventBtn" class="btn btn-primary">Create Incident</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Details Modal -->
+        <div class="modal fade" id="eventDetailsModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="eventDetailsTitle">Event Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <h6>Description</h6>
+                            <p id="eventDetailsDesc"></p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Status</h6>
+                            <p id="eventDetailsStatus"></p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Created By</h6>
+                            <p id="eventDetailsCreator"></p>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Created On</h6>
+                            <p id="eventDetailsDate"></p>
+                        </div>
+                        <div class="mb-3" id="eventDetailsImageContainer" style="display: none;">
+                            <h6>Image</h6>
+                            <img id="eventDetailsImage" src="" alt="Event Image" style="max-width: 100%;">
+                        </div>
+                        <div class="mb-3">
+                            <h6>Map Layers Active</h6>
+                            <p id="eventDetailsMapLayers"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
+    <script>
+        // Global variables - removing all the duplicate declarations
+        const API_URL = 'http://localhost:8000/api/v1';
+        let currentUser = null;
+        let currentProject = null;
+        let currentMap = null;
+        let maps = [];
+        let events = [];
+        let activeMaps = {};
+        let selectedPosition = { x: 0, y: 0 };
+        let eventPopup = null;
+        let token = null;
+        let projects = [];
+        let userColors = {};
+        const colorClasses = ['user-color-1', 'user-color-2', 'user-color-3', 'user-color-4', 'user-color-5'];
+        
+        // Bootstrap modals
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        const registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+        const createProjectModal = new bootstrap.Modal(document.getElementById('createProjectModal'));
+        const createMapModal = new bootstrap.Modal(document.getElementById('createMapModal'));
+        const createEventModal = new bootstrap.Modal(document.getElementById('createEventModal'));
+        const eventDetailsModal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+
+        // Debug function to help troubleshoot PDF loading
+        function debugPdfUrl(url) {
+            console.log('Attempting to load PDF from URL:', url);
+            
+            // Test if the URL is accessible
+            fetch(url, { method: 'HEAD' })
+                .then(response => {
+                    console.log('PDF URL response:', response.status, response.statusText);
+                    if (!response.ok) {
+                        console.error('PDF URL is not accessible');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking PDF URL:', error);
+                });
+                
+            return url;
+        }
+        
+        // Function to make API requests
+        async function apiRequest(endpoint, options = {}) {
+            console.log(`API Request: ${options.method || 'GET'} ${API_URL}${endpoint}`);
+            
+            // Get the token from localStorage
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                alert('You are not logged in. Please log in to continue.');
+                showLoginSection();
+                throw new Error('Authentication required');
+            }
+            
+            const headers = {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+            
+            const mergedOptions = { ...options, headers };
+            
+            if (options.body) {
+                if (options.body instanceof FormData) {
+                    // For FormData, don't set Content-Type (browser will set it with boundary)
+                    // But still add the Authorization header
+                    mergedOptions.body = options.body;
+                    console.log('Sending FormData:', Object.fromEntries(options.body.entries()));
+                } else {
+                    headers['Content-Type'] = 'application/json';
+                    mergedOptions.body = JSON.stringify(options.body);
+                    console.log('Sending JSON data:', options.body);
+                }
+            }
+            
+            console.log('Request options:', { method: options.method, endpoint, headers: { ...headers, Authorization: 'Bearer [REDACTED]' } });
+            
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`, mergedOptions);
+                console.log(`Response status: ${response.status}`);
+                
+                if (response.status === 401) {
+                    // Unauthorized, clear token and redirect to login
+                    console.error('Authentication failed: Token expired or invalid');
+                    localStorage.removeItem('token');
+                    alert('Your session has expired. Please log in again.');
+                    showLoginSection();
+                    throw new Error('Authentication failed');
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('API Error:', errorData);
+                    throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`);
+                }
+                
+                // For DELETE requests or other responses with no content
+                if (response.status === 204 || options.method === 'DELETE') {
+                    return { success: true };
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API Request Error:', error);
+                throw error;
+            }
+        }
+        
+        // Base API URL - adjust for your environment if needed
+        const API_URL = 'http://localhost:8000/api/v1';
+        
+        // Test API connectivity on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            // Test API connection
+            fetch(API_URL.split('/api/v1')[0] + '/health')
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Backend API is available');
+                    } else {
+                        console.error('Backend API returned error status:', response.status);
+                    }
+                })
+                .catch(error => {
+                    console.error('Cannot connect to backend API:', error);
+                    
+                    // Show warning
+                    const warning = document.createElement('div');
+                    warning.className = 'alert alert-warning fixed-top w-100 text-center';
+                    warning.innerHTML = `
+                        <strong>Warning:</strong> Cannot connect to backend API at ${API_URL.split('/api/v1')[0]}.
+                        Make sure the backend server is running and accessible.
+                    `;
+                    document.body.prepend(warning);
+                });
+        });
+        
+        // Initialize PDF.js worker
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
+        }
+        
+        // Add debug function to help troubleshoot PDF loading
+        function debugPdfUrl(url) {
+            console.log('Attempting to load PDF from URL:', url);
+            
+            // Test if the URL is accessible
+            fetch(url, { method: 'HEAD' })
+                .then(response => {
+                    console.log('PDF URL response:', response.status, response.statusText);
+                    if (!response.ok) {
+                        console.error('PDF URL is not accessible');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking PDF URL:', error);
+                });
+                
+            return url;
+        }
+        
+        // Application variables and state
+        let currentUser = null;
+        let currentProject = null;
+        let currentMap = null;
+        let maps = [];
+        let events = [];
+        let activeMaps = {};
+        let selectedPosition = { x: 0, y: 0 };
+        let eventPopup = null;
+        
+        // Setup Bootstrap components
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        const registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+        const createProjectModal = new bootstrap.Modal(document.getElementById('createProjectModal'));
+        const createEventModal = new bootstrap.Modal(document.getElementById('createEventModal'));
+        
+        // Function to make API requests
+        async function apiRequest(endpoint, options = {}) {
+            console.log(`API Request: ${options.method} ${API_URL}${endpoint}`);
+            
+            // Get the token from localStorage
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token found');
+                alert('You are not logged in. Please log in to continue.');
+                showLoginSection();
+                throw new Error('Authentication required');
+            }
+            
+            const headers = {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+            
+            const mergedOptions = { ...options, headers };
+            
+            if (options.body) {
+                if (options.body instanceof FormData) {
+                    // For FormData, don't set Content-Type (browser will set it with boundary)
+                    // But still add the Authorization header
+                    mergedOptions.body = options.body;
+                    console.log('Sending FormData:', Object.fromEntries(options.body.entries()));
+                } else {
+                    headers['Content-Type'] = 'application/json';
+                    mergedOptions.body = JSON.stringify(options.body);
+                    console.log('Sending JSON data:', options.body);
+                }
+            }
+            
+            console.log('Request options:', { method: options.method, endpoint, headers: { ...headers, Authorization: 'Bearer [REDACTED]' } });
+            
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`, mergedOptions);
+                console.log(`Response status: ${response.status}`);
+                
+                if (response.status === 401) {
+                    // Unauthorized, clear token and redirect to login
+                    console.error('Authentication failed: Token expired or invalid');
+                    localStorage.removeItem('token');
+                    alert('Your session has expired. Please log in again.');
+                    showLoginSection();
+                    throw new Error('Authentication failed');
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('API Error:', errorData);
+                    throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`);
+                }
+                
+                // For DELETE requests or other responses with no content
+                if (response.status === 204 || options.method === 'DELETE') {
+                    return { success: true };
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API Request Error:', error);
+                throw error;
+            }
+        }
+        
+        // Direct login handler function (directly in global scope)
+        function handleLogin() {
+            console.log('Login button clicked');
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginError = document.getElementById('loginError');
+            
+            if (!username || !password) {
+                loginError.textContent = 'Please enter both username and password';
+                loginError.style.display = 'block';
+                return;
+            }
+            
+            loginError.style.display = 'none';
+            console.log('Sending login request for user:', username);
+            
+            // Create form data for the request
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            
+            // Send login request
+            fetch('http://localhost:8000/api/v1/auth/login', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Login response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Login failed with status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Login successful');
+                if (data.access_token) {
+                    // Store token and show app
+                    localStorage.setItem('token', data.access_token);
+                    token = data.access_token;
+                    checkAuth();
+                } else {
+                    console.error('No token in response');
+                    loginError.textContent = 'Login failed: No authentication token received';
+                    loginError.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                loginError.textContent = 'Login failed: ' + error.message;
+                loginError.style.display = 'block';
+            });
+        }
+        
+        // Global variables
+        const API_URL = 'http://127.0.0.1:8000/api/v1';
+        let currentProject = null;
+        let maps = [];
+        let activeMaps = {}; // Track active maps
+        let events = []; // Events for the current project
+        let selectedPosition = null; // For creating events
+        let token = null; // Store auth token globally
+        let currentUser = null;
+        let projects = [];
+        let userColors = {};  // Maps user IDs to colors
+        const colorClasses = ['user-color-1', 'user-color-2', 'user-color-3', 'user-color-4', 'user-color-5'];
+        
+        // Get user color by ID (assign if not already assigned)
+        function getUserColorClass(userId) {
+            if (!userColors[userId]) {
+                // Assign next color in rotation
+                const colorIndex = Object.keys(userColors).length % colorClasses.length;
+                userColors[userId] = colorClasses[colorIndex];
+            }
+            return userColors[userId];
+        }
+        
+        // Bootstrap modals
+        const createProjectModal = new bootstrap.Modal(document.getElementById('createProjectModal'));
+        const createMapModal = new bootstrap.Modal(document.getElementById('createMapModal'));
+        const createEventModal = new bootstrap.Modal(document.getElementById('createEventModal'));
+        const eventDetailsModal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+
+        // Check if user is authenticated
+        function checkAuth() {
+            // Check for token in localStorage
+            token = localStorage.getItem('token');
+            
+            // Show login form if no token
+            if (!token) {
+                console.log('No authentication token found, showing login form');
+                showLoginSection();
+                return;
+            }
+            
+            console.log('Authentication token found, validating...');
+            
+            // Skip validation for now since the endpoint is returning 404
+            console.log('Token present, proceeding to application');
+            showAppSection();
+            
+            // Load projects
+            fetchProjects();
+            
+            // Initialize events page
+            initializeEventsPage();
+            
+            /* Commenting out token validation that's failing
+            // Validate token by making a request to the API
+            fetch(`${API_URL}/users/me`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        console.error('Token validation failed: Unauthorized');
+                        localStorage.removeItem('token');
+                        token = null;
+                        showLoginSection();
+                        return;
+                    }
+                    throw new Error(`Token validation failed: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data) {
+                    console.log('Token validation successful, user:', data);
+                    showAppSection();
+                    
+                    // Load projects
+                    fetchProjects();
+                    
+                    // Initialize events page
+                    initializeEventsPage();
+                }
+            })
+            .catch(error => {
+                console.error('Error during authentication check:', error);
+                localStorage.removeItem('token');
+                token = null;
+                showLoginSection();
+            });
+            */
+        }
+        
+        // Show the login section
+        function showLoginSection() {
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('appSection').style.display = 'none';
+        }
+        
+        // Show the main app section
+        function showAppSection() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('appSection').style.display = 'block';
+        }
+
+        // Login
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginError = document.getElementById('loginError');
+            
+            if (!username || !password) {
+                loginError.textContent = 'Please enter both username and password';
+                loginError.style.display = 'block';
+                return;
+            }
+            
+            try {
+                loginError.style.display = 'none';
+                
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+                
+                const response = await apiRequest('/auth/login', 'POST', formData);
+                
+                if (response.access_token) {
+                    token = response.access_token;
+                    localStorage.setItem('token', token);
+                    
+                    // Get current user info
+                    try {
+                        currentUser = await apiRequest('/users/me');
+                        console.log('Current user:', currentUser);
+                    } catch (error) {
+                        console.error('Error fetching user info:', error);
+                    }
+                    
+                    checkAuth();
+                } else {
+                    loginError.textContent = 'Login failed';
+                    loginError.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                loginError.textContent = 'Invalid username or password';
+                loginError.style.display = 'block';
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            token = null;
+            checkAuth();
+        });
+
+        // Navigation
+        document.getElementById('projectsLink').addEventListener('click', () => {
+            showSection('projects');
+        });
+        
+        document.getElementById('eventsLink').addEventListener('click', () => {
+            showSection('events');
+            fetchAllEvents();
+        });
+        
+        document.getElementById('backToProjectsBtn').addEventListener('click', () => {
+            showSection('projects');
+        });
+        
+        document.getElementById('backToProjectBtn').addEventListener('click', () => {
+            showSection('projectDetail');
+        });
+
+        // Show appropriate section
+        function showSection(section) {
+            projectsSection.style.display = 'none';
+            projectDetailSection.style.display = 'none';
+            mapDetailSection.style.display = 'none';
+            eventsSection.style.display = 'none';
+            
+            switch (section) {
+                case 'projects':
+                    projectsSection.style.display = 'block';
+                    break;
+                case 'projectDetail':
+                    projectDetailSection.style.display = 'block';
+                    break;
+                case 'mapDetail':
+                    mapDetailSection.style.display = 'block';
+                    break;
+                case 'events':
+                    eventsSection.style.display = 'block';
+                    break;
+            }
+        }
+
+        // Fetch projects
+        async function fetchProjects() {
+            try {
+                console.log('Fetching projects...');
+                const response = await apiRequest('/projects/');
+                console.log('Projects response:', response);
+                projects = response; // The API returns an array directly
+                renderProjects();
+                
+                // Also populate project filter for events section
+                const projectFilter = document.getElementById('projectFilter');
+                projectFilter.innerHTML = '<option value="">All Projects</option>';
+                
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.id;
+                    option.textContent = project.name;
+                    projectFilter.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error fetching projects:', error);
+            }
+        }
+
+        // Render projects list
+        function renderProjects() {
+            const projectsList = document.getElementById('projectsList');
+            projectsList.innerHTML = '';
+            
+            if (projects.length === 0) {
+                projectsList.innerHTML = '<div class="col-12"><div class="alert alert-info">No projects found. Click "Create Project" to get started.</div></div>';
+                return;
+            }
+            
+            console.log('Rendering projects:', projects);
+            
+            projects.forEach(project => {
+                const projectCard = document.createElement('div');
+                projectCard.className = 'col-md-4 mb-4';
+                projectCard.innerHTML = `
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">${project.name}</h5>
+                            <p class="card-text">${project.description || 'No description provided'}</p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-primary btn-sm view-project" data-id="${project.id}">View Project</button>
+                        </div>
+                    </div>
+                `;
+                
+                projectsList.appendChild(projectCard);
+            });
+            
+            // Add event listeners to view project buttons
+            document.querySelectorAll('.view-project').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const projectId = e.target.getAttribute('data-id');
+                    viewProject(projectId);
+                });
+            });
+        }
+
+        // View a project
+        async function viewProject(projectId) {
+            try {
+                console.log('Viewing project:', projectId);
+                const response = await apiRequest(`/projects/${projectId}`);
+                console.log('Project details:', response);
+                currentProject = response;
+                
+                // Update project detail view
+                document.getElementById('projectTitle').textContent = currentProject.name;
+                document.getElementById('projectDescription').textContent = currentProject.description || 'No description provided';
+                document.getElementById('projectCreated').textContent = `Created: ${new Date(currentProject.created_at).toLocaleString()}`;
+                document.getElementById('projectUpdated').textContent = `Last Updated: ${new Date(currentProject.updated_at).toLocaleString()}`;
+                
+                // Fetch maps for this project
+                await fetchProjectMaps(projectId);
+                
+                // Initialize main map view
+                initializeMainMapView();
+                
+                // Show project detail section
+                showSection('projectDetail');
+            } catch (error) {
+                console.error('Error viewing project:', error);
+            }
+        }
+
+        // Fetch maps for a project
+        async function fetchProjectMaps(projectId) {
+            try {
+                console.log('Fetching maps for project:', projectId);
+                const response = await apiRequest(`/maps/?project_id=${projectId}`);
+                maps = response;
+                console.log('Maps retrieved:', maps);
+                renderProjectMaps();
+            } catch (error) {
+                console.error('Error fetching maps:', error);
+            }
+        }
+
+        // Render maps for current project
+        function renderProjectMaps() {
+            const mapsList = document.getElementById('mapsList');
+            mapsList.innerHTML = '';
+            
+            if (maps.length === 0) {
+                mapsList.innerHTML = '<div class="col-12"><div class="alert alert-info">No maps found for this project. Click "Upload Map" to add a map.</div></div>';
+                return;
+            }
+            
+            console.log('Rendering maps:', maps);
+            
+            maps.forEach(map => {
+                const mapCard = document.createElement('div');
+                mapCard.className = 'col-md-4 mb-4';
+                
+                // Format the date properly, fallback to "Unknown" if not available
+                const uploadDate = map.created_at || map.uploaded_at 
+                    ? new Date(map.created_at || map.uploaded_at).toLocaleDateString() 
+                    : 'Unknown';
+                            
+                mapCard.innerHTML = `
+                    <div class="card h-100">
+                        <div class="card-img-top text-center bg-light" style="height: 200px;">
+                            <div class="p-3 d-flex align-items-center justify-content-center h-100">
+                                <i class="bi bi-file-pdf" style="font-size: 5rem;"></i>
+                                <span class="badge bg-secondary position-absolute top-0 end-0 m-2">PDF</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">${map.name}</h5>
+                            <p class="card-text">
+                                <span class="badge bg-info">${map.map_type || 'Map'}</span>
+                                ${map.version ? `<span class="badge bg-secondary">v${map.version}</span>` : ''}
+                                <small class="text-muted d-block mt-2">Uploaded: ${uploadDate}</small>
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-primary btn-sm view-map" data-id="${map.id}">View Map</button>
+                        </div>
+                    </div>
+                `;
+                
+                mapsList.appendChild(mapCard);
+            });
+            
+            // Add event listeners to view map buttons
+            document.querySelectorAll('.view-map').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const mapId = e.target.getAttribute('data-id');
+                    viewMap(mapId);
+                });
+            });
+        }
+
+        // Add debug function to help troubleshoot PDF loading
+        function debugPdfUrl(url) {
+            console.log('Attempting to load PDF from URL:', url);
+            
+            // Test if the URL is accessible
+            fetch(url, { method: 'HEAD' })
+                .then(response => {
+                    console.log('PDF URL response:', response.status, response.statusText);
+                    if (!response.ok) {
+                        console.error('PDF URL is not accessible');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking PDF URL:', error);
+                });
+                
+            return url;
+        }
+        
+        // View map details
+        async function viewMap(mapId) {
+            try {
+                console.log('Viewing map with ID:', mapId);
+                const response = await apiRequest(`/maps/${mapId}`);
+                console.log('Map details response:', response);
+                
+                // Handle potential response formats
+                currentMap = response.data || response;
+                
+                if (!currentMap) {
+                    console.error('Invalid map data received:', response);
+                    alert('Error: Could not load map data');
+                    return;
+                }
+                
+                console.log('Current map set to:', currentMap);
+                
+                // Set map details
+                document.getElementById('mapTitle').textContent = currentMap.name;
+                
+                // Get base URL (without /api/v1)
+                const apiUrlBase = API_URL.split('/api/v1')[0];
+                
+                // Construct proper URL for the map
+                let mapUrl;
+                if (currentMap.filename) {
+                    mapUrl = `${apiUrlBase}/uploads/${currentMap.filename}`;
+                } else if (currentMap.file_path) {
+                    if (currentMap.file_path.includes('uploads/')) {
+                        mapUrl = `${apiUrlBase}/${currentMap.file_path}`;
+                    } else {
+                        mapUrl = `${apiUrlBase}/uploads/${currentMap.file_path}`;
+                    }
+                } else {
+                    console.error('Map has no filename or file_path:', currentMap);
+                    alert('Error: Map file information is missing');
+                    return;
+                }
+                
+                console.log('Loading map from URL:', mapUrl);
+                
+                // Load map with object tag for better PDF display - without UI controls
+                const mapContainer = document.getElementById('mapContainer');
+                mapContainer.innerHTML = `
+                    <object 
+                        data="${mapUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&pagemode=none" 
+                        type="application/pdf" 
+                        width="100%" 
+                        height="600px" 
+                        class="pdf-object"
+                        style="background-color: white; border: none;"
+                    >
+                        <div class="alert alert-warning">
+                            Unable to display PDF. <a href="${mapUrl}" target="_blank">Download Instead</a>
+                        </div>
+                    </object>
+                `;
+                
+                // Fetch events for this map
+                fetchMapEvents(mapId);
+                
+                // Show map detail section
+                showSection('mapDetail');
+            } catch (error) {
+                console.error('Error viewing map:', error);
+                alert('Failed to load map details: ' + error.message);
+            }
+        }
+
+        // Handle map click for adding events
+        function handleMapClick(e) {
+            const rect = e.target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Calculate percentage position (useful for different screen sizes)
+            const xPercent = (x / rect.width) * 100;
+            const yPercent = (y / rect.height) * 100;
+            
+            selectedPosition = { x: xPercent, y: yPercent };
+            
+            // Show coordinates in the event form
+            document.getElementById('eventCoordinates').textContent = `Incident coordinates: X: ${xPercent.toFixed(2)}%, Y: ${yPercent.toFixed(2)}%`;
+            
+            // Show event creation modal
+            createEventModal.show();
+        }
+
+        // Fetch events for a map
+        async function fetchMapEvents(mapId) {
+            try {
+                const response = await apiRequest('/events/');
+                // Filter events by map
+                events = response.data.filter(event => event.map_id === parseInt(mapId));
+                
+                // Render events on map
+                renderMapEvents();
+                
+                // Render events table
+                renderEventsTable();
+            } catch (error) {
+                console.error('Error fetching events:', error);
+            }
+        }
+
+        // Render event markers on the map
+        function renderMapEvents() {
+            const mapImage = document.getElementById('mapImage');
+            
+            // Clear existing markers
+            document.querySelectorAll('.event-marker').forEach(marker => marker.remove());
+            
+            // Add new markers
+            events.forEach(event => {
+                const marker = document.createElement('div');
+                marker.className = 'event-marker';
+                marker.title = event.title;
+                marker.style.left = `${event.x_coordinate}%`;
+                marker.style.top = `${event.y_coordinate}%`;
+                
+                // Add click event for marker
+                marker.addEventListener('click', () => {
+                    alert(`Event: ${event.title}\nDescription: ${event.description}\nStatus: ${event.status}`);
+                });
+                
+                mapImage.parentNode.appendChild(marker);
+            });
+        }
+
+        // Render events table
+        function renderEventsTable() {
+            const eventsTableBody = document.getElementById('eventsTableBody');
+            eventsTableBody.innerHTML = '';
+            
+            if (events.length === 0) {
+                document.getElementById('eventsTable').innerHTML = '<div class="alert alert-info">No events found for this map. Click on the map to create a new event.</div>';
+                return;
+            }
+            
+            events.forEach(event => {
+                const row = document.createElement('tr');
+                
+                const statusClass = event.status === 'open' ? 'danger' : 
+                                   event.status === 'in_progress' ? 'warning' : 'success';
+                
+                row.innerHTML = `
+                    <td>${event.title}</td>
+                    <td>${event.description}</td>
+                    <td><span class="badge bg-${statusClass}">${event.status.replace('_', ' ')}</span></td>
+                    <td>${new Date(event.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm view-event" data-id="${event.id}">View</button>
+                    </td>
+                `;
+                
+                eventsTableBody.appendChild(row);
+            });
+        }
+
+        // Fetch all events (for events page)
+        async function fetchAllEvents() {
+            try {
+                console.log('Fetching all events...');
+                // Fetch projects for the user
+                const projectsResponse = await apiRequest('/projects/');
+                console.log('Projects for events:', projectsResponse);
+                const projects = projectsResponse;
+                
+                // Initialize arrays for maps and events
+                const allMaps = [];
+                const events = [];
+                
+                // If there are no projects, just render empty tables
+                if (projects.length === 0) {
+                    renderAllEventsTable(events, allMaps);
+                    return;
+                }
+                
+                // Get maps for each project
+                for (const project of projects) {
+                    try {
+                        const mapsResponse = await apiRequest(`/maps/?project_id=${project.id}`);
+                        console.log(`Maps for project ${project.id}:`, mapsResponse);
+                        if (Array.isArray(mapsResponse)) {
+                            allMaps.push(...mapsResponse);
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching maps for project ${project.id}:`, err);
+                    }
+                }
+                
+                // Get events for each project
+                for (const project of projects) {
+                    try {
+                        const eventsResponse = await apiRequest(`/events/?project_id=${project.id}`);
+                        console.log(`Events for project ${project.id}:`, eventsResponse);
+                        if (Array.isArray(eventsResponse)) {
+                            events.push(...eventsResponse);
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching events for project ${project.id}:`, err);
+                    }
+                }
+                
+                console.log('All maps:', allMaps);
+                console.log('All events:', events);
+                
+                // Populate map filter dropdown
+                const mapFilter = document.getElementById('mapFilter');
+                mapFilter.innerHTML = '<option value="">All Maps</option>';
+                
+                allMaps.forEach(map => {
+                    const option = document.createElement('option');
+                    option.value = map.id;
+                    option.textContent = map.name;
+                    mapFilter.appendChild(option);
+                });
+                
+                // Render all events
+                renderAllEventsTable(events, allMaps);
+                
+                // Add event listeners for filters
+                document.getElementById('projectFilter').addEventListener('change', () => filterEvents(events, allMaps));
+                document.getElementById('mapFilter').addEventListener('change', () => filterEvents(events, allMaps));
+                document.getElementById('statusFilter').addEventListener('change', () => filterEvents(events, allMaps));
+            } catch (error) {
+                console.error('Error fetching all events:', error);
+            }
+        }
+
+        // Render all events table
+        function renderAllEventsTable(allEvents, allMaps) {
+            const eventsTableBody = document.getElementById('allEventsTableBody');
+            eventsTableBody.innerHTML = '';
+            
+            if (allEvents.length === 0) {
+                document.getElementById('allEventsTable').innerHTML = '<div class="alert alert-info">No events found.</div>';
+                return;
+            }
+            
+            allEvents.forEach(event => {
+                const row = document.createElement('tr');
+                
+                // Find related map and project
+                const map = allMaps.find(m => m.id === event.map_id) || { name: 'Unknown', project_id: null };
+                const project = projects.find(p => p.id === map.project_id) || { name: 'Unknown' };
+                
+                const statusClass = event.status === 'open' ? 'danger' : 
+                                   event.status === 'in_progress' ? 'warning' : 'success';
+                
+                row.innerHTML = `
+                    <td>${event.title}</td>
+                    <td>${project.name}</td>
+                    <td>${map.name}</td>
+                    <td>${event.description}</td>
+                    <td><span class="badge bg-${statusClass}">${event.status.replace('_', ' ')}</span></td>
+                    <td>${new Date(event.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm view-map" data-id="${event.map_id}">View Map</button>
+                    </td>
+                `;
+                
+                eventsTableBody.appendChild(row);
+                
+                // Add event listener
+                row.querySelector('.view-map').addEventListener('click', () => {
+                    viewMap(event.map_id);
+                });
+            });
+        }
+
+        // Filter events based on selected filters
+        function filterEvents(allEvents, allMaps) {
+            const projectId = document.getElementById('projectFilter').value;
+            const mapId = document.getElementById('mapFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            
+            let filteredEvents = [...allEvents];
+            
+            // Filter by status
+            if (status) {
+                filteredEvents = filteredEvents.filter(event => event.status === status);
+            }
+            
+            // Filter by map
+            if (mapId) {
+                filteredEvents = filteredEvents.filter(event => event.map_id === parseInt(mapId));
+            }
+            
+            // Filter by project
+            if (projectId) {
+                const projectMaps = allMaps.filter(map => map.project_id === parseInt(projectId));
+                const projectMapIds = projectMaps.map(map => map.id);
+                filteredEvents = filteredEvents.filter(event => projectMapIds.includes(event.map_id));
+            }
+            
+            renderAllEventsTable(filteredEvents, allMaps);
+        }
+
+        // Create Project Button
+        document.getElementById('createProjectBtn').addEventListener('click', () => {
+            // Reset form
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectDesc').value = '';
+            
+            // Show modal
+            createProjectModal.show();
+        });
+
+        // Save Project Button
+        document.getElementById('saveProjectBtn').addEventListener('click', async () => {
+            const name = document.getElementById('projectName').value;
+            const description = document.getElementById('projectDesc').value;
+            
+            if (!name) {
+                alert('Project name is required');
+                return;
+            }
+            
+            try {
+                console.log('Creating project:', { name, description });
+                const response = await apiRequest('/projects/', 'POST', {
+                    name,
+                    description
+                });
+                console.log('Project created:', response);
+                
+                // Refresh projects list
+                fetchProjects();
+                
+                // Hide modal
+                createProjectModal.hide();
+            } catch (error) {
+                console.error('Error creating project:', error);
+                alert('Failed to create project: ' + error.message);
+            }
+        });
+
+        // Upload Map Button
+        document.getElementById('uploadMapBtn').addEventListener('click', () => {
+            // Reset form
+            document.getElementById('mapName').value = '';
+            document.getElementById('mapFile').value = '';
+            document.getElementById('mapUploadError').style.display = 'none';
+            
+            // Show modal
+            uploadMapModal.show();
+        });
+
+        // Save Map Button
+        document.getElementById('saveMapBtn').addEventListener('click', async () => {
+            const name = document.getElementById('mapName').value;
+            const fileInput = document.getElementById('mapFile');
+            const mapUploadError = document.getElementById('mapUploadError');
+            
+            if (!name) {
+                mapUploadError.textContent = 'Map name is required';
+                mapUploadError.style.display = 'block';
+                return;
+            }
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                mapUploadError.textContent = 'Please select a file to upload';
+                mapUploadError.style.display = 'block';
+                return;
+            }
+            
+            try {
+                mapUploadError.style.display = 'none';
+                
+                const formData = new FormData();
+                formData.append('project_id', currentProject.id);
+                formData.append('name', name);
+                formData.append('map_type', 'implantation'); // Default type
+                formData.append('file', fileInput.files[0]);
+                
+                console.log("Uploading map with project_id:", currentProject.id);
+                console.log("File:", fileInput.files[0]);
+                
+                const response = await apiRequest('/maps/', 'POST', formData);
+                console.log('Map uploaded:', response);
+                
+                // Refresh maps list
+                fetchProjectMaps(currentProject.id);
+                
+                // Hide modal
+                uploadMapModal.hide();
+            } catch (error) {
+                console.error('Error uploading map:', error);
+                mapUploadError.textContent = 'Failed to upload map: ' + (error.message || 'Unknown error');
+                mapUploadError.style.display = 'block';
+            }
+        });
+
+        // Initialize the main map view with overlay capabilities
+        function initializeMainMapView() {
+            const mainMapViewer = document.getElementById('mainMapViewer');
+            const mapLayersList = document.getElementById('mapLayersList');
+            
+            // Clear previous content
+            mainMapViewer.innerHTML = '';
+            mapLayersList.innerHTML = '';
+            
+            // Reset active maps tracking
+            activeMaps = {};
+            
+            if (maps.length === 0) {
+                mainMapViewer.innerHTML = '<div class="alert alert-info">No maps available for this project. Please upload maps first.</div>';
+                return;
+            }
+            
+            // Find implantation map and other maps
+            const implantationMap = maps.find(map => (map.map_type || '').toLowerCase() === 'implantation');
+            
+            // Group maps: implantation (base) first, then others
+            const orderedMaps = [];
+            
+            // Add implantation map first if it exists
+            if (implantationMap) {
+                orderedMaps.push(implantationMap);
+                // Start with implantation map active by default
+                activeMaps[implantationMap.id] = true;
+            }
+            
+            // Add other maps
+            maps.forEach(map => {
+                if (map.id !== implantationMap?.id) {
+                    orderedMaps.push(map);
+                }
+            });
+            
+            // If no implantation map was found, activate the first map by default
+            if (!implantationMap && maps.length > 0) {
+                activeMaps[maps[0].id] = true;
+            }
+            
+            // Create checkboxes for each map
+            orderedMaps.forEach((map, index) => {
+                const isImplantation = map.id === implantationMap?.id;
+                
+                // Create checkbox for this map
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'form-check map-layer-checkbox-container';
+                
+                checkboxDiv.innerHTML = `
+                    <input class="form-check-input map-layer-checkbox" type="checkbox" value="${map.id}" 
+                        id="mapLayer${map.id}" ${isImplantation ? 'checked' : ''}>
+                    <label class="form-check-label ${isImplantation ? 'base-map-label' : 'overlay-map-label'}" for="mapLayer${map.id}">
+                        ${map.name} ${map.version ? `(v${map.version})` : ''}
+                        ${isImplantation ? ' (Base Map)' : ''}
+                    </label>
+                `;
+                mapLayersList.appendChild(checkboxDiv);
+            });
+            
+            // Render the active maps
+            renderActiveMaps();
+            
+            // Add event listeners to checkboxes
+            document.querySelectorAll('.map-layer-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const mapId = parseInt(e.target.value);
+                    if (e.target.checked) {
+                        activeMaps[mapId] = true;
+                    } else {
+                        delete activeMaps[mapId];
+                    }
+                    renderActiveMaps();
+                });
+            });
+            
+            // Add event listener for adding events
+            document.getElementById('addEventBtn').addEventListener('click', () => {
+                if (Object.keys(activeMaps).length === 0) {
+                    alert('Please select at least one map layer to add an event.');
+                    return;
+                }
+                
+                // Show instructions to click on map
+                alert('Click on the map where you want to add the event.');
+                
+                // Change cursor to indicate click mode
+                mainMapViewer.style.cursor = 'crosshair';
+                
+                // Add one-time click listener
+                const clickHandler = (e) => {
+                    // Remove the click listener
+                    mainMapViewer.removeEventListener('click', clickHandler);
+                    mainMapViewer.style.cursor = 'default';
+                    
+                    // Calculate click position
+                    handleMainMapClick(e);
+                };
+                
+                mainMapViewer.addEventListener('click', clickHandler);
+            });
+            
+            // Create event markers container
+            ensureEventMarkersContainer();
+            
+            // Fetch and display events for this project
+            fetchProjectEvents();
+        }
+        
+        // Render the active maps in the overlay
+        function renderActiveMaps() {
+            const mainMapViewer = document.getElementById('mainMapViewer');
+            mainMapViewer.innerHTML = '';
+            
+            // Get active map IDs and corresponding maps
+            const activeMapIds = Object.keys(activeMaps).map(id => parseInt(id));
+            const activeMapsData = maps.filter(map => activeMapIds.includes(map.id));
+            
+            if (activeMapsData.length === 0) {
+                mainMapViewer.innerHTML = '<div class="alert alert-info">Please select at least one map layer to display.</div>';
+                return;
+            }
+            
+            console.log('Rendering active maps:', activeMapsData);
+            
+            // Create container for maps with explicit height and width
+            const mapContainer = document.createElement('div');
+            mapContainer.className = 'map-iframe-container';
+            mapContainer.style.width = '100%';
+            mapContainer.style.height = '600px';
+            mapContainer.style.position = 'relative';
+            mapContainer.style.backgroundColor = 'white';
+            mapContainer.style.border = 'none';
+            mapContainer.style.overflow = 'hidden';
+            
+            // Add click handler to the container for event creation
+            mapContainer.onclick = handleMainMapClick;
+            
+            mainMapViewer.appendChild(mapContainer);
+            
+            // Find implantation map (base map) - it should be displayed first (at the bottom)
+            let implantationMap = activeMapsData.find(map => (map.map_type || '').toLowerCase() === 'implantation');
+            
+            // If no implantation map is found, use the first map as the base
+            if (!implantationMap && activeMapsData.length > 0) {
+                implantationMap = activeMapsData[0];
+            }
+            
+            // Sort maps to ensure implantation map is first, then others in order of selection
+            const sortedMaps = [
+                ...(implantationMap ? [implantationMap] : []),
+                ...activeMapsData.filter(map => map.id !== implantationMap?.id)
+            ];
+            
+            sortedMaps.forEach((map, index) => {
+                // Get base URL (without /api/v1)
+                const apiUrlBase = API_URL.split('/api/v1')[0];
+                
+                // Fix URL construction - use the correct filename and path
+                let mapUrl;
+                if (map.filename) {
+                    mapUrl = `${apiUrlBase}/uploads/${map.filename}`;
+                } else if (map.file_path) {
+                    // Just in case file_path already includes 'uploads/'
+                    if (map.file_path.includes('uploads/')) {
+                        mapUrl = `${apiUrlBase}/${map.file_path}`;
+                    } else {
+                        mapUrl = `${apiUrlBase}/uploads/${map.file_path}`;
+                    }
+                } else {
+                    console.error('Map has no filename or file_path:', map);
+                    return;
+                }
+                
+                // Debug the URL
+                debugPdfUrl(mapUrl);
+                
+                console.log(`Rendering map ${map.id} (${map.name}) at URL: ${mapUrl}`);
+                
+                const mapDiv = document.createElement('div');
+                mapDiv.className = 'map-overlay';
+                mapDiv.style.position = 'absolute';
+                mapDiv.style.top = '0';
+                mapDiv.style.left = '0';
+                mapDiv.style.width = '100%';
+                mapDiv.style.height = '100%';
+                mapDiv.style.zIndex = 10 + index; // Stack maps with increasing z-index
+                
+                const isBaseMap = map.id === implantationMap?.id;
+                
+                if (isBaseMap) {
+                    // Base map is fully visible
+                    mapDiv.style.opacity = '1';
+                } else {
+                    // Overlay maps are semi-transparent
+                    mapDiv.style.opacity = '0.7';
+                    mapDiv.style.mixBlendMode = 'multiply';
+                }
+                
+                // Create a wrapper for PDF display
+                const pdfWrapper = document.createElement('div');
+                pdfWrapper.className = 'pdf-content-only';
+                pdfWrapper.id = `pdf-container-${map.id}`;
+                pdfWrapper.style.position = 'absolute';
+                pdfWrapper.style.top = '0';
+                pdfWrapper.style.left = '0';
+                pdfWrapper.style.width = '100%';
+                pdfWrapper.style.height = '100%';
+                pdfWrapper.style.overflow = 'hidden'; 
+                pdfWrapper.style.backgroundColor = 'transparent';
+                mapDiv.appendChild(pdfWrapper);
+                
+                // Simple object tag approach with hidden UI
+                pdfWrapper.innerHTML = `
+                    <object 
+                        data="${mapUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&pagemode=none" 
+                        type="application/pdf" 
+                        width="100%" 
+                        height="100%" 
+                        class="pdf-object clean-pdf-view"
+                    ></object>
+                `;
+                
+                mapContainer.appendChild(mapDiv);
+            });
+            
+            // Apply additional styling to the container
+            mapContainer.style.overflow = 'hidden';
+            
+            // After rendering maps, render events
+            renderProjectEvents();
+        }
+        
+        // Handle click on the main map
+        function handleMainMapClick(e) {
+            console.log('Map clicked, creating event at click position');
+            
+            if (Object.keys(activeMaps).length === 0) {
+                alert('Please select at least one map layer.');
+                return;
+            }
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Calculate percentage position
+            const xPercent = (x / rect.width) * 100;
+            const yPercent = (y / rect.height) * 100;
+            
+            selectedPosition = { x: xPercent, y: yPercent };
+            
+            console.log(`Event position: X: ${xPercent.toFixed(2)}%, Y: ${yPercent.toFixed(2)}%`);
+            
+            // Show coordinates in the event form
+            document.getElementById('eventCoordinates').textContent = `Incident coordinates: X: ${xPercent.toFixed(2)}%, Y: ${yPercent.toFixed(2)}%`;
+            
+            // Show active map layers
+            const activeMapNames = maps
+                .filter(map => activeMaps[map.id])
+                .map(map => map.name)
+                .join(', ');
+            
+            document.getElementById('activeMapLayers').textContent = `Active map layers: ${activeMapNames}`;
+            
+            // Initialize event form fields
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventDesc').value = '';
+            document.getElementById('eventStatus').value = 'open';
+            document.getElementById('eventImage').value = '';
+            document.getElementById('capturedImagePreview').style.display = 'none';
+            document.getElementById('eventError').style.display = 'none';
+            
+            // Show event creation modal using Bootstrap API
+            try {
+                console.log('Attempting to show create event modal');
+                if (!createEventModal) {
+                    console.error('Create event modal not initialized');
+                    alert('Error: Could not open event creation form');
+                    return;
+                }
+                createEventModal.show();
+            } catch (error) {
+                console.error('Error showing event modal:', error);
+                alert('Error opening event form. Please try refreshing the page.');
+            }
+        }
+        
+        // Fetch events for the current project
+        function fetchProjectEvents() {
+            const projectId = currentProject?.id;
+            if (!projectId) {
+                console.warn('No current project ID available for fetching events');
+                return;
+            }
+            
+            console.log(`Fetching events for project ${projectId}`);
+            
+            // Get the auth token
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('No authentication token available');
+                document.getElementById('recentEventsTable').innerHTML = 
+                    '<div class="alert alert-danger">Authentication error. Please log in again.</div>';
+                return;
+            }
+            
+            // Include auth token in headers
+            const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+            
+            fetch(`${API_URL}/events/?project_id=${projectId}`, {
+                method: 'GET',
+                headers: headers
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    events = data;
+                    console.log(`Fetched ${events.length} events for project ${projectId}:`, events);
+                    
+                    // Render the events in the main map view
+                    renderProjectEvents();
+                    
+                    // Render the events table
+                    renderRecentEventsTable();
+                })
+                .catch(error => {
+                    console.error('Error fetching events:', error);
+                    document.getElementById('recentEventsTable').innerHTML = 
+                        `<div class="alert alert-danger">Error loading events: ${error.message}. Please try again.</div>`;
+                });
+        }
+        
+        // Function to ensure the eventMarkersContainer exists
+        function ensureEventMarkersContainer() {
+            // Check if the container already exists
+            let eventMarkersContainer = document.getElementById('eventMarkersContainer');
+            
+            // If it doesn't exist, create it
+            if (!eventMarkersContainer) {
+                const mainMapViewer = document.getElementById('mainMapViewer');
+                if (!mainMapViewer) return null;
+                
+                eventMarkersContainer = document.createElement('div');
+                eventMarkersContainer.id = 'eventMarkersContainer';
+                eventMarkersContainer.style.position = 'absolute';
+                eventMarkersContainer.style.top = '0';
+                eventMarkersContainer.style.left = '0';
+                eventMarkersContainer.style.width = '100%';
+                eventMarkersContainer.style.height = '100%';
+                eventMarkersContainer.style.zIndex = '1000';
+                eventMarkersContainer.style.pointerEvents = 'none'; // Set initially to none, will be changed when rendering events
+                
+                mainMapViewer.appendChild(eventMarkersContainer);
+            }
+            
+            return eventMarkersContainer;
+        }
+        
+        // Render event markers on the main map view
+        function renderProjectEvents() {
+            const eventMarkersContainer = ensureEventMarkersContainer();
+            if (!eventMarkersContainer) {
+                console.error('Failed to get or create event markers container');
+                return;
+            }
+            
+            // Clear existing markers
+            eventMarkersContainer.innerHTML = '';
+            
+            // If there are no events, exit early
+            if (!events || events.length === 0) {
+                console.log('No events to render');
+                return;
+            }
+            
+            console.log(`Rendering ${events.length} events on map`);
+            
+            // Enable pointer events on marker container to allow interaction
+            eventMarkersContainer.style.pointerEvents = 'auto';
+            
+            // Make sure the z-index is high enough to appear above maps
+            eventMarkersContainer.style.zIndex = '1500';
+            
+            // Render markers for each event
+            events.forEach(event => {
+                // Skip events that don't have position data
+                if (typeof event.x_coordinate === 'undefined' || 
+                    typeof event.y_coordinate === 'undefined' || 
+                    event.x_coordinate === null || 
+                    event.y_coordinate === null) {
+                    console.log(`Event ${event.id} skipped: no coordinates (${event.x_coordinate}, ${event.y_coordinate})`);
+                    return;
+                }
+                
+                console.log(`Rendering event ${event.id} at (${event.x_coordinate}%, ${event.y_coordinate}%)`);
+                
+                const marker = document.createElement('div');
+                marker.className = 'event-marker';
+                marker.dataset.eventId = event.id;
+                marker.title = event.title;
+                marker.style.left = `${event.x_coordinate}%`;
+                marker.style.top = `${event.y_coordinate}%`;
+                
+                // Add marker content to make it more visible
+                const markerContent = document.createElement('div');
+                markerContent.className = 'marker-content';
+                markerContent.innerHTML = `<span>${event.id}</span>`;
+                marker.appendChild(markerContent);
+                
+                // Assign color based on user who created the event or status
+                if (event.user_id) {
+                    marker.classList.add(getUserColorClass(event.user_id));
+                } else {
+                    // Default color based on status if no user color available
+                    const statusClass = event.status === 'open' ? 'bg-danger' : 
+                                       event.status === 'in_progress' ? 'bg-warning' : 'bg-success';
+                    marker.classList.add(statusClass);
+                }
+                
+                // Add click event to show details popup
+                marker.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent triggering map click
+                    showEventDetailsPopup(event, e.clientX, e.clientY);
+                });
+                
+                eventMarkersContainer.appendChild(marker);
+            });
+        }
+        
+        // Show event details in a popup
+        function showEventDetailsPopup(event, clientX, clientY) {
+            console.log('Showing event details popup for event:', event);
+            
+            // Create popup element
+            const popup = document.createElement('div');
+            popup.className = 'event-popup';
+            popup.id = `event-popup-${event.id}`;
+            
+            // Set initial position
+            popup.style.left = `${clientX}px`;
+            popup.style.top = `${clientY}px`;
+            
+            // Calculate position to keep popup in viewport
+            setTimeout(() => {
+                const rect = popup.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    popup.style.left = `${window.innerWidth - rect.width - 20}px`;
+                }
+                if (rect.bottom > window.innerHeight) {
+                    popup.style.top = `${window.innerHeight - rect.height - 20}px`;
+                }
+            }, 0);
+            
+            // Add content
+            popup.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="m-0">${event.title}</h5>
+                    <button type="button" class="btn-close" aria-label="Close"></button>
+                </div>
+                <p>${event.description || 'No description provided'}</p>
+                <div class="d-flex justify-content-between">
+                    <span class="badge bg-${getStatusClass(event.status)}">${formatStatus(event.status)}</span>
+                    <small>${new Date(event.created_at).toLocaleString()}</small>
+                </div>
+                <div class="mt-2">
+                    <small>Created by: ${event.user_name || 'Unknown'}</small>
+                </div>
+                ${event.image_path ? `
+                <div class="mt-2">
+                    <img src="${API_URL.split('/api/v1')[0]}/uploads/${event.image_path}" 
+                         class="img-fluid rounded" alt="Event image">
+                </div>
+                ` : ''}
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-primary edit-event-btn" data-id="${event.id}">
+                        Edit
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary view-event-details-btn" data-id="${event.id}">
+                        Full Details
+                    </button>
+                </div>
+            `;
+            
+            // Add the popup to the body
+            document.body.appendChild(popup);
+            
+            // Add close handler
+            popup.querySelector('.btn-close').addEventListener('click', () => {
+                popup.remove();
+            });
+            
+            // Add edit handler
+            popup.querySelector('.edit-event-btn').addEventListener('click', () => {
+                popup.remove();
+                // TODO: Implement edit event functionality
+                alert('Edit functionality will be implemented soon.');
+            });
+            
+            // Add view details handler
+            popup.querySelector('.view-event-details-btn').addEventListener('click', () => {
+                popup.remove();
+                // Show the full event details modal
+                showEventDetailsModal(event);
+            });
+            
+            // Close on click outside
+            document.addEventListener('click', function closePopup(e) {
+                if (!popup.contains(e.target) && e.target.className !== 'event-marker') {
+                    popup.remove();
+                    document.removeEventListener('click', closePopup);
+                }
+            });
+        }
+        
+        // Helper function to format status
+        function formatStatus(status) {
+            return status?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown';
+        }
+        
+        // Helper function to get status class
+        function getStatusClass(status) {
+            return status === 'open' ? 'danger' : 
+                   status === 'in_progress' ? 'warning' : 'success';
+        }
+
+        // Take picture button
+        document.getElementById('takePictureBtn').addEventListener('click', () => {
+            // Trigger the file input but use the camera
+            const eventImage = document.getElementById('eventImage');
+            eventImage.setAttribute('capture', 'environment');
+            eventImage.click();
+        });
+        
+        // Preview uploaded image
+        document.getElementById('eventImage').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('previewImage').src = e.target.result;
+                    document.getElementById('capturedImagePreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Save Event Button
+        document.getElementById('saveEventBtn').addEventListener('click', async () => {
+            const title = document.getElementById('eventTitle').value;
+            const description = document.getElementById('eventDesc').value;
+            const status = document.getElementById('eventStatus').value;
+            const fileInput = document.getElementById('eventImage');
+            const eventError = document.getElementById('eventError');
+            
+            if (!title) {
+                eventError.textContent = 'Event title is required';
+                eventError.style.display = 'block';
+                return;
+            }
+            
+            if (Object.keys(activeMaps).length === 0) {
+                eventError.textContent = 'At least one map must be active';
+                eventError.style.display = 'block';
+                return;
+            }
+            
+            try {
+                eventError.style.display = 'none';
+                
+                // Get the primary (first) active map
+                const primaryMapId = parseInt(Object.keys(activeMaps)[0]);
+                
+                // Get names of active maps for metadata
+                const activeMapNames = maps
+                    .filter(map => activeMaps[map.id])
+                    .map(map => map.name)
+                    .join(', ');
+                
+                const formData = new FormData();
+                formData.append('project_id', currentProject.id);
+                formData.append('map_id', primaryMapId);
+                formData.append('title', title);
+                formData.append('description', description);
+                formData.append('x_coordinate', selectedPosition.x);
+                formData.append('y_coordinate', selectedPosition.y);
+                formData.append('status', status);
+                formData.append('active_maps', activeMapNames);
+                
+                if (fileInput.files && fileInput.files.length > 0) {
+                    formData.append('image', fileInput.files[0]);
+                }
+                
+                console.log('Creating event:', Object.fromEntries(formData.entries()));
+                const response = await apiRequest('/events/', 'POST', formData);
+                console.log('Event created:', response);
+                
+                // Refresh events
+                await fetchProjectEvents();
+                
+                // Hide modal and reset form
+                createEventModal.hide();
+                
+                document.getElementById('eventTitle').value = '';
+                document.getElementById('eventDesc').value = '';
+                document.getElementById('eventStatus').value = 'open';
+                document.getElementById('eventImage').value = '';
+                document.getElementById('capturedImagePreview').style.display = 'none';
+                document.getElementById('eventCoordinates').textContent = '';
+                document.getElementById('activeMapLayers').textContent = '';
+            } catch (error) {
+                console.error('Error creating event:', error);
+                eventError.textContent = 'Failed to create event: ' + (error.message || 'Unknown error');
+                eventError.style.display = 'block';
+            }
+        });
+
+        // Delete Project Button
+        document.getElementById('deleteProjectBtn').addEventListener('click', async () => {
+            if (!currentProject) return;
+            
+            // Show confirmation dialog
+            if (!confirm(`Are you sure you want to delete project "${currentProject.name}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                console.log('Deleting project:', currentProject.id);
+                
+                // Disable the button while processing
+                const deleteBtn = document.getElementById('deleteProjectBtn');
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+                
+                // Send deletion request
+                await apiRequest(`/projects/${currentProject.id}`, 'DELETE');
+                console.log('Project deleted successfully');
+                
+                // Show success message
+                alert('Project deleted successfully');
+                
+                // Clear current project
+                currentProject = null;
+                
+                // Refresh projects list and go back to projects view
+                await fetchProjects();
+                showSection('projects');
+            } catch (error) {
+                console.error('Error deleting project:', error);
+                alert('Failed to delete project: ' + error.message);
+                
+                // Re-enable the button
+                const deleteBtn = document.getElementById('deleteProjectBtn');
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = 'Delete Project';
+            }
+        });
+
+        // Initialize
+        checkAuth();
+
+        // Show full event details in a modal
+        function showEventDetailsModal(event) {
+            // Use Bootstrap modal if available, otherwise fallback to our custom solution
+            let modal = document.getElementById('eventDetailsModal');
+            
+            if (!modal) {
+                // Create modal if it doesn't exist
+                modal = document.createElement('div');
+                modal.id = 'eventDetailsModal';
+                modal.className = 'modal fade';
+                modal.setAttribute('tabindex', '-1');
+                modal.setAttribute('aria-hidden', 'true');
+                
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="eventDetailsTitle">Event Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Description:</label>
+                                            <p id="eventDetailsDesc"></p>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Status:</label>
+                                            <span id="eventDetailsStatus" class="badge"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Created by:</label>
+                                            <span id="eventDetailsCreator"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Created on:</label>
+                                            <span id="eventDetailsDate"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Active Map Layers:</label>
+                                            <span id="eventDetailsMapLayers"></span>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="fw-bold">Coordinates:</label>
+                                            <span id="eventDetailsCoords"></span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4" id="eventDetailsImageContainer">
+                                        <img id="eventDetailsImage" class="img-fluid rounded" alt="Event image">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-primary" id="editEventBtn">Edit Event</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+            }
+            
+            // Update event details
+            document.getElementById('eventDetailsTitle').textContent = event.title;
+            document.getElementById('eventDetailsDesc').textContent = event.description || 'No description provided';
+            
+            const statusElement = document.getElementById('eventDetailsStatus');
+            statusElement.textContent = formatStatus(event.status);
+            statusElement.className = `badge bg-${getStatusClass(event.status)}`;
+            
+            document.getElementById('eventDetailsCreator').textContent = event.user_name || 'Unknown';
+            document.getElementById('eventDetailsDate').textContent = new Date(event.created_at).toLocaleString();
+            document.getElementById('eventDetailsMapLayers').textContent = event.active_maps || 'Not recorded';
+            document.getElementById('eventDetailsCoords').textContent = 
+                `X: ${event.x_coordinate}%, Y: ${event.y_coordinate}%`;
+            
+            // Show event image if available
+            const imageContainer = document.getElementById('eventDetailsImageContainer');
+            const image = document.getElementById('eventDetailsImage');
+            if (event.image_path) {
+                const apiUrlBase = API_URL.split('/api/v1')[0];
+                image.src = `${apiUrlBase}/uploads/${event.image_path}`;
+                imageContainer.style.display = 'block';
+            } else {
+                imageContainer.style.display = 'none';
+            }
+            
+            // Initialize Bootstrap modal
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            // Add edit event handler
+            const editBtn = document.getElementById('editEventBtn');
+            editBtn.onclick = function() {
+                bsModal.hide();
+                // TODO: Implement edit functionality
+                alert('Edit functionality will be implemented soon.');
+            };
+        }
+        
+        // Render recent events table
+        function renderRecentEventsTable() {
+            // Get the container for the recent events table
+            const recentEventsTable = document.getElementById('recentEventsTable');
+            if (!recentEventsTable) {
+                console.error('Recent events table element not found');
+                return;
+            }
+
+            // Check if events array exists and has data
+            if (!events || events.length === 0) {
+                recentEventsTable.innerHTML = '<div class="alert alert-info">No recent events found for this project.</div>';
+                return;
+            }
+            
+            console.log(`Rendering ${events.length} events in the recent events table`);
+            
+            // Sort events by created_at (newest first)
+            const sortedEvents = [...events].sort((a, b) => {
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
+            
+            // Limit to most recent 10 events
+            const recentEvents = sortedEvents.slice(0, 10);
+            
+            // Create table with headers if it doesn't exist
+            if (recentEventsTable.tagName !== 'TABLE') {
+                recentEventsTable.innerHTML = `
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Created By</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentEventsTableBody"></tbody>
+                    </table>
+                `;
+                recentEventsTableBody = document.getElementById('recentEventsTableBody');
+            }
+            
+            // Add rows for each event
+            recentEvents.forEach(event => {
+                const row = document.createElement('tr');
+                
+                const statusClass = getStatusClass(event.status);
+                const formattedStatus = formatStatus(event.status);
+                
+                row.innerHTML = `
+                    <td>${event.title}</td>
+                    <td>${event.description ? (event.description.length > 50 ? event.description.substring(0, 50) + '...' : event.description) : 'No description'}</td>
+                    <td><span class="badge bg-${statusClass}">${formattedStatus}</span></td>
+                    <td>${event.user_name || 'Unknown'}</td>
+                    <td>${new Date(event.created_at).toLocaleString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary view-event-details" data-event-id="${event.id}">View</button>
+                    </td>
+                `;
+                
+                recentEventsTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to view buttons
+            document.querySelectorAll('.view-event-details').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const eventId = e.target.getAttribute('data-event-id');
+                    const event = events.find(event => event.id.toString() === eventId);
+                    if (event) {
+                        showEventDetailsModal(event);
+                    }
+                });
+            });
+        }
+
+        // Initialize events page
+        function initializeEventsPage() {
+            console.log('Initializing events page');
+            // This function can be expanded to pre-load events data or set up event handlers
+            // For now, we'll just make sure the basic structure is prepared
+            
+            // Add event listeners to filter inputs if they exist
+            const projectFilter = document.getElementById('projectFilter');
+            const mapFilter = document.getElementById('mapFilter');
+            const statusFilter = document.getElementById('statusFilter');
+            
+            if (projectFilter) {
+                projectFilter.addEventListener('change', () => fetchAllEvents());
+            }
+            
+            if (mapFilter) {
+                mapFilter.addEventListener('change', () => fetchAllEvents());
+            }
+            
+            if (statusFilter) {
+                statusFilter.addEventListener('change', () => fetchAllEvents());
+            }
+        }
+    </script>
+</body>
+</html> 

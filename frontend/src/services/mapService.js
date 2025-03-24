@@ -48,20 +48,12 @@ export const fetchProjectById = async (projectId) => {
 
 export const fetchMaps = async (projectId) => {
   try {
-    console.log(`Fetching maps for project ${projectId} from ${API_URL}/projects/${projectId}/maps`);
-    const response = await api.get(`${API_URL}/projects/${projectId}/maps`);
+    console.log(`Fetching maps for project ${projectId}`);
+    const response = await api.get(`${API_URL}/maps?project_id=${projectId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching maps for project ${projectId}:`, error);
-    // Try the fallback endpoint if the first one fails
-    try {
-      console.log(`Trying fallback endpoint ${API_URL}/maps?project_id=${projectId}`);
-      const response = await api.get(`${API_URL}/maps?project_id=${projectId}`);
-      return response.data;
-    } catch (fallbackError) {
-      console.error('Fallback endpoint also failed:', fallbackError);
-      throw error; // Throw the original error
-    }
+    throw error;
   }
 };
 

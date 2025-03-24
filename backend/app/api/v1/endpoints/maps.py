@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
@@ -13,15 +13,18 @@ router = APIRouter()
 
 @router.get("/", response_model=List[Map])
 def get_maps(
-    project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
+    project_id: Optional[int] = Query(None),
     skip: int = 0,
     limit: int = 100
 ):
     """
     Get all maps for a project.
     """
+    if not project_id:
+        raise HTTPException(status_code=400, detail="Project ID is required")
+        
     # Check if project exists and user has access
     project = project_service.get_project(db, project_id)
     if not project:

@@ -30,6 +30,17 @@ def get_events(
     return query.order_by(desc(Event.created_at)).offset(skip).limit(limit).all()
 
 
+def get_events_by_map(
+    db: Session,
+    map_id: int,
+    skip: int = 0,
+    limit: int = 100
+) -> List[Event]:
+    """Get all events for a specific map"""
+    query = db.query(Event).filter(Event.map_id == map_id)
+    return query.order_by(desc(Event.created_at)).offset(skip).limit(limit).all()
+
+
 async def save_event_image(file: UploadFile) -> str:
     """Save event image to the upload directory and return the filename"""
     # Check if file is an image

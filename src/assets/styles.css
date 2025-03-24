@@ -1,0 +1,85 @@
+/* Global Styles */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.map-container {
+  height: 500px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.login-container {
+  max-width: 400px;
+  margin: 100px auto;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.project-card {
+  margin-bottom: 20px;
+  transition: transform 0.3s ease;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.map-item {
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.map-item:hover {
+  background-color: #f8f9fa;
+}
+
+.event-marker {
+  background-color: red;
+  border-radius: 50%;
+  width: 15px;
+  height: 15px;
+  border: 2px solid white;
+}
+
+.event-popup p {
+  margin: 5px 0;
+}
+
+.event-image {
+  max-width: 200px;
+  max-height: 150px;
+  margin-top: 10px;
+}
+
+.table-responsive {
+  margin-top: 20px;
+}
+
+.navbar-brand {
+  font-weight: bold;
+}
+
+.form-control {
+  margin-bottom: 15px;
+}
+
+.btn-primary {
+  background-color: #0056b3;
+}
+
+.btn-primary:hover {
+  background-color: #003d7e;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+}
+
+.btn-danger:hover {
+  background-color: #a71d2a;
+} 

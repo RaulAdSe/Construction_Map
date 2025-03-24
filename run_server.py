@@ -1,8 +1,12 @@
-import uvicorn
+#!/usr/bin/env python3
+"""
+Run script for the backend server with better error handling.
+"""
 import os
 import sys
 import logging
 import traceback
+from pathlib import Path
 
 # Configure detailed logging
 logging.basicConfig(
@@ -27,21 +31,26 @@ try:
     
     logger.debug("Python path: %s", sys.path)
     
-    # List files in the app directory to confirm it exists
+    # Check if app directory exists
     app_dir = os.path.join(backend_dir, "app")
     if os.path.exists(app_dir):
         logger.debug("app directory exists, contents: %s", os.listdir(app_dir))
     else:
         logger.error("app directory not found at %s", app_dir)
+        sys.exit(1)
     
     # Check if main.py exists
-    main_path = os.path.join(backend_dir, "app", "main.py")
+    main_path = os.path.join(app_dir, "main.py")
     if os.path.exists(main_path):
         logger.debug("main.py exists at %s", main_path)
     else:
         logger.error("main.py not found at %s", main_path)
+        sys.exit(1)
     
     logger.info("Starting server on port 8000...")
+    
+    # Import after path setup
+    import uvicorn
     
     if __name__ == "__main__":
         # Run with explicit host and port
@@ -58,4 +67,5 @@ except Exception as e:
     logger.error("Traceback: %s", traceback.format_exc())
     print(f"Error: {str(e)}")
     print("Traceback:")
-    traceback.print_exc() 
+    traceback.print_exc()
+    sys.exit(1) 
