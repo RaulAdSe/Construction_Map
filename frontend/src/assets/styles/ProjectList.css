@@ -1,0 +1,31 @@
+.project-list-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8f9fa;
+}
+
+.project-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  border: 1px solid #ddd;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.project-card .card-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.project-card .card-text {
+  color: #666;
+}
+
+.project-card .card-footer {
+  background-color: rgba(0, 0, 0, 0.03);
+  border-top: 1px solid #ddd;
+} 

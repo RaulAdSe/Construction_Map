@@ -36,6 +36,16 @@ export const fetchProjects = async () => {
   }
 };
 
+export const fetchProjectById = async (projectId) => {
+  try {
+    const response = await api.get(`${API_URL}/projects/${projectId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching project ${projectId}:`, error);
+    throw error;
+  }
+};
+
 export const fetchMaps = async (projectId) => {
   try {
     console.log(`Fetching maps for project ${projectId} from ${API_URL}/projects/${projectId}/maps`);
