@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Button, Modal, ListGroup, Spinner, Badge } from 'react-bootstrap';
-import { deleteMap, getMaps, updateMap } from '../services/mapService';
+import { Card, Button, Modal, Spinner, Badge } from 'react-bootstrap';
+import { deleteMap, fetchMaps, updateMap } from '../services/mapService';
 import AddMapModal from './AddMapModal';
 import './../assets/styles/MapViewer.css';
 
@@ -25,7 +25,7 @@ const MapsManager = ({ projectId }) => {
   const fetchMaps = async () => {
     try {
       setLoading(true);
-      const response = await getMaps(projectId);
+      const response = await fetchMaps(projectId);
       setMaps(response);
       
       // Check if we've already tried to fix maps this session
