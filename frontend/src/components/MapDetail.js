@@ -11,8 +11,10 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
   const overlayMaps = allMaps.filter(m => m.id !== implantationMap?.id);
   
-  // Initialize visibleMaps - but we need to do this after finding implantationMap
-  const [visibleMaps, setVisibleMaps] = useState([]);
+  // Initialize visibleMaps with the main map ID already included if available
+  const [visibleMaps, setVisibleMaps] = useState(() => {
+    return implantationMap ? [implantationMap.id] : [];
+  });
   
   // Ensure main map ID is always in visibleMaps - with high priority
   useEffect(() => {
@@ -46,13 +48,18 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       if (savedSettings) {
         const visibleMapIds = JSON.parse(savedSettings);
         if (visibleMapIds && Array.isArray(visibleMapIds)) {
-          setVisibleMaps(visibleMapIds);
+          // Always ensure the main map is included in the loaded settings
+          if (implantationMap && !visibleMapIds.includes(implantationMap.id)) {
+            setVisibleMaps([implantationMap.id, ...visibleMapIds]);
+          } else {
+            setVisibleMaps(visibleMapIds);
+          }
         }
       }
     } catch (error) {
       console.error('Error loading saved map settings:', error);
     }
-  }, [localStorageKey]);
+  }, [localStorageKey, implantationMap]);
   
   // Initialize default settings for main map when it changes
   useEffect(() => {
@@ -272,7 +279,18 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     if (onVisibleMapsChanged) {
       onVisibleMapsChanged(visibleMaps);
     }
-  }, [visibleMaps, onVisibleMapsChanged]);
+    
+    // Log whenever visible maps change to help debug
+    console.log("Visible maps changed:", visibleMaps);
+    console.log("Current visible events:", visibleEvents.length);
+  }, [visibleMaps, onVisibleMapsChanged, visibleEvents.length]);
+  
+  // Console log on mount to debug events visibility
+  useEffect(() => {
+    console.log("MapDetail mounted with events:", events.length);
+    console.log("Visible maps:", visibleMaps);
+    console.log("Visible events:", visibleEvents.length);
+  }, []); // Empty dependency array means this runs only on mount
   
   return (
     <div className="map-detail-container">
@@ -309,9 +327,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         )}
         
         {/* Display event count badge */}
-        {visibleEvents && visibleEvents.length > 0 && (
+        {events && events.length > 0 && (
           <div className="event-count-badge">
-            {visibleEvents.length} {visibleEvents.length === 1 ? 'Event' : 'Events'}
+            {visibleEvents.length} of {events.length} {events.length === 1 ? 'Event' : 'Events'}
           </div>
         )}
       </div>

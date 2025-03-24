@@ -41,6 +41,28 @@ const MapViewer = ({ onLogout }) => {
   
   // Add a visibleMapIds state variable to track which maps are currently visible
   const [visibleMapIds, setVisibleMapIds] = useState([]);
+  // Add a visibleEvents state to track events filtered by visible maps
+  const [visibleEvents, setVisibleEvents] = useState([]);
+  
+  // Update visible events whenever events or visible maps change
+  useEffect(() => {
+    // Filter events based on visible maps
+    const filteredEvents = events.filter(event => {
+      if (!event || !event.map_id) return false;
+      
+      // Always include events from the main map (implantation type)
+      const mainMap = maps.find(map => map.map_type === 'implantation');
+      if (mainMap && event.map_id === mainMap.id) {
+        return true;
+      }
+      
+      // For other maps, only include if they're in the visible maps list
+      return visibleMapIds.includes(event.map_id);
+    });
+    
+    setVisibleEvents(filteredEvents);
+    console.log("Updated visible events:", filteredEvents.length, "out of", events.length);
+  }, [events, visibleMapIds, maps]);
   
   useEffect(() => {
     if (projectId) {
@@ -48,16 +70,40 @@ const MapViewer = ({ onLogout }) => {
     }
   }, [projectId]);
   
-  // Update the state when the selected map changes
+  // Update the visible maps when the selected map changes
   useEffect(() => {
-    if (selectedMap && selectedMap.visibleMaps) {
-      setVisibleMapIds(selectedMap.visibleMaps);
-    } else if (selectedMap) {
-      setVisibleMapIds([selectedMap.id]);
-    } else {
-      setVisibleMapIds([]);
+    if (selectedMap) {
+      // Make sure the selectedMap's ID is in visibleMapIds
+      if (!visibleMapIds.includes(selectedMap.id)) {
+        setVisibleMapIds(prev => [...prev, selectedMap.id]);
+      }
+      console.log("Selected map changed, ensuring it's visible:", selectedMap.id);
     }
   }, [selectedMap]);
+  
+  // Initialize visibleMapIds when maps are loaded
+  useEffect(() => {
+    if (maps.length > 0) {
+      // Find the main map
+      const mainMap = maps.find(map => map.map_type === 'implantation');
+      
+      if (mainMap) {
+        // Initialize with the main map
+        console.log("Initializing visible maps with main map:", mainMap.id);
+        
+        // Check if already in the list to avoid duplicates
+        if (!visibleMapIds.includes(mainMap.id)) {
+          setVisibleMapIds(prev => [mainMap.id, ...prev.filter(id => id !== mainMap.id)]);
+        }
+      }
+    }
+  }, [maps]);
+  
+  // Handle updates to visible maps from MapDetail component
+  const handleVisibleMapsChanged = (newVisibleMapIds) => {
+    console.log("Visible maps changed to:", newVisibleMapIds);
+    setVisibleMapIds(newVisibleMapIds);
+  };
   
   // Reload map data when switching to Map View tab
   useEffect(() => {
@@ -120,12 +166,19 @@ const MapViewer = ({ onLogout }) => {
         if (mainMap) {
           console.log('Found and selected main map:', mainMap.name);
           setSelectedMap(mainMap);
+          
+          // Initialize visible maps with the main map ID
+          setVisibleMapIds([mainMap.id]);
         } else {
           console.log('No main map found, selecting first map');
           setSelectedMap(mapsData[0]);
+          
+          // Initialize visible maps with the first map ID
+          setVisibleMapIds([mapsData[0].id]);
         }
       } else {
         setSelectedMap(null);
+        setVisibleMapIds([]);
       }
     } catch (error) {
       console.error('Error loading project data:', error);
@@ -364,7 +417,7 @@ const MapViewer = ({ onLogout }) => {
                         </p>
                         <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
                         <p className="mb-0">
-                          <strong>Events:</strong> {events.filter(e => visibleMapIds.includes(e.map_id)).length}
+                          <strong>Events:</strong> {visibleEvents.length}
                         </p>
                       </div>
                     )}
@@ -391,13 +444,13 @@ const MapViewer = ({ onLogout }) => {
                 {selectedMap ? (
                   <MapDetail 
                     map={selectedMap} 
-                    events={events} 
+                    events={visibleEvents} 
                     onMapClick={handleMapClick}
                     isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
                     onEventClick={handleViewEvent}
                     allMaps={maps.filter(m => m.project_id === project.id)}
                     projectId={project.id}
-                    onVisibleMapsChanged={setVisibleMapIds}
+                    onVisibleMapsChanged={handleVisibleMapsChanged}
                   />
                 ) : (
                   <div className="text-center p-5 bg-light rounded">
@@ -446,7 +499,7 @@ const MapViewer = ({ onLogout }) => {
             </div>
             
             <EventsTable 
-              events={events} 
+              events={visibleEvents} 
               onViewEvent={handleViewEvent}
               onEditEvent={handleEditEvent}
             />
