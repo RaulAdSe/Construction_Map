@@ -20,6 +20,23 @@ const ProjectList = ({ onLogout }) => {
     loadProjects();
   }, []);
 
+  // Helper function to format dates safely
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Date unavailable';
+    
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) return 'Invalid date';
+    
+    // Format the date
+    return date.toLocaleDateString(undefined, { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
   const loadProjects = async () => {
     try {
       setLoading(true);
@@ -148,7 +165,7 @@ const ProjectList = ({ onLogout }) => {
                   </Card.Body>
                   <Card.Footer onClick={() => handleProjectSelect(project.id)}>
                     <small className="text-muted">
-                      Created: {new Date(project.created_at).toLocaleDateString()}
+                      Created: {formatDate(project.created_at)}
                     </small>
                   </Card.Footer>
                 </Card>
