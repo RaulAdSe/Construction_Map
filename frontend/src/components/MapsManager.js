@@ -121,7 +121,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
           {selectedMap?.content_url && (
             <div style={{ height: '70vh', width: '100%', overflow: 'hidden' }}>
               <iframe
-                src={`${selectedMap.content_url}#toolbar=0&navpanes=0&scrollbar=0&view=fitH`}
+                src={`${selectedMap.content_url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`}
                 title={selectedMap.name}
                 style={{ 
                   width: '100%', 

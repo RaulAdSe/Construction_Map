@@ -1,7 +1,7 @@
 .map-container {
   position: relative;
   width: 100%;
-  height: 600px;
+  height: 800px;
   background-color: #f8f9fa;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
@@ -307,7 +307,7 @@ iframe.clean-pdf-view {
 .map-container {
   position: relative;
   width: 100%;
-  height: 600px;
+  height: 800px;
   background-color: #f8f9fa;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
@@ -418,7 +418,7 @@ iframe.clean-pdf-view {
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .map-container {
-    height: 400px;
+    height: 500px;
   }
 }
 
@@ -445,10 +445,21 @@ iframe.clean-pdf-view {
 /* PDF container styles */
 .pdf-container {
   background-color: transparent !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
 }
 
 .pdf-container iframe {
   background-color: transparent !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100%;
+  object-fit: contain;
+  overflow: hidden !important;
 }
 
 /* Map layers container */
@@ -460,6 +471,9 @@ iframe.clean-pdf-view {
 /* Map detail container */
 .map-detail-container {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 800px;
 }
 
 /* Override any PDF viewer styles */
@@ -467,6 +481,7 @@ iframe.clean-pdf-view {
   --viewer-container-height: 100%;
   --viewer-pdf-viewer-color-scheme: auto;
   --focus-outline: 0;
+  --pdfjs-zoom-auto-enabled: false;
 }
 
 /* Event tooltip styles */
@@ -484,4 +499,9 @@ iframe.clean-pdf-view {
   max-width: 220px;
   padding: 8px 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Style for PDF viewers to prevent scrollbars and ensure full content */
+iframe[src*=".pdf"] {
+  overflow: hidden !important;
 } 

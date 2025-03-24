@@ -124,7 +124,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       return (
         <div key={currentMap.id} style={layerStyle} className="pdf-container">
           <iframe 
-            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=fitH`}
+            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`} 
             title={currentMap.name}
             style={{ 
               width: '100%', 
