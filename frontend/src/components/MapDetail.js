@@ -2,17 +2,59 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Spinner, Alert, Form, ListGroup } from 'react-bootstrap';
 import EventMarker from './EventMarker';
 
-const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick, allMaps = [] }) => {
+const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick, allMaps = [], projectId, onVisibleMapsChanged }) => {
   const mapContainerRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [visibleMaps, setVisibleMaps] = useState([]);
-  const [mapOpacity, setMapOpacity] = useState({});
   
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
-  const overlayMaps = allMaps.filter(m => m.map_type === 'overlay' && m.id !== implantationMap.id);
+  const overlayMaps = allMaps.filter(m => m.id !== implantationMap?.id);
   
+  // Initialize visibleMaps - but we need to do this after finding implantationMap
+  const [visibleMaps, setVisibleMaps] = useState([]);
+  
+  // Ensure main map ID is always in visibleMaps - with high priority
+  useEffect(() => {
+    if (implantationMap && implantationMap.id) {
+      console.log("Ensuring main map is in visible maps:", implantationMap.id);
+      setVisibleMaps(prev => {
+        if (!prev.includes(implantationMap.id)) {
+          return [implantationMap.id, ...prev.filter(id => id !== implantationMap.id)];
+        }
+        return prev;
+      });
+    }
+  }, [implantationMap]);
+  
+  // Track dependency on map types to refresh when they change
+  useEffect(() => {
+    // Recalculate implantation map and overlay maps when allMaps changes
+    const mainMap = allMaps.find(m => m.map_type === 'implantation');
+    if (mainMap) {
+      console.log("MapDetail detected main map change to:", mainMap.name);
+    }
+  }, [allMaps]);
+  
+  // Store map visibility settings in localStorage
+  const localStorageKey = `map_overlays_${projectId}`;
+  
+  // Load saved settings on component mount
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem(localStorageKey);
+      if (savedSettings) {
+        const visibleMapIds = JSON.parse(savedSettings);
+        if (visibleMapIds && Array.isArray(visibleMapIds)) {
+          setVisibleMaps(visibleMapIds);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved map settings:', error);
+    }
+  }, [localStorageKey]);
+  
+  // Initialize default settings for main map when it changes
   useEffect(() => {
     // Reset loading state when map changes
     if (map) {
@@ -20,22 +62,27 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       setLoadError(false);
     }
     
-    // Initialize visible maps and opacity
+    // Always ensure main map is visible
     if (implantationMap) {
-      // Always show the implantation map first
       setVisibleMaps(prev => {
         if (!prev.includes(implantationMap.id)) {
           return [...prev, implantationMap.id];
         }
         return prev;
       });
-      
-      setMapOpacity(prev => ({
-        ...prev,
-        [implantationMap.id]: 1.0
-      }));
     }
   }, [map, implantationMap]);
+  
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    if (implantationMap && visibleMaps.length > 0) {
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(visibleMaps));
+      } catch (error) {
+        console.error('Error saving map settings:', error);
+      }
+    }
+  }, [visibleMaps, implantationMap, localStorageKey]);
   
   useEffect(() => {
     if (isSelectingLocation && mapContainerRef.current) {
@@ -51,7 +98,13 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         const xPercent = (x / rect.width) * 100;
         const yPercent = (y / rect.height) * 100;
         
-        onMapClick(map, xPercent, yPercent);
+        // Create modified map object with the current visibleMaps
+        const mapWithVisibleLayers = {
+          ...map,
+          visibleMaps: visibleMaps
+        };
+        
+        onMapClick(mapWithVisibleLayers, xPercent, yPercent);
       };
       
       container.style.cursor = 'crosshair';
@@ -62,7 +115,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         container.removeEventListener('click', handleClick);
       };
     }
-  }, [isSelectingLocation, map, onMapClick]);
+  }, [isSelectingLocation, map, onMapClick, visibleMaps]);
   
   const handleImageLoad = () => {
     setImageLoaded(true);
@@ -83,6 +136,11 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   
   const toggleMapVisibility = (mapId) => {
     setVisibleMaps(prevMaps => {
+      // Don't allow toggling off the main map
+      if (mapId === implantationMap?.id) {
+        return prevMaps;
+      }
+      
       if (prevMaps.includes(mapId)) {
         return prevMaps.filter(id => id !== mapId);
       } else {
@@ -91,22 +149,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     });
   };
   
-  const handleOpacityChange = (mapId, opacity) => {
-    setMapOpacity(prev => ({
-      ...prev,
-      [mapId]: opacity
-    }));
-  };
-  
   // Function to render a single map layer
-  const renderMapLayer = (currentMap, zIndex) => {
+  const renderMapLayer = (currentMap, zIndex, isOverlay = false) => {
     if (!currentMap || !currentMap.content_url) {
       return null;
     }
     
     const url = currentMap.content_url;
     const fileExt = url.split('.').pop().toLowerCase();
-    const opacity = mapOpacity[currentMap.id] || 1.0;
+    const opacity = isOverlay ? 0.5 : 1.0; // Fixed opacity: 100% for main map, 50% for overlays
     
     const layerStyle = {
       position: 'absolute',
@@ -177,10 +228,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     }
     
     // Get all maps that should be visible
-    const visibleMapObjects = [
-      implantationMap,
-      ...overlayMaps.filter(m => visibleMaps.includes(m.id))
-    ];
+    const overlayMapObjects = overlayMaps.filter(m => visibleMaps.includes(m.id));
     
     return (
       <>
@@ -192,11 +240,39 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         )}
         
         <div className="map-layers-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
-          {visibleMapObjects.map((m, index) => renderMapLayer(m, 10 + index))}
+          {/* Always render main map first */}
+          {renderMapLayer(implantationMap, 10)}
+          
+          {/* Then render overlay maps */}
+          {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
         </div>
       </>
     );
   };
+  
+  // Filter events to show only ones visible on currently shown maps
+  const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
+  
+  // ALWAYS include events from the main map, plus any events from visible overlay maps
+  const visibleEvents = events.filter(event => {
+    if (!event || !event.map_id) return false;
+    
+    // Always show events from the main map, regardless of visibility state
+    if (event.map_id === implantationMap?.id) {
+      return true;
+    }
+    
+    // For overlay maps, only show events if that map is toggled on
+    return visibleMaps.includes(event.map_id);
+  });
+  
+  // Add a useEffect to notify parent component when visibleMaps changes
+  useEffect(() => {
+    // Only notify parent if callback is provided
+    if (onVisibleMapsChanged) {
+      onVisibleMapsChanged(visibleMaps);
+    }
+  }, [visibleMaps, onVisibleMapsChanged]);
   
   return (
     <div className="map-detail-container">
@@ -213,14 +289,16 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
           </Alert>
         )}
         
-        {/* Render event markers */}
-        {imageLoaded && events && events.length > 0 && events.map(event => (
-          <EventMarker 
-            key={event.id} 
-            event={event} 
-            onClick={(e) => handleEventClick(event, e)}
-          />
-        ))}
+        {/* Render event markers - always positioned at highest z-index */}
+        <div className="event-markers-container">
+          {imageLoaded && visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
+            <EventMarker 
+              key={event.id} 
+              event={event} 
+              onClick={(e) => handleEventClick(event, e)}
+            />
+          ))}
+        </div>
         
         {isSelectingLocation && (
           <div className="selecting-location-overlay">
@@ -231,37 +309,29 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         )}
         
         {/* Display event count badge */}
-        {events && events.length > 0 && (
+        {visibleEvents && visibleEvents.length > 0 && (
           <div className="event-count-badge">
-            {events.length} {events.length === 1 ? 'Event' : 'Events'}
+            {visibleEvents.length} {visibleEvents.length === 1 ? 'Event' : 'Events'}
           </div>
         )}
       </div>
       
       {/* Map overlay controls */}
-      {overlayMaps.length > 0 && (
-        <div className="map-overlay-controls mt-3">
-          <h6>Map Layers</h6>
+      <div className="map-overlay-controls mt-3">
+        <h6>Map Layers</h6>
+        {implantationMap && (
           <ListGroup>
-            <ListGroup.Item className="d-flex justify-content-between align-items-center">
+            <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
               <div>
                 <Form.Check 
                   type="checkbox"
                   id={`map-toggle-${implantationMap.id}`}
                   label={`${implantationMap.name} (Main)`}
-                  checked={visibleMaps.includes(implantationMap.id)}
-                  onChange={() => toggleMapVisibility(implantationMap.id)}
+                  checked={true}
                   className="me-2"
                   disabled={true} // Main map cannot be toggled off
                 />
               </div>
-              <Form.Range 
-                value={mapOpacity[implantationMap.id] * 100 || 100}
-                onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value) / 100)}
-                min="20"
-                max="100"
-                className="w-50"
-              />
             </ListGroup.Item>
             
             {overlayMaps.map(overlayMap => (
@@ -279,20 +349,16 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
                     className="me-2"
                   />
                 </div>
-                {visibleMaps.includes(overlayMap.id) && (
-                  <Form.Range 
-                    value={(mapOpacity[overlayMap.id] * 100) || 50}
-                    onChange={(e) => handleOpacityChange(overlayMap.id, parseInt(e.target.value) / 100)}
-                    min="10"
-                    max="100"
-                    className="w-50"
-                  />
-                )}
               </ListGroup.Item>
             ))}
           </ListGroup>
-        </div>
-      )}
+        )}
+        {!implantationMap && (
+          <Alert variant="info">
+            No maps available for this project. Add a map to get started.
+          </Alert>
+        )}
+      </div>
     </div>
   );
 };

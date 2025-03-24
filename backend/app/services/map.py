@@ -75,7 +75,8 @@ def update_map(
     db: Session,
     map_id: int,
     name: Optional[str] = None,
-    transform_data: Optional[Dict[str, Any]] = None
+    transform_data: Optional[Dict[str, Any]] = None,
+    map_type: Optional[str] = None
 ) -> Optional[Map]:
     map_obj = get_map(db, map_id)
     if not map_obj:
@@ -85,6 +86,8 @@ def update_map(
         map_obj.name = name
     if transform_data is not None:
         map_obj.transform_data = transform_data
+    if map_type is not None:
+        map_obj.map_type = map_type
     
     db.commit()
     db.refresh(map_obj)

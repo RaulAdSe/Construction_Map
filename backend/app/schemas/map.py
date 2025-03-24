@@ -18,6 +18,7 @@ class MapCreate(MapBase):
 class MapUpdate(BaseModel):
     name: Optional[str] = None
     transform_data: Optional[Dict[str, Any]] = None
+    map_type: Optional[str] = None
 
 
 class Map(MapBase):
