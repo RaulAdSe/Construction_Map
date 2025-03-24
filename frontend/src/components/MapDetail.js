@@ -126,12 +126,33 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   
   const handleImageLoad = () => {
     setImageLoaded(true);
+    console.log("Map image loaded, events should now be visible");
   };
   
   const handleImageError = () => {
     setLoadError(true);
     setImageLoaded(true); // Still set loaded to remove spinner
   };
+  
+  // Force imageLoaded to true after a timeout to ensure events display even if load events don't fire
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!imageLoaded) {
+        console.log("Forcing imageLoaded=true after timeout");
+        setImageLoaded(true);
+      }
+    }, 2000); // 2 second timeout
+    
+    return () => clearTimeout(timer);
+  }, [imageLoaded]);
+  
+  // Ensure event markers are always visible, regardless of map loading state
+  useEffect(() => {
+    // Log event visibility state
+    if (visibleEvents && visibleEvents.length > 0 && !imageLoaded) {
+      console.log("Events ready but map not loaded yet");
+    }
+  }, [visibleEvents, imageLoaded]);
   
   const handleEventClick = (event, e) => {
     // Stop propagation to prevent map click handler from firing
@@ -292,6 +313,17 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     console.log("Visible events:", visibleEvents.length);
   }, []); // Empty dependency array means this runs only on mount
   
+  // Modify event markers container to make it more reliable
+  const eventMarkersStyle = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 2000, // Ensure it's above all map layers
+    pointerEvents: 'none' // Let clicks pass through to the map
+  };
+  
   return (
     <div className="map-detail-container">
       <div 
@@ -308,8 +340,8 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         )}
         
         {/* Render event markers - always positioned at highest z-index */}
-        <div className="event-markers-container">
-          {imageLoaded && visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
+        <div className="event-markers-container" style={eventMarkersStyle}>
+          {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
             <EventMarker 
               key={event.id} 
               event={event} 

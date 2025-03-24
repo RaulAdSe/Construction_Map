@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 // Map of user IDs to different colors for consistency
@@ -20,7 +20,13 @@ const getColorForUser = (userId) => {
 const EventMarker = ({ event, onClick }) => {
   const [isHovered, setIsHovered] = useState(false);
   
+  useEffect(() => {
+    // Log when a marker is rendered
+    console.log(`Event marker rendered: ${event.id} at x:${event.x_coordinate}%, y:${event.y_coordinate}%`);
+  }, [event]);
+  
   if (!event || !event.x_coordinate || !event.y_coordinate) {
+    console.warn("Invalid event data for marker:", event);
     return null;
   }
   
@@ -30,17 +36,17 @@ const EventMarker = ({ event, onClick }) => {
     position: 'absolute',
     left: `${event.x_coordinate}%`,
     top: `${event.y_coordinate}%`,
-    width: isHovered ? '20px' : '16px',
-    height: isHovered ? '20px' : '16px',
+    width: isHovered ? '24px' : '20px', // Increased size
+    height: isHovered ? '24px' : '20px', // Increased size
     backgroundColor: color,
-    border: '2px solid white',
+    border: '3px solid white', // Thicker border
     borderRadius: '50%',
     transform: 'translate(-50%, -50%)',
     boxShadow: isHovered 
-      ? `0 0 8px ${color}, 0 0 12px rgba(0, 0, 0, 0.4)` 
-      : '0 0 4px rgba(0, 0, 0, 0.4)',
+      ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
+      : '0 0 6px rgba(0, 0, 0, 0.5)', // Enhanced shadow
     cursor: 'pointer',
-    zIndex: 2000,
+    zIndex: 2500, // Ensure highest z-index
     transition: 'all 0.2s ease',
     pointerEvents: 'auto'
   };
