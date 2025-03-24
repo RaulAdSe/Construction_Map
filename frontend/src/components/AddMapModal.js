@@ -5,7 +5,6 @@ import { addMap } from '../services/mapService';
 const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
   const [mapName, setMapName] = useState('');
   const [mapFile, setMapFile] = useState(null);
-  const [mapType, setMapType] = useState('implantation'); // Default to implantation
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -31,7 +30,7 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
     setLoading(true);
     
     try {
-      const newMap = await addMap(projectId, mapName, mapFile, mapType);
+      const newMap = await addMap(projectId, mapName, mapFile);
       onMapAdded(newMap);
       resetForm();
     } catch (error) {
@@ -45,7 +44,6 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
   const resetForm = () => {
     setMapName('');
     setMapFile(null);
-    setMapType('implantation'); // Reset to default
     setError('');
   };
   
@@ -70,21 +68,6 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
               placeholder="Enter map name"
               required
             />
-          </Form.Group>
-          
-          <Form.Group className="mb-3">
-            <Form.Label>Map Type</Form.Label>
-            <Form.Select
-              value={mapType}
-              onChange={(e) => setMapType(e.target.value)}
-              required
-            >
-              <option value="implantation">Implantation (Main Map)</option>
-              <option value="overlay">Overlay (Secondary Map)</option>
-            </Form.Select>
-            <Form.Text className="text-muted">
-              An implantation map serves as the main map. Overlay maps can be displayed on top of the main map.
-            </Form.Text>
           </Form.Group>
           
           <Form.Group className="mb-3">

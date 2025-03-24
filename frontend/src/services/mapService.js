@@ -57,13 +57,12 @@ export const fetchMaps = async (projectId) => {
   }
 };
 
-export const addMap = async (projectId, name, file, mapType = 'implantation') => {
+export const addMap = async (projectId, name, file) => {
   try {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('file', file);
     formData.append('project_id', projectId);
-    formData.append('map_type', mapType);
     
     const response = await axios.post(`${API_URL}/maps`, formData, {
       headers: {
@@ -95,16 +94,6 @@ export const deleteMap = async (mapId) => {
     return response.data;
   } catch (error) {
     console.error(`Error deleting map ${mapId}:`, error);
-    throw error;
-  }
-};
-
-export const updateMap = async (mapId, mapData) => {
-  try {
-    const response = await api.put(`${API_URL}/maps/${mapId}`, mapData);
-    return response.data;
-  } catch (error) {
-    console.error(`Error updating map ${mapId}:`, error);
     throw error;
   }
 }; 

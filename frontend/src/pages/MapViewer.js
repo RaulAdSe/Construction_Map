@@ -39,25 +39,11 @@ const MapViewer = ({ onLogout }) => {
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
   
-  // Add a visibleMapIds state variable to track which maps are currently visible
-  const [visibleMapIds, setVisibleMapIds] = useState([]);
-  
   useEffect(() => {
     if (projectId) {
       loadProjectData(parseInt(projectId, 10));
     }
   }, [projectId]);
-  
-  // Update the state when the selected map changes
-  useEffect(() => {
-    if (selectedMap && selectedMap.visibleMaps) {
-      setVisibleMapIds(selectedMap.visibleMaps);
-    } else if (selectedMap) {
-      setVisibleMapIds([selectedMap.id]);
-    } else {
-      setVisibleMapIds([]);
-    }
-  }, [selectedMap]);
   
   const loadProjectData = async (pid) => {
     try {
@@ -118,28 +104,9 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleMapAdded = (newMap) => {
-    // Check if the map already exists (update case)
-    const existingMapIndex = maps.findIndex(m => m.id === newMap.id);
-    
-    if (existingMapIndex >= 0) {
-      // Update existing map
-      const updatedMaps = [...maps];
-      updatedMaps[existingMapIndex] = newMap;
-      setMaps(updatedMaps);
-      
-      // If it was the selected map, update that too
-      if (selectedMap && selectedMap.id === newMap.id) {
-        setSelectedMap(newMap);
-      }
-      
-      showNotification('Map updated successfully!');
-    } else {
-      // Add new map
-      setMaps([...maps, newMap]);
-      setSelectedMap(newMap);
-      showNotification('Map added successfully!');
-    }
-    
+    setMaps([...maps, newMap]);
+    setSelectedMap(newMap);
+    showNotification('Map added successfully!');
     setShowAddMapModal(false);
   };
   
@@ -160,18 +127,12 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleAddEvent = () => {
-    if (!selectedMap) {
-      showNotification('Please select a map first before adding an event.', 'warning');
-      // Maybe direct them to map selection
-      setActiveTab('project-maps');
+    if (maps.length === 0) {
+      showNotification('Please add a map first.', 'error');
       return;
     }
     
-    // Store reference to map and set selecting location mode
-    setMapForEvent(selectedMap);
-    
-    // Notify user to click on the map
-    showNotification('Click on the map to place your event.', 'info');
+    setShowMapSelectionModal(true);
   };
   
   const handleMapSelected = (mapId) => {
@@ -184,10 +145,6 @@ const MapViewer = ({ onLogout }) => {
   const handleMapClick = (map, x, y) => {
     if (mapForEvent && mapForEvent.id === map.id) {
       setEventPosition({ x, y });
-      setMapForEvent(prev => ({
-        ...prev,
-        visibleMaps: map.visibleMaps || []
-      }));
       setShowAddEventModal(true);
     }
   };
@@ -291,63 +248,36 @@ const MapViewer = ({ onLogout }) => {
           <Tab eventKey="map-view" title="Map View">
             <Row>
               <Col md={3}>
-                <div className="sidebar-panel">
-                  <h5 className="mb-3">Map Controls</h5>
-                  
-                  <div className="d-grid gap-2 mb-4">
-                    <Button variant="success" onClick={handleAddEvent}>
-                      <i className="bi bi-pin-map me-2"></i>Add Event
-                    </Button>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div className="map-info-section">
-                    <h6>Current View</h6>
-                    {selectedMap && (
-                      <div className="current-map-info mb-3">
-                        <p className="mb-1"><strong>Main Map:</strong> {selectedMap.name}</p>
-                        <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
-                        <p className="mb-0">
-                          <strong>Events:</strong> {events.filter(e => visibleMapIds.includes(e.map_id)).length}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <hr />
-                  
-                  <div className="events-summary mb-3">
-                    <h6>Event Categories</h6>
-                    {/* Group events by tags */}
-                    <ul className="list-unstyled">
-                      {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
-                        <li key={tag} className="mb-1">
-                          <span className="badge bg-secondary me-2">{tag}</span>
-                          <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                <div className="mb-3">
+                  <Button variant="primary" onClick={handleAddMap} className="me-2">
+                    Add Map
+                  </Button>
+                  <Button variant="success" onClick={handleAddEvent}>
+                    Add Event
+                  </Button>
                 </div>
+                
+                <MapList 
+                  maps={maps} 
+                  selectedMap={selectedMap} 
+                  onMapSelect={handleMapSelect} 
+                />
               </Col>
               
               <Col md={9}>
                 {selectedMap ? (
                   <MapDetail 
                     map={selectedMap} 
-                    events={events} 
+                    events={events.filter(e => e.map_id === selectedMap.id)} 
                     onMapClick={handleMapClick}
                     isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
                     onEventClick={handleViewEvent}
                     allMaps={maps.filter(m => m.project_id === project.id)}
-                    projectId={project.id}
-                    onVisibleMapsChanged={setVisibleMapIds}
                   />
                 ) : (
                   <div className="text-center p-5 bg-light rounded">
                     <h3>No map selected</h3>
-                    <p>Please select a map from the Project Maps tab or add a new one.</p>
+                    <p>Please select a map from the list or add a new one.</p>
                   </div>
                 )}
               </Col>
@@ -406,7 +336,6 @@ const MapViewer = ({ onLogout }) => {
         onEventAdded={handleEventAdded}
         projectId={project?.id}
         allMaps={maps}
-        visibleMaps={selectedMap?.visibleMaps || []}
       />
       
       <ViewEventModal
