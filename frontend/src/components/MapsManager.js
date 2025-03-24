@@ -90,11 +90,15 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
         }
       }
       
-      // Force refresh the page
-      window.location.reload();
+      // Set a success message
+      alert("Map set as main successfully. The page will now refresh.");
+      
+      // Force a page refresh with the current URL to preserve the route
+      window.location.href = window.location.href;
       
     } catch (error) {
       console.error('Error setting map as main:', error);
+      alert("Error setting map as main: " + error.message);
     } finally {
       setUpdatingMap(null);
     }
@@ -137,11 +141,15 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
       // Update all maps in parent
       updatedMaps.forEach(m => onMapAdded(m));
       
-      // Force a page refresh to ensure all maps are updated properly
-      window.location.reload();
+      // Set a success message
+      alert("Map types fixed successfully. The page will now refresh.");
+      
+      // Force a page refresh with the current URL to preserve the route
+      window.location.href = window.location.href;
       
     } catch (error) {
       console.error('Error fixing map types:', error);
+      alert("There was an error fixing map types: " + error.message);
     } finally {
       setFixingMapTypes(false);
       setShowFixMapTypesButton(false);
