@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Row, Col, Card, Button, Modal, ListGroup, Spinner, Badge } from 'react-bootstrap';
-import { deleteMap } from '../services/mapService';
+import { deleteMap, updateMap } from '../services/mapService';
 import AddMapModal from './AddMapModal';
 
 const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
@@ -9,6 +9,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
   const [showAddMapModal, setShowAddMapModal] = useState(false);
   const [deletingMap, setDeletingMap] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [updatingMap, setUpdatingMap] = useState(null);
   
   const handleViewMap = (map) => {
     setSelectedMap(map);
@@ -31,6 +32,58 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
     } finally {
       setLoading(false);
     }
+  };
+  
+  const handleSetAsMainMap = async (map) => {
+    if (map.map_type === 'implantation') {
+      // Already the main map
+      return;
+    }
+    
+    try {
+      setUpdatingMap(map.id);
+      
+      // First, find current implantation map and set it to overlay
+      const currentMainMap = maps.find(m => m.map_type === 'implantation');
+      if (currentMainMap) {
+        await updateMap(currentMainMap.id, {
+          name: currentMainMap.name,
+          map_type: 'overlay'
+        });
+      }
+      
+      // Then set the selected map as implantation
+      const updatedMap = await updateMap(map.id, {
+        name: map.name,
+        map_type: 'implantation'
+      });
+      
+      // Call a function to update the map in the parent component
+      handleMapUpdated(updatedMap);
+      
+      // If there was a previous main map, update it in the UI too
+      if (currentMainMap) {
+        handleMapUpdated({
+          ...currentMainMap,
+          map_type: 'overlay'
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error setting map as main:', error);
+    } finally {
+      setUpdatingMap(null);
+    }
+  };
+  
+  const handleMapUpdated = (updatedMap) => {
+    // Create a new array with the updated map
+    const updatedMaps = maps.map(m => 
+      m.id === updatedMap.id ? updatedMap : m
+    );
+    
+    // Call the parent's onMapAdded function to update the state
+    onMapAdded(updatedMap);
   };
   
   if (!maps || maps.length === 0) {
@@ -68,7 +121,7 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
               <Card.Header className="d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">{map.name}</h5>
                 <Badge bg={map.map_type === 'implantation' ? 'primary' : 'info'}>
-                  {map.map_type}
+                  {map.map_type === 'implantation' ? 'Main Map' : 'Overlay'}
                 </Badge>
               </Card.Header>
               <Card.Body className="text-center">
@@ -88,12 +141,28 @@ const MapsManager = ({ maps, onMapAdded, onMapDeleted, projectId }) => {
                 </div>
                 
                 <div className="d-flex justify-content-between">
-                  <Button variant="outline-primary" onClick={() => handleViewMap(map)}>
-                    View
-                  </Button>
+                  <div className="d-flex gap-2">
+                    <Button variant="outline-primary" onClick={() => handleViewMap(map)}>
+                      View
+                    </Button>
+                    {map.map_type !== 'implantation' && (
+                      <Button 
+                        variant="warning" 
+                        onClick={() => handleSetAsMainMap(map)}
+                        disabled={updatingMap === map.id}
+                      >
+                        {updatingMap === map.id ? (
+                          <><Spinner animation="border" size="sm" /> Setting...</>
+                        ) : (
+                          "Set as Main"
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   <Button 
                     variant="outline-danger"
                     onClick={() => setDeletingMap(map)}
+                    disabled={updatingMap === map.id}
                   >
                     Delete
                   </Button>

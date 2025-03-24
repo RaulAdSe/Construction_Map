@@ -97,4 +97,14 @@ export const deleteMap = async (mapId) => {
     console.error(`Error deleting map ${mapId}:`, error);
     throw error;
   }
+};
+
+export const updateMap = async (mapId, mapData) => {
+  try {
+    const response = await api.put(`${API_URL}/maps/${mapId}`, mapData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating map ${mapId}:`, error);
+    throw error;
+  }
 }; 

@@ -276,9 +276,6 @@ const MapViewer = ({ onLogout }) => {
                   <h5 className="mb-3">Map Controls</h5>
                   
                   <div className="d-grid gap-2 mb-4">
-                    <Button variant="primary" onClick={handleAddMap}>
-                      <i className="bi bi-plus-circle me-2"></i>Add New Map
-                    </Button>
                     <Button variant="success" onClick={handleAddEvent}>
                       <i className="bi bi-pin-map me-2"></i>Add Event
                     </Button>
