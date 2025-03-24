@@ -1,154 +1,77 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Badge, Button } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 
-const EventMarker = ({ event }) => {
-  const [showPopup, setShowPopup] = useState(false);
-  const popupRef = useRef(null);
-  const markerRef = useRef(null);
+// Map of user IDs to different colors for consistency
+const userColors = {};
+const predefinedColors = [
+  '#FF5733', '#33FF57', '#3357FF', '#FF33F5', '#F5FF33', 
+  '#33FFF5', '#FF3333', '#33FF33', '#3333FF', '#FF33BB'
+];
+
+const getColorForUser = (userId) => {
+  if (!userColors[userId]) {
+    // Assign a color from the predefined list or generate one
+    const colorIndex = Object.keys(userColors).length % predefinedColors.length;
+    userColors[userId] = predefinedColors[colorIndex];
+  }
+  return userColors[userId];
+};
+
+const EventMarker = ({ event, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
   
-  // Determine marker color based on event type
-  const getMarkerColor = () => {
-    switch (event.type) {
-      case 'alert':
-        return '#dc3545';  // Bootstrap danger red
-      case 'information':
-        return '#0d6efd';  // Bootstrap primary blue
-      case 'action':
-        return '#fd7e14';  // Bootstrap orange
-      default:
-        return '#6c757d';  // Bootstrap gray
-    }
+  if (!event || !event.x_coordinate || !event.y_coordinate) {
+    return null;
+  }
+  
+  const color = getColorForUser(event.created_by_user_id);
+  
+  const markerStyle = {
+    position: 'absolute',
+    left: `${event.x_coordinate}%`,
+    top: `${event.y_coordinate}%`,
+    transform: 'translate(-50%, -50%)',
+    width: isHovered ? '18px' : '14px',
+    height: isHovered ? '18px' : '14px',
+    borderRadius: '50%',
+    backgroundColor: color,
+    border: '2px solid white',
+    boxShadow: '0 0 3px rgba(0, 0, 0, 0.3)',
+    cursor: 'pointer',
+    zIndex: isHovered ? 1001 : 1000,
+    transition: 'width 0.2s, height 0.2s, box-shadow 0.2s'
   };
   
-  const getEventTypeLabel = () => {
-    switch (event.type) {
-      case 'alert':
-        return <Badge bg="danger">Alert</Badge>;
-      case 'information':
-        return <Badge bg="primary">Information</Badge>;
-      case 'action':
-        return <Badge bg="warning" text="dark">Action Required</Badge>;
-      default:
-        return <Badge bg="secondary">Unknown</Badge>;
-    }
-  };
+  // Add a pulsing effect when hovered
+  if (isHovered) {
+    markerStyle.boxShadow = `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.3)`;
+  }
   
-  const handleMarkerClick = (e) => {
-    e.stopPropagation();  // Prevent triggering parent container click
-    setShowPopup(!showPopup);
-  };
-  
-  const handleClosePopup = (e) => {
-    e.stopPropagation();
-    setShowPopup(false);
-  };
-  
-  // Use a click outside handler to close the popup
-  useEffect(() => {
-    if (!showPopup) return;
-    
-    const handleClickOutside = (event) => {
-      if (popupRef.current && !popupRef.current.contains(event.target) && 
-          markerRef.current && !markerRef.current.contains(event.target)) {
-        setShowPopup(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showPopup]);
-  
-  // Calculate popup position to ensure it stays within viewport
-  const getPopupPosition = () => {
-    if (!markerRef.current) return { left: 0, top: 0 };
-    
-    const rect = markerRef.current.getBoundingClientRect();
-    let left = rect.right + 10;
-    let top = rect.top;
-    
-    // Check right edge
-    if (left + 300 > window.innerWidth) {  // 300px is max popup width
-      left = rect.left - 310;  // 310 = 300 + 10px margin
-    }
-    
-    // Check bottom edge
-    if (top + 200 > window.innerHeight) {  // Assuming popup height around 200px
-      top = window.innerHeight - 210;  // 210 = 200 + 10px margin
-    }
-    
-    return { left, top };
-  };
-  
-  // Format timestamp to readable date/time
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'Unknown';
-    const date = new Date(timestamp);
-    return date.toLocaleString();
-  };
+  const tooltip = (
+    <Tooltip id={`tooltip-${event.id}`}>
+      <div>
+        <strong>{event.title}</strong>
+      </div>
+      <div>Created by: {event.created_by_user_name || `User ${event.created_by_user_id}`}</div>
+      <div className="small text-muted">Click for details</div>
+    </Tooltip>
+  );
   
   return (
-    <>
-      <div
-        ref={markerRef}
+    <OverlayTrigger
+      placement="top"
+      overlay={tooltip}
+      delay={{ show: 200, hide: 100 }}
+    >
+      <div 
         className="event-marker"
-        style={{
-          left: `${event.position_x}%`,
-          top: `${event.position_y}%`,
-          backgroundColor: getMarkerColor()
-        }}
-        onClick={handleMarkerClick}
+        style={markerStyle}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={onClick}
         data-event-id={event.id}
-      >
-        {showPopup && (
-          <div className="event-marker-pulse" style={{ borderColor: getMarkerColor() }} />
-        )}
-      </div>
-      
-      {showPopup && (
-        <div 
-          ref={popupRef}
-          className="event-popup"
-          style={getPopupPosition()}
-        >
-          <div className="event-popup-header" style={{ backgroundColor: getMarkerColor() + '20' }}>
-            <h5>{event.name}</h5>
-            {getEventTypeLabel()}
-          </div>
-          
-          <div className="event-popup-body">
-            {event.description ? (
-              <p>{event.description}</p>
-            ) : (
-              <p className="text-muted">No description provided</p>
-            )}
-            
-            <div className="event-popup-details">
-              <p className="event-metadata">
-                <small>
-                  <strong>Created:</strong> {formatTimestamp(event.created_at)}<br />
-                  {event.updated_at && event.updated_at !== event.created_at && (
-                    <><strong>Updated:</strong> {formatTimestamp(event.updated_at)}<br /></>
-                  )}
-                  <strong>Position:</strong> {event.position_x.toFixed(1)}%, {event.position_y.toFixed(1)}%
-                </small>
-              </p>
-            </div>
-          </div>
-          
-          <div className="event-popup-footer">
-            <Button 
-              variant="secondary"
-              size="sm"
-              onClick={handleClosePopup}
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
-    </>
+      />
+    </OverlayTrigger>
   );
 };
 

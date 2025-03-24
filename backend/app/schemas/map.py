@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -24,5 +24,10 @@ class Map(MapBase):
     filename: str
     uploaded_at: datetime
     
+    @computed_field
+    def content_url(self) -> str:
+        return f"/uploads/{self.filename}"
+    
     class Config:
-        orm_mode = True 
+        orm_mode = True
+        from_attributes = True 

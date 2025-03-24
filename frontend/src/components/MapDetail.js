@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Spinner, Alert } from 'react-bootstrap';
 import EventMarker from './EventMarker';
 
-const MapDetail = ({ map, events, onMapClick, isSelectingLocation }) => {
+const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick }) => {
   const mapContainerRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -49,6 +49,14 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation }) => {
   const handleImageError = () => {
     setLoadError(true);
     setImageLoaded(true); // Still set loaded to remove spinner
+  };
+  
+  const handleEventClick = (event, e) => {
+    // Stop propagation to prevent map click handler from firing
+    e.stopPropagation();
+    if (onEventClick) {
+      onEventClick(event);
+    }
   };
   
   // Function to render the appropriate content based on map type
@@ -140,7 +148,11 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation }) => {
       
       {/* Render event markers */}
       {imageLoaded && events && events.length > 0 && events.map(event => (
-        <EventMarker key={event.id} event={event} />
+        <EventMarker 
+          key={event.id} 
+          event={event} 
+          onClick={(e) => handleEventClick(event, e)}
+        />
       ))}
       
       {isSelectingLocation && (

@@ -311,4 +311,149 @@ iframe.clean-pdf-view {
 .user-color-2 { background-color: #33a8ff; }
 .user-color-3 { background-color: #33ff57; }
 .user-color-4 { background-color: #c133ff; }
-.user-color-5 { background-color: #ff33a8; } 
+.user-color-5 { background-color: #ff33a8; }
+
+.map-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Map Container Styles */
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  background-color: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.clean-pdf-view {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.map-iframe-container {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.map-loading-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+}
+
+.map-error-overlay {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.no-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.2rem;
+  color: #6c757d;
+}
+
+/* Event Marker Styles */
+.event-marker {
+  position: absolute;
+  z-index: 1000;
+}
+
+.event-count-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  z-index: 900;
+}
+
+/* Selection Overlay */
+.selecting-location-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 123, 255, 0.1);
+  z-index: 500;
+  pointer-events: none;
+}
+
+.selecting-location-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+/* Maps Manager Styles */
+.maps-manager {
+  padding: 15px 0;
+}
+
+.map-preview {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+
+/* Events Table Styles */
+.events-table-container {
+  overflow-x: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .map-container {
+    height: 400px;
+  }
+}
+
+/* Add animations */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pulse-animation {
+  animation: pulse 1.5s infinite;
+} 

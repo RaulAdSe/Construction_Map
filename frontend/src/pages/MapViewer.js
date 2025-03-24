@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import MapList from '../components/MapList';
 import MapDetail from '../components/MapDetail';
+import MapsManager from '../components/MapsManager';
+import EventsTable from '../components/EventsTable';
 import AddMapModal from '../components/AddMapModal';
 import AddEventModal from '../components/AddEventModal';
+import EditEventModal from '../components/EditEventModal';
+import ViewEventModal from '../components/ViewEventModal';
 import MapSelectionModal from '../components/MapSelectionModal';
 import Notification from '../components/Notification';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
@@ -20,16 +24,20 @@ const MapViewer = ({ onLogout }) => {
   const [project, setProject] = useState(null);
   const [selectedMap, setSelectedMap] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('map-view');
 
   const [showAddMapModal, setShowAddMapModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [showMapSelectionModal, setShowMapSelectionModal] = useState(false);
+  const [showViewEventModal, setShowViewEventModal] = useState(false);
+  const [showEditEventModal, setShowEditEventModal] = useState(false);
   
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   
   // For event creation workflow
   const [mapForEvent, setMapForEvent] = useState(null);
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
+  const [selectedEvent, setSelectedEvent] = useState(null);
   
   useEffect(() => {
     if (projectId) {
@@ -53,7 +61,14 @@ const MapViewer = ({ onLogout }) => {
       const allEvents = [];
       for (const map of mapsData) {
         const mapEvents = await fetchEvents(map.id);
-        allEvents.push(...mapEvents);
+        
+        // Add map name to each event for better display
+        const eventsWithMapName = mapEvents.map(event => ({
+          ...event,
+          map_name: map.name
+        }));
+        
+        allEvents.push(...eventsWithMapName);
       }
       setEvents(allEvents);
       
@@ -95,6 +110,22 @@ const MapViewer = ({ onLogout }) => {
     setShowAddMapModal(false);
   };
   
+  const handleMapDeleted = (mapId) => {
+    const updatedMaps = maps.filter(m => m.id !== mapId);
+    setMaps(updatedMaps);
+    
+    // Also remove events associated with this map
+    const updatedEvents = events.filter(e => e.map_id !== mapId);
+    setEvents(updatedEvents);
+    
+    // If the deleted map was selected, select a different one
+    if (selectedMap && selectedMap.id === mapId) {
+      setSelectedMap(updatedMaps.length > 0 ? updatedMaps[0] : null);
+    }
+    
+    showNotification('Map deleted successfully!');
+  };
+  
   const handleAddEvent = () => {
     if (maps.length === 0) {
       showNotification('Please add a map first.', 'error');
@@ -119,10 +150,37 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleEventAdded = (newEvent) => {
-    setEvents([...events, newEvent]);
+    // Add map name to the event for display
+    const mapName = maps.find(m => m.id === newEvent.map_id)?.name || '';
+    const eventWithMapName = { ...newEvent, map_name: mapName };
+    
+    setEvents([...events, eventWithMapName]);
     setMapForEvent(null);
     showNotification('Event added successfully!');
     setShowAddEventModal(false);
+  };
+  
+  const handleViewEvent = (event) => {
+    setSelectedEvent(event);
+    setShowViewEventModal(true);
+  };
+  
+  const handleEditEvent = (event) => {
+    setSelectedEvent(event);
+    setShowEditEventModal(true);
+  };
+  
+  const handleEventUpdated = (updatedEvent) => {
+    // Preserve the map_name field when updating the event
+    const mapName = events.find(e => e.id === updatedEvent.id)?.map_name || '';
+    const eventWithMapName = { ...updatedEvent, map_name: mapName };
+    
+    const updatedEvents = events.map(event => 
+      event.id === updatedEvent.id ? eventWithMapName : event
+    );
+    
+    setEvents(updatedEvents);
+    showNotification('Event updated successfully!');
   };
   
   const showNotification = (message, type = 'success') => {
@@ -182,40 +240,73 @@ const MapViewer = ({ onLogout }) => {
       </Navbar>
       
       <Container className="mt-4">
-        <Row>
-          <Col md={3}>
-            <div className="mb-3">
-              <Button variant="primary" onClick={handleAddMap} className="me-2">
-                Add Map
-              </Button>
+        <Tabs
+          activeKey={activeTab}
+          onSelect={(k) => setActiveTab(k)}
+          className="mb-4"
+        >
+          <Tab eventKey="map-view" title="Map View">
+            <Row>
+              <Col md={3}>
+                <div className="mb-3">
+                  <Button variant="primary" onClick={handleAddMap} className="me-2">
+                    Add Map
+                  </Button>
+                  <Button variant="success" onClick={handleAddEvent}>
+                    Add Event
+                  </Button>
+                </div>
+                
+                <MapList 
+                  maps={maps} 
+                  selectedMap={selectedMap} 
+                  onMapSelect={handleMapSelect} 
+                />
+              </Col>
+              
+              <Col md={9}>
+                {selectedMap ? (
+                  <MapDetail 
+                    map={selectedMap} 
+                    events={events.filter(e => e.map_id === selectedMap.id)} 
+                    onMapClick={handleMapClick}
+                    isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
+                    onEventClick={handleViewEvent}
+                  />
+                ) : (
+                  <div className="text-center p-5 bg-light rounded">
+                    <h3>No map selected</h3>
+                    <p>Please select a map from the list or add a new one.</p>
+                  </div>
+                )}
+              </Col>
+            </Row>
+          </Tab>
+          
+          <Tab eventKey="project-maps" title="Project Maps">
+            <MapsManager 
+              maps={maps}
+              onMapAdded={handleMapAdded}
+              onMapDeleted={handleMapDeleted}
+              projectId={project.id}
+            />
+          </Tab>
+          
+          <Tab eventKey="events" title="Events">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h3>Project Events</h3>
               <Button variant="success" onClick={handleAddEvent}>
-                Add Event
+                Add New Event
               </Button>
             </div>
             
-            <MapList 
-              maps={maps} 
-              selectedMap={selectedMap} 
-              onMapSelect={handleMapSelect} 
+            <EventsTable 
+              events={events} 
+              onViewEvent={handleViewEvent}
+              onEditEvent={handleEditEvent}
             />
-          </Col>
-          
-          <Col md={9}>
-            {selectedMap ? (
-              <MapDetail 
-                map={selectedMap} 
-                events={events.filter(e => e.map_id === selectedMap.id)} 
-                onMapClick={handleMapClick}
-                isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
-              />
-            ) : (
-              <div className="text-center p-5 bg-light rounded">
-                <h3>No map selected</h3>
-                <p>Please select a map from the list or add a new one.</p>
-              </div>
-            )}
-          </Col>
-        </Row>
+          </Tab>
+        </Tabs>
       </Container>
       
       {/* Modals */}
@@ -242,13 +333,27 @@ const MapViewer = ({ onLogout }) => {
         mapId={mapForEvent?.id}
         position={eventPosition}
         onEventAdded={handleEventAdded}
+        projectId={project?.id}
+      />
+      
+      <ViewEventModal
+        show={showViewEventModal}
+        onHide={() => setShowViewEventModal(false)}
+        event={selectedEvent}
+      />
+      
+      <EditEventModal
+        show={showEditEventModal}
+        onHide={() => setShowEditEventModal(false)}
+        event={selectedEvent}
+        onEventUpdated={handleEventUpdated}
       />
       
       {/* Notification */}
       <Notification 
         show={notification.show}
         message={notification.message} 
-        type={notification.type} 
+        type={notification.type}
       />
     </div>
   );
