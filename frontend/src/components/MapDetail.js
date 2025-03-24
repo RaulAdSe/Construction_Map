@@ -134,6 +134,22 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     setImageLoaded(true); // Still set loaded to remove spinner
   };
   
+  // Filter events to show only ones visible on currently shown maps
+  const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
+  
+  // ALWAYS include events from the main map, plus any events from visible overlay maps
+  const visibleEvents = events.filter(event => {
+    if (!event || !event.map_id) return false;
+    
+    // Always show events from the main map, regardless of visibility state
+    if (event.map_id === implantationMap?.id) {
+      return true;
+    }
+    
+    // For overlay maps, only show events if that map is toggled on
+    return visibleMaps.includes(event.map_id);
+  });
+  
   // Force imageLoaded to true after a timeout to ensure events display even if load events don't fire
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -277,22 +293,6 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       </>
     );
   };
-  
-  // Filter events to show only ones visible on currently shown maps
-  const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
-  
-  // ALWAYS include events from the main map, plus any events from visible overlay maps
-  const visibleEvents = events.filter(event => {
-    if (!event || !event.map_id) return false;
-    
-    // Always show events from the main map, regardless of visibility state
-    if (event.map_id === implantationMap?.id) {
-      return true;
-    }
-    
-    // For overlay maps, only show events if that map is toggled on
-    return visibleMaps.includes(event.map_id);
-  });
   
   // Add a useEffect to notify parent component when visibleMaps changes
   useEffect(() => {
