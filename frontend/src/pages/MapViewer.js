@@ -57,6 +57,9 @@ const MapViewer = ({ onLogout }) => {
       const mapsData = await fetchMaps(pid);
       setMaps(mapsData);
       
+      // Find the implantation map if it exists, or use the first map
+      const mainMap = mapsData.find(m => m.map_type === 'implantation') || mapsData[0];
+      
       // Fetch events for each map
       const allEvents = [];
       for (const map of mapsData) {
@@ -72,9 +75,9 @@ const MapViewer = ({ onLogout }) => {
       }
       setEvents(allEvents);
       
-      // If there are maps, select the first one
+      // If there are maps, select the implantation map or first available
       if (mapsData.length > 0) {
-        setSelectedMap(mapsData[0]);
+        setSelectedMap(mainMap);
       } else {
         setSelectedMap(null);
       }
@@ -268,11 +271,12 @@ const MapViewer = ({ onLogout }) => {
                 {selectedMap ? (
                   <MapDetail 
                     map={selectedMap} 
-                    events={events.filter(e => e.map_id === selectedMap.id)} 
+                    events={events}
                     onMapClick={handleMapClick}
                     isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
                     onEventClick={handleViewEvent}
                     allMaps={maps.filter(m => m.project_id === project.id)}
+                    projectId={project.id}
                   />
                 ) : (
                   <div className="text-center p-5 bg-light rounded">
