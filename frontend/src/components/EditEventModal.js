@@ -5,6 +5,8 @@ import { updateEvent } from '../services/eventService';
 const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [state, setState] = useState('green');
+  const [status, setStatus] = useState('open');
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -13,6 +15,8 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
     if (event) {
       setTitle(event.title || '');
       setDescription(event.description || '');
+      setState(event.state || 'green');
+      setStatus(event.status || 'open');
       setTags(event.tags ? event.tags.join(', ') : '');
       setError('');
     }
@@ -32,6 +36,8 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
       const updatedEvent = await updateEvent(event.id, {
         title,
         description,
+        state,
+        status,
         tags: tagsArray
       });
       
@@ -86,6 +92,39 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </Form.Group>
+              
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Status</Form.Label>
+                    <Form.Select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      <option value="open">Open</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>State</Form.Label>
+                    <Form.Select
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                    >
+                      <option value="green">Normal (Green)</option>
+                      <option value="yellow">Warning (Yellow)</option>
+                      <option value="red">Critical (Red)</option>
+                    </Form.Select>
+                    <Form.Text className="text-muted">
+                      State defines the color of the event marker on the map
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+              </Row>
               
               <Form.Group className="mb-3">
                 <Form.Label>Tags (comma separated)</Form.Label>

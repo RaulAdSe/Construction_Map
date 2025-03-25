@@ -20,6 +20,36 @@ const EventsTable = ({ events, onViewEvent, onEditEvent }) => {
     eventsByMap[event.map_id].push(event);
   });
 
+  // Get state badge
+  const getStateBadge = (state) => {
+    switch (state) {
+      case 'red':
+        return <Badge bg="danger">Critical</Badge>;
+      case 'yellow':
+        return <Badge bg="warning" text="dark">Warning</Badge>;
+      case 'green':
+        return <Badge bg="success">Normal</Badge>;
+      default:
+        return <Badge bg="secondary">{state || 'Unknown'}</Badge>;
+    }
+  };
+
+  // Get status badge
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'open':
+        return <Badge bg="primary">Open</Badge>;
+      case 'in-progress':
+        return <Badge bg="info">In Progress</Badge>;
+      case 'resolved':
+        return <Badge bg="success">Resolved</Badge>;
+      case 'closed':
+        return <Badge bg="secondary">Closed</Badge>;
+      default:
+        return <Badge bg="secondary">{status || 'Unknown'}</Badge>;
+    }
+  };
+
   return (
     <div className="events-table-container">
       {Object.keys(eventsByMap).map(mapId => (
@@ -31,9 +61,11 @@ const EventsTable = ({ events, onViewEvent, onEditEvent }) => {
                 <th>#</th>
                 <th>Title</th>
                 <th>Description</th>
+                <th>Status</th>
+                <th>State</th>
                 <th>Created By</th>
                 <th>Created At</th>
-                <th>Tags</th>
+                <th>Comments</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -49,12 +81,16 @@ const EventsTable = ({ events, onViewEvent, onEditEvent }) => {
                         : event.description
                       : "-"}
                   </td>
+                  <td>{getStatusBadge(event.status)}</td>
+                  <td>{getStateBadge(event.state)}</td>
                   <td>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>
                   <td>
-                    {event.tags && event.tags.map(tag => (
-                      <Badge key={tag} bg="info" className="me-1">{tag}</Badge>
-                    ))}
+                    {event.comment_count > 0 ? (
+                      <Badge bg="info" pill>
+                        {event.comment_count}
+                      </Badge>
+                    ) : '-'}
                   </td>
                   <td>
                     <Button 

@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.event import Event, EventCreate, EventUpdate, EventDetail
 from app.services import event as event_service
 from app.services import project as project_service
+from app.services import event_comment as comment_service
 from app.models.map import Map
 
 router = APIRouter()
@@ -104,32 +105,37 @@ def get_event(
     """
     Get a specific event.
     """
-    # Get event
-    event = event_service.get_event(db, event_id)
-    if not event:
+    # Get event with comment count
+    event_data = event_service.get_event_with_comments_count(db, event_id)
+    if not event_data:
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check if user has access to project
-    project = project_service.get_project(db, event.project_id)
+    project = project_service.get_project(db, event_data["project_id"])
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     # Get username for the creator
-    username = db.query(User.username).filter(User.id == event.created_by_user_id).scalar()
+    username = db.query(User.username).filter(User.id == event_data["created_by_user_id"]).scalar()
     
     # Create EventDetail
     event_detail = EventDetail(
-        id=event.id,
-        project_id=event.project_id,
-        created_by_user_id=event.created_by_user_id,
+        id=event_data["id"],
+        project_id=event_data["project_id"],
+        map_id=event_data["map_id"],
+        created_by_user_id=event_data["created_by_user_id"],
         created_by_user_name=username,
-        title=event.title,
-        description=event.description,
-        image_url=event.image_url,
-        tags=event.tags,
-        x_coordinate=event.x_coordinate,
-        y_coordinate=event.y_coordinate,
-        created_at=event.created_at
+        title=event_data["title"],
+        description=event_data["description"],
+        status=event_data["status"],
+        state=event_data["state"],
+        active_maps=event_data["active_maps"],
+        image_url=event_data["image_url"],
+        tags=event_data["tags"],
+        x_coordinate=event_data["x_coordinate"],
+        y_coordinate=event_data["y_coordinate"],
+        created_at=event_data["created_at"],
+        comment_count=event_data["comment_count"]
     )
     
     return event_detail
@@ -142,6 +148,7 @@ async def create_event(
     title: str = Form(...),
     description: Optional[str] = Form(None),
     status: Optional[str] = Form("open"),
+    state: Optional[str] = Form("green"),
     active_maps: Optional[str] = Form(None),
     x_coordinate: float = Form(...),
     y_coordinate: float = Form(...),
@@ -176,6 +183,7 @@ async def create_event(
             created_by_user_id=current_user.id,
             title=title,
             status=status,
+            state=state,
             active_maps=active_maps,
             x_coordinate=x_coordinate,
             y_coordinate=y_coordinate,
@@ -214,6 +222,8 @@ def update_event(
         event_id,
         title=event_update.title,
         description=event_update.description,
+        status=event_update.status,
+        state=event_update.state,
         tags=event_update.tags
     )
     

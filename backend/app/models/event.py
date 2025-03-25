@@ -16,13 +16,16 @@ class Event(Base):
     description = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
     status = Column(String, default="open", nullable=False)
-    active_maps = Column(String, nullable=True)  # Names of active map layers when event was created
+    state = Column(String, default="green", nullable=False)  # Values: red, yellow, green
+    active_maps = Column(JSON, nullable=True)  # JSON data of active map layers when event was created
     tags = Column(JSON, nullable=True)  # JSON field for storing tags or mentions
     x_coordinate = Column(Float, nullable=False)
     y_coordinate = Column(Float, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     project = relationship("Project", back_populates="events")
     map = relationship("Map", back_populates="events")
-    created_by_user = relationship("User", back_populates="events") 
+    created_by_user = relationship("User", back_populates="events")
+    comments = relationship("EventComment", back_populates="event", cascade="all, delete-orphan") 

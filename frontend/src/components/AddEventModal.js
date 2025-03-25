@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Row, Col } from 'react-bootstrap';
 import { addEvent } from '../services/eventService';
 
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [] }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [state, setState] = useState('green');
+  const [status, setStatus] = useState('open');
   const [tags, setTags] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -63,6 +65,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     formData.append('map_id', mapId);
     formData.append('title', title);
     formData.append('description', description || '');
+    formData.append('status', status);
+    formData.append('state', state);
     formData.append('x_coordinate', position.x);
     formData.append('y_coordinate', position.y);
     formData.append('active_maps', JSON.stringify(activeMapSettings));
@@ -90,6 +94,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const resetForm = () => {
     setTitle('');
     setDescription('');
+    setState('green');
+    setStatus('open');
     setTags('');
     setError('');
     setUploadFile(null);
@@ -155,6 +161,39 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               placeholder="Enter event description"
             />
           </Form.Group>
+          
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Status</Form.Label>
+                <Form.Select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="open">Open</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>State</Form.Label>
+                <Form.Select
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                >
+                  <option value="green">Normal (Green)</option>
+                  <option value="yellow">Warning (Yellow)</option>
+                  <option value="red">Critical (Red)</option>
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  State defines the color of the event marker on the map
+                </Form.Text>
+              </Form.Group>
+            </Col>
+          </Row>
           
           <Form.Group className="mb-3">
             <Form.Label>Tags (comma separated)</Form.Label>

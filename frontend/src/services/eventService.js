@@ -21,16 +21,8 @@ api.interceptors.request.use(config => {
 
 export const fetchEvents = async (mapId) => {
   try {
-    // Try the new endpoint first
-    try {
-      const response = await api.get(`${API_URL}/maps/${mapId}/events`);
-      return response.data;
-    } catch (error) {
-      console.log('Trying fallback endpoint for events');
-      // If that fails, try the map-specific endpoint
-      const response = await api.get(`${API_URL}/events/map/${mapId}`);
-      return response.data;
-    }
+    const response = await api.get(`${API_URL}/maps/${mapId}/events`);
+    return response.data;
   } catch (error) {
     console.error('Error fetching events:', error);
     throw error;

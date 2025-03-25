@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
+
+// Define state colors
+const stateColors = {
+  red: '#FF3333',
+  yellow: '#FFD700',
+  green: '#33CC33'
+};
 
 // Map of user IDs to different colors for consistency
 const userColors = {};
@@ -30,7 +37,10 @@ const EventMarker = ({ event, onClick }) => {
     return null;
   }
   
-  const color = getColorForUser(event.created_by_user_id);
+  // Use state color or default to user color as fallback
+  const color = event.state && stateColors[event.state] 
+    ? stateColors[event.state] 
+    : getColorForUser(event.created_by_user_id);
   
   const markerStyle = {
     position: 'absolute',
@@ -51,12 +61,27 @@ const EventMarker = ({ event, onClick }) => {
     pointerEvents: 'auto'
   };
 
+  // Get state label
+  const getStateLabel = () => {
+    switch (event.state) {
+      case 'red':
+        return <Badge bg="danger">Critical</Badge>;
+      case 'yellow':
+        return <Badge bg="warning" text="dark">Warning</Badge>;
+      case 'green':
+        return <Badge bg="success">Normal</Badge>;
+      default:
+        return <Badge bg="secondary">{event.state || 'Unknown'}</Badge>;
+    }
+  };
+
   const tooltip = (
     <Tooltip id={`tooltip-${event.id}`} className="event-tooltip">
       <div>
         <strong>{event.title}</strong>
       </div>
       <div>Created by: {event.created_by_user_name || `User ${event.created_by_user_id}`}</div>
+      <div>{getStateLabel()}</div>
       <div className="small text-muted">Click for details</div>
     </Tooltip>
   );
