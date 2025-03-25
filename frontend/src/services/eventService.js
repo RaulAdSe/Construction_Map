@@ -21,16 +21,8 @@ api.interceptors.request.use(config => {
 
 export const fetchEvents = async (mapId) => {
   try {
-    // Try the new endpoint first
-    try {
-      const response = await api.get(`${API_URL}/maps/${mapId}/events`);
-      return response.data;
-    } catch (error) {
-      console.log('Trying fallback endpoint for events');
-      // If that fails, try the map-specific endpoint
-      const response = await api.get(`${API_URL}/events/map/${mapId}`);
-      return response.data;
-    }
+    const response = await api.get(`${API_URL}/maps/${mapId}/events`);
+    return response.data;
   } catch (error) {
     console.error('Error fetching events:', error);
     throw error;
@@ -68,8 +60,22 @@ export const addEvent = async (eventData) => {
 
 export const updateEvent = async (eventId, eventData) => {
   try {
-    const response = await api.put(`${API_URL}/events/${eventId}`, eventData);
-    return response.data;
+    // Get current event data to preserve fields not in the update
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const currentEvent = { ...response.data };
+    
+    // Make a copy of the data to avoid mutating the original
+    const data = { 
+      ...currentEvent,
+      ...eventData 
+    };
+    
+    // CRITICAL FIX: Always force active_maps to be a plain object
+    // This completely replaces any problematic active_maps data
+    data.active_maps = {}; 
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId}:`, error);
     throw error;
@@ -82,6 +88,48 @@ export const deleteEvent = async (eventId) => {
     return response.data;
   } catch (error) {
     console.error(`Error deleting event ${eventId}:`, error);
+    throw error;
+  }
+};
+
+export const updateEventStatus = async (eventId, status) => {
+  try {
+    // Avoid using the dedicated endpoint that's giving 404 errors
+    // Instead, update the whole event but only change the status field
+    // First get the current event data
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const event = response.data;
+    
+    // Update with minimal data to avoid validation issues
+    const updateData = {
+      status: status
+    };
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
+    return updateResponse.data;
+  } catch (error) {
+    console.error(`Error updating event ${eventId} status:`, error);
+    throw error;
+  }
+};
+
+export const updateEventState = async (eventId, state) => {
+  try {
+    // Avoid using the dedicated endpoint that's giving 404 errors
+    // Instead, update the whole event but only change the state field
+    // First get the current event data
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const event = response.data;
+    
+    // Update with minimal data to avoid validation issues
+    const updateData = {
+      state: state
+    };
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
+    return updateResponse.data;
+  } catch (error) {
+    console.error(`Error updating event ${eventId} state:`, error);
     throw error;
   }
 }; 

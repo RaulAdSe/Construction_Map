@@ -319,7 +319,14 @@ const MapViewer = ({ onLogout }) => {
   const handleEventUpdated = (updatedEvent) => {
     // Preserve the map_name field when updating the event
     const mapName = events.find(e => e.id === updatedEvent.id)?.map_name || '';
-    const eventWithMapName = { ...updatedEvent, map_name: mapName };
+    const existingEvent = events.find(e => e.id === updatedEvent.id) || {};
+    
+    // Merge the updated event with existing data, preserving fields that might be missing
+    const eventWithMapName = { 
+      ...existingEvent,
+      ...updatedEvent, 
+      map_name: mapName 
+    };
     
     const updatedEvents = events.map(event => 
       event.id === updatedEvent.id ? eventWithMapName : event
@@ -327,6 +334,11 @@ const MapViewer = ({ onLogout }) => {
     
     setEvents(updatedEvents);
     showNotification('Event updated successfully!');
+    
+    // If we updated the selected event, also update it
+    if (selectedEvent && selectedEvent.id === updatedEvent.id) {
+      setSelectedEvent(eventWithMapName);
+    }
   };
   
   const showNotification = (message, type = 'success') => {
@@ -502,6 +514,7 @@ const MapViewer = ({ onLogout }) => {
               events={visibleEvents} 
               onViewEvent={handleViewEvent}
               onEditEvent={handleEditEvent}
+              onEventUpdated={handleEventUpdated}
             />
           </Tab>
         </Tabs>
@@ -541,6 +554,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowViewEventModal(false)}
         event={selectedEvent}
         allMaps={maps}
+        onEventUpdated={handleEventUpdated}
       />
       
       <EditEventModal

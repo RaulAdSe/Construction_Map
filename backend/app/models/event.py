@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.ext.hybrid import hybrid_property
+import json
 
 from app.db.database import Base
 
@@ -16,13 +18,32 @@ class Event(Base):
     description = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
     status = Column(String, default="open", nullable=False)
-    active_maps = Column(String, nullable=True)  # Names of active map layers when event was created
+    state = Column(String, default="green", nullable=False)  # Values: red, yellow, green
+    _active_maps = Column(JSON, nullable=True, name="active_maps")  # JSON data of active map layers when event was created
     tags = Column(JSON, nullable=True)  # JSON field for storing tags or mentions
     x_coordinate = Column(Float, nullable=False)
     y_coordinate = Column(Float, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Property to ensure active_maps is always a dictionary
+    @hybrid_property
+    def active_maps(self):
+        # If active_maps is None or a list, return an empty dict
+        if self._active_maps is None or isinstance(self._active_maps, list):
+            return {}
+        return self._active_maps
+    
+    @active_maps.setter
+    def active_maps(self, value):
+        # Ensure we always store a dictionary
+        if value is None or isinstance(value, list):
+            self._active_maps = {}
+        else:
+            self._active_maps = value
 
     # Relationships
     project = relationship("Project", back_populates="events")
     map = relationship("Map", back_populates="events")
-    created_by_user = relationship("User", back_populates="events") 
+    created_by_user = relationship("User", back_populates="events")
+    comments = relationship("EventComment", back_populates="event", cascade="all, delete-orphan") 

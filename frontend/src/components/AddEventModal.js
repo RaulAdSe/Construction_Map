@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Row, Col } from 'react-bootstrap';
 import { addEvent } from '../services/eventService';
 
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [] }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [type, setType] = useState('periodic check');
+  const [status, setStatus] = useState('open');
   const [tags, setTags] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -63,6 +65,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     formData.append('map_id', mapId);
     formData.append('title', title);
     formData.append('description', description || '');
+    formData.append('status', status);
+    formData.append('state', type);
     formData.append('x_coordinate', position.x);
     formData.append('y_coordinate', position.y);
     formData.append('active_maps', JSON.stringify(activeMapSettings));
@@ -90,6 +94,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const resetForm = () => {
     setTitle('');
     setDescription('');
+    setType('periodic check');
+    setStatus('open');
     setTags('');
     setError('');
     setUploadFile(null);
@@ -128,7 +134,14 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   };
   
   return (
-    <Modal show={show} onHide={handleClose} size="lg">
+    <Modal 
+      show={show} 
+      onHide={handleClose}
+      size="lg"
+      dialogClassName="event-modal-dialog"
+      backdropClassName="event-modal-backdrop"
+      contentClassName="modal-content"
+    >
       <Modal.Header closeButton>
         <Modal.Title>Add New Event</Modal.Title>
       </Modal.Header>
@@ -155,6 +168,38 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               placeholder="Enter event description"
             />
           </Form.Group>
+          
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Status</Form.Label>
+                <Form.Select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="open">Open</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Type</Form.Label>
+                <Form.Select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="periodic check">Periodic Check</option>
+                  <option value="incidence">Incidence</option>
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  Type defines the purpose and appearance of the event marker
+                </Form.Text>
+              </Form.Group>
+            </Col>
+          </Row>
           
           <Form.Group className="mb-3">
             <Form.Label>Tags (comma separated)</Form.Label>

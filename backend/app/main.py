@@ -36,6 +36,10 @@ if not os.path.exists(uploads_dir):
     os.makedirs(uploads_dir)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
+# Serve static files for uploads, events and comments
+app.mount("/events", StaticFiles(directory="uploads/events"), name="events")
+app.mount("/comments", StaticFiles(directory="uploads/comments"), name="comments")
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Construction Map API"}

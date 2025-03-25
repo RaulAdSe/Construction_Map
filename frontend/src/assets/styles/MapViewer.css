@@ -93,11 +93,12 @@ iframe.clean-pdf-view {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 2000 !important;
+  z-index: 800 !important;
   cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 0 4px rgba(0,0,0,0.4);
+  border: 3px solid white;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
   border-radius: 50%;
+  pointer-events: auto !important;
 }
 
 /* Pulse animation for active markers */
@@ -307,7 +308,7 @@ iframe.clean-pdf-view {
 .map-container {
   position: relative;
   width: 100%;
-  height: 700px;
+  height: 590px;
   background-color: #f8f9fa;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
@@ -361,7 +362,13 @@ iframe.clean-pdf-view {
 /* Event Marker Styles */
 .event-marker {
   position: absolute;
-  z-index: 1000;
+  transform: translate(-50%, -50%);
+  z-index: 800 !important;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+  border-radius: 50%;
+  pointer-events: auto !important;
 }
 
 .event-count-badge {
@@ -486,12 +493,12 @@ iframe.clean-pdf-view {
 
 /* Event tooltip styles */
 .event-tooltip {
-  z-index: 3000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
 .tooltip {
-  z-index: 3000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
@@ -513,7 +520,7 @@ iframe[src*=".pdf"] {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 3000;
+  z-index: 9999;
   pointer-events: none; /* Let clicks pass through to map */
 }
 
@@ -521,7 +528,7 @@ iframe[src*=".pdf"] {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 3000 !important; /* Ensure markers are always on top */
+  z-index: 9999 !important; /* Ensure markers are always on top */
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
@@ -531,12 +538,12 @@ iframe[src*=".pdf"] {
 
 /* Enhance tooltips for better visibility */
 .event-tooltip {
-  z-index: 4000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
 .tooltip {
-  z-index: 4000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
@@ -552,4 +559,81 @@ iframe[src*=".pdf"] {
 .main-map-item {
   background-color: rgba(0, 123, 255, 0.05);
   border-left: 4px solid #007bff;
+}
+
+/* Custom modal styles */
+.event-modal-dialog {
+  z-index: 10000 !important; /* Higher than everything else */
+  position: relative;
+}
+
+/* Modal backdrop should dim the screen */
+.event-modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5) !important; 
+  z-index: 8999 !important;
+}
+
+/* Make sure tabs and UI elements stay on top */
+.nav-tabs, .navbar, .tab-content, .tab-pane {
+  position: relative;
+  z-index: 3000 !important; /* Higher than markers (800) and other UI (2000) */
+}
+
+/* Force modals to display properly */
+.modal {
+  z-index: 9500 !important;
+}
+
+.modal-content {
+  z-index: 10001 !important;
+  background-color: white !important;
+  position: relative;
+}
+
+/* Event image styling */
+.event-image-container {
+  margin-bottom: 20px;
+}
+
+.event-image {
+  transition: transform 0.2s ease;
+  border: 1px solid #dee2e6;
+}
+
+.image-link:hover .event-image {
+  transform: scale(1.03);
+}
+
+/* Comment image styling */
+.comment-image-preview {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.comment-image-thumbnail {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #dee2e6;
+}
+
+.comment-image-thumbnail:hover {
+  transform: scale(1.03);
+}
+
+.event-modal-dialog .modal-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Comment thread styling */
+.comments-thread {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.comment-card {
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
 } 
