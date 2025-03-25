@@ -50,6 +50,9 @@ const MapViewer = ({ onLogout }) => {
     const filteredEvents = events.filter(event => {
       if (!event || !event.map_id) return false;
       
+      // Skip closed events regardless of map
+      if (event.status === 'closed') return false;
+      
       // Always include events from the main map (implantation type)
       const mainMap = maps.find(map => map.map_type === 'implantation');
       if (mainMap && event.map_id === mainMap.id) {
@@ -511,7 +514,7 @@ const MapViewer = ({ onLogout }) => {
             </div>
             
             <EventsTable 
-              events={visibleEvents} 
+              events={events} 
               onViewEvent={handleViewEvent}
               onEditEvent={handleEditEvent}
               onEventUpdated={handleEventUpdated}

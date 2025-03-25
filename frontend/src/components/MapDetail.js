@@ -138,8 +138,12 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
   // ALWAYS include events from the main map, plus any events from visible overlay maps
+  // BUT exclude events with 'closed' status
   const visibleEvents = events.filter(event => {
     if (!event || !event.map_id) return false;
+    
+    // Skip closed events regardless of map
+    if (event.status === 'closed') return false;
     
     // Always show events from the main map, regardless of visibility state
     if (event.map_id === implantationMap?.id) {
