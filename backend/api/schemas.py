@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 # Base model with common event fields
 class EventBase(BaseModel):
@@ -13,6 +13,13 @@ class EventBase(BaseModel):
     state: Optional[str] = "periodic check"
     active_maps: Optional[Dict[str, Any]] = {}
     image_url: Optional[str] = None
+    
+    # Add validator to ensure active_maps is always a dictionary
+    @validator('active_maps', pre=True)
+    def ensure_dict(cls, v):
+        if v is None or isinstance(v, list):
+            return {}
+        return v
 
 class EventCreate(BaseModel):
     map_id: int
@@ -41,4 +48,5 @@ class Event(EventBase):
     comment_count: Optional[int] = 0
     
     class Config:
-        orm_mode = True 
+        orm_mode = True
+        from_attributes = True 

@@ -236,7 +236,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                           const imageFilename = event.image_url.split('/').pop();
                           
                           // Use direct path to the image
-                          // The auth token is automatically added by the interceptor
+                          // The image URL should be /events/filename.jpeg
                           const imageUrl = `http://localhost:8000/events/${imageFilename}`;
                           window.open(imageUrl, '_blank');
                         }
