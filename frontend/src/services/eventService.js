@@ -60,7 +60,29 @@ export const addEvent = async (eventData) => {
 
 export const updateEvent = async (eventId, eventData) => {
   try {
-    const response = await api.put(`${API_URL}/events/${eventId}`, eventData);
+    // Make a copy of the data to avoid mutating the original
+    const data = { ...eventData };
+    
+    // Ensure active_maps is a valid object if it exists
+    if (data.active_maps) {
+      // If it's a string, try to parse it
+      if (typeof data.active_maps === 'string') {
+        try {
+          data.active_maps = JSON.parse(data.active_maps);
+        } catch (e) {
+          console.warn('Failed to parse active_maps string, setting to empty object');
+          data.active_maps = {};
+        }
+      }
+      
+      // If it's an array, convert to object
+      if (Array.isArray(data.active_maps)) {
+        console.warn('active_maps is an array, converting to empty object');
+        data.active_maps = {};
+      }
+    }
+    
+    const response = await api.put(`${API_URL}/events/${eventId}`, data);
     return response.data;
   } catch (error) {
     console.error(`Error updating event ${eventId}:`, error);

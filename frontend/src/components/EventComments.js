@@ -195,12 +195,22 @@ const EventComments = ({ eventId }) => {
                 
                 {comment.image_url && (
                   <div className="comment-image mt-2">
-                    <Image 
-                      src={comment.image_url} 
-                      alt="Comment attachment" 
-                      thumbnail 
-                      style={{ maxWidth: '100%', maxHeight: '200px' }} 
-                    />
+                    <a 
+                      href={comment.image_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <Image 
+                        src={comment.image_url} 
+                        alt="Comment attachment" 
+                        thumbnail 
+                        className="comment-image-thumbnail"
+                        style={{ maxWidth: '100%', maxHeight: '200px' }}
+                      />
+                      <div className="mt-1">
+                        <small className="text-muted">Click to view full size</small>
+                      </div>
+                    </a>
                   </div>
                 )}
               </Card.Body>

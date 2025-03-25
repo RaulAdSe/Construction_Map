@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import { Table, Button, Badge, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Table, Button, Badge, Form, OverlayTrigger, Tooltip, Modal, Spinner, Alert, Image } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
+import api from '../api';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentImage, setCommentImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState('');
 
   if (!events || events.length === 0) {
     return (
@@ -79,6 +89,96 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
     } finally {
       setUpdatingEvent(null);
     }
+  };
+
+  const handleOpenComments = async (eventId) => {
+    setSelectedEventId(eventId);
+    setNewComment('');
+    setCommentImage(null);
+    setImagePreview('');
+    setCommentError('');
+    setShowCommentModal(true);
+    
+    // Fetch comments for this event
+    await fetchComments(eventId);
+  };
+  
+  const fetchComments = async (eventId) => {
+    setLoadingComments(true);
+    try {
+      const response = await api.get(`/events/${eventId}/comments`);
+      setComments(response.data);
+      setCommentError('');
+    } catch (err) {
+      console.error('Error fetching comments:', err);
+      setCommentError('Failed to load comments');
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+  
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim()) {
+      setCommentError('Comment cannot be empty');
+      return;
+    }
+
+    setSubmittingComment(true);
+    setCommentError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('content', newComment);
+      if (commentImage) {
+        formData.append('image', commentImage);
+      }
+
+      await api.post(`/events/${selectedEventId}/comments`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Reset form
+      setNewComment('');
+      setCommentImage(null);
+      setImagePreview('');
+      
+      // Refresh comments
+      fetchComments(selectedEventId);
+      
+      // Update comment count in the event
+      if (onEventUpdated) {
+        const updatedEvent = events.find(e => e.id === selectedEventId);
+        onEventUpdated({
+          ...updatedEvent, 
+          comment_count: (updatedEvent.comment_count || 0) + 1
+        });
+      }
+    } catch (err) {
+      console.error('Error submitting comment:', err);
+      setCommentError('Failed to submit comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+  
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setCommentImage(null);
+      setImagePreview('');
+      return;
+    }
+
+    if (!file.type.match('image.*')) {
+      setCommentError('Please select an image file');
+      return;
+    }
+
+    setCommentImage(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   return (
@@ -157,11 +257,22 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                   <td>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>
                   <td>
-                    {event.comment_count > 0 ? (
-                      <Badge bg="info" pill>
-                        {event.comment_count}
-                      </Badge>
-                    ) : '-'}
+                    <Button 
+                      variant={event.comment_count > 0 ? "outline-info" : "outline-secondary"}
+                      size="sm"
+                      onClick={() => handleOpenComments(event.id)}
+                    >
+                      {event.comment_count > 0 ? (
+                        <>
+                          <Badge bg="info" pill className="me-1">
+                            {event.comment_count}
+                          </Badge>
+                          View
+                        </>
+                      ) : (
+                        'Add'
+                      )}
+                    </Button>
                   </td>
                   <td>
                     <Button 
@@ -186,6 +297,140 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
           </Table>
         </div>
       ))}
+      
+      {/* Comments Modal */}
+      <Modal 
+        show={showCommentModal} 
+        onHide={() => setShowCommentModal(false)}
+        size="lg"
+        contentClassName="modal-content"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            Event Comments
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {/* Comment Form */}
+          <Form onSubmit={handleCommentSubmit} className="mb-4">
+            {commentError && <Alert variant="danger">{commentError}</Alert>}
+            
+            <Form.Group className="mb-3">
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Add a comment..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                disabled={submittingComment}
+              />
+            </Form.Group>
+            
+            <div className="d-flex justify-content-between align-items-center">
+              <Form.Group className="mb-3">
+                <Form.Label className="text-muted small">Attach Image (optional)</Form.Label>
+                <Form.Control
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  disabled={submittingComment}
+                />
+              </Form.Group>
+              
+              {imagePreview && (
+                <div className="comment-image-preview">
+                  <Image 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    thumbnail 
+                    style={{ maxHeight: '80px' }} 
+                  />
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="text-danger p-0 ms-2"
+                    onClick={() => {
+                      setCommentImage(null);
+                      setImagePreview('');
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            <div className="d-flex justify-content-end">
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={submittingComment || !newComment.trim()}
+              >
+                {submittingComment ? (
+                  <>
+                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                    <span className="ms-2">Submitting...</span>
+                  </>
+                ) : (
+                  'Post Comment'
+                )}
+              </Button>
+            </div>
+          </Form>
+          
+          {/* Comments List */}
+          <div className="comments-list mt-4">
+            <h5>Previous Comments</h5>
+            {loadingComments ? (
+              <div className="text-center py-4">
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Loading comments...</span>
+                </Spinner>
+              </div>
+            ) : comments.length === 0 ? (
+              <p className="text-center text-muted">No comments yet. Be the first to comment!</p>
+            ) : (
+              <div className="comments-thread">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="comment-card mb-3 border-bottom pb-3">
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <div>
+                        <h6 className="mb-0">{comment.username}</h6>
+                        <small className="text-muted">
+                          {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
+                          {comment.updated_at && comment.updated_at !== comment.created_at && (
+                            <span> (edited)</span>
+                          )}
+                        </small>
+                      </div>
+                    </div>
+                    
+                    <p className="mb-2">{comment.content}</p>
+                    
+                    {comment.image_url && (
+                      <div className="comment-image mt-2">
+                        <Image 
+                          src={comment.image_url} 
+                          alt="Comment attachment" 
+                          thumbnail 
+                          className="comment-image-thumbnail"
+                          style={{ maxWidth: '100%', maxHeight: '300px' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowCommentModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

@@ -588,4 +588,52 @@ iframe[src*=".pdf"] {
   z-index: 10001 !important;
   background-color: white !important;
   position: relative;
+}
+
+/* Event image styling */
+.event-image-container {
+  margin-bottom: 20px;
+}
+
+.event-image {
+  transition: transform 0.2s ease;
+  border: 1px solid #dee2e6;
+}
+
+.image-link:hover .event-image {
+  transform: scale(1.03);
+}
+
+/* Comment image styling */
+.comment-image-preview {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.comment-image-thumbnail {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #dee2e6;
+}
+
+.comment-image-thumbnail:hover {
+  transform: scale(1.03);
+}
+
+.event-modal-dialog .modal-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Comment thread styling */
+.comments-thread {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.comment-card {
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
 } 

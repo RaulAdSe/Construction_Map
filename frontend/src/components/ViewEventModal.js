@@ -223,12 +223,23 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                 <Col md={4}>
                   <div className="event-image-container">
                     <h6 className="mb-2">Attached Image</h6>
-                    <Image 
-                      src={event.image_url} 
-                      alt={event.title} 
-                      thumbnail 
-                      className="w-100" 
-                    />
+                    <a 
+                      href={event.image_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="image-link"
+                    >
+                      <Image 
+                        src={event.image_url} 
+                        alt={event.title} 
+                        thumbnail 
+                        className="w-100 event-image" 
+                        style={{ maxHeight: '300px', objectFit: 'contain' }}
+                      />
+                      <div className="mt-2 text-center">
+                        <small className="text-muted">Click to view full size</small>
+                      </div>
+                    </a>
                   </div>
                 </Col>
               )}
