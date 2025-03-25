@@ -559,8 +559,9 @@ iframe[src*=".pdf"] {
   z-index: 9000 !important; /* Lower than event markers at 9999 */
 }
 
-/* Modal backdrop should also have lower z-index */
-.modal-backdrop {
+/* Make modal backdrop transparent for event modals */
+.event-modal-backdrop {
+  background-color: transparent !important;
   z-index: 8999 !important;
 }
 

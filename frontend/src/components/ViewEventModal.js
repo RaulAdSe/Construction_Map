@@ -45,6 +45,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [] }) => {
       size="lg"
       centered
       dialogClassName="event-modal-dialog"
+      backdropClassName="event-modal-backdrop"
     >
       <Modal.Header closeButton>
         <Modal.Title>
