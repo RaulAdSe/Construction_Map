@@ -486,12 +486,12 @@ iframe.clean-pdf-view {
 
 /* Event tooltip styles */
 .event-tooltip {
-  z-index: 3000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
 .tooltip {
-  z-index: 3000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
@@ -513,7 +513,7 @@ iframe[src*=".pdf"] {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 3000;
+  z-index: 9999;
   pointer-events: none; /* Let clicks pass through to map */
 }
 
@@ -521,7 +521,7 @@ iframe[src*=".pdf"] {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 3000 !important; /* Ensure markers are always on top */
+  z-index: 9999 !important; /* Ensure markers are always on top */
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
@@ -531,12 +531,12 @@ iframe[src*=".pdf"] {
 
 /* Enhance tooltips for better visibility */
 .event-tooltip {
-  z-index: 4000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
 .tooltip {
-  z-index: 4000 !important;
+  z-index: 9999 !important;
   opacity: 1 !important;
 }
 
@@ -552,4 +552,19 @@ iframe[src*=".pdf"] {
 .main-map-item {
   background-color: rgba(0, 123, 255, 0.05);
   border-left: 4px solid #007bff;
+}
+
+/* Custom modal styles to prevent blocking event markers */
+.event-modal-dialog {
+  z-index: 9000 !important; /* Lower than event markers at 9999 */
+}
+
+/* Modal backdrop should also have lower z-index */
+.modal-backdrop {
+  z-index: 8999 !important;
+}
+
+/* Make sure event markers stay on top */
+.event-marker {
+  z-index: 9999 !important;
 } 

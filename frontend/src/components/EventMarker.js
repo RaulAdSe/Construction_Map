@@ -56,7 +56,7 @@ const EventMarker = ({ event, onClick }) => {
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
       : '0 0 6px rgba(0, 0, 0, 0.5)', // Enhanced shadow
     cursor: 'pointer',
-    zIndex: 2500, // Ensure highest z-index
+    zIndex: 9999, // Highest possible z-index to ensure visibility above modals
     transition: 'all 0.2s ease',
     pointerEvents: 'auto'
   };
