@@ -417,29 +417,25 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                           onClick={(e) => {
                             if (!comment.image_url.startsWith('http')) {
                               e.preventDefault();
-                              const baseUrl = 'http://localhost:8000';
-                              let imagePath = comment.image_url;
-                              if (!imagePath.startsWith('/api/v1') && !imagePath.startsWith('/api/')) {
-                                imagePath = imagePath.startsWith('/') 
-                                  ? `/api/v1${imagePath}` 
-                                  : `/api/v1/${imagePath}`;
-                              }
-                              const token = localStorage.getItem('token');
-                              const url = `${baseUrl}${imagePath}${token ? `?token=${token}` : ''}`;
-                              window.open(url, '_blank');
+                              
+                              // Extract just the filename from the image URL
+                              const imageFilename = comment.image_url.split('/').pop();
+                              // Use our new dedicated image route
+                              const imageUrl = `http://localhost:8000/api/v1/image/${imageFilename}`;
+                              window.open(imageUrl, '_blank');
                             }
                           }}
                         >
                           <Image 
                             src={comment.image_url.startsWith('http') 
                               ? comment.image_url 
-                              : `http://localhost:8000${
-                                  comment.image_url.startsWith('/api/v1') || comment.image_url.startsWith('/api/')
-                                    ? comment.image_url
-                                    : comment.image_url.startsWith('/')
-                                      ? `/api/v1${comment.image_url}`
-                                      : `/api/v1/${comment.image_url}`
-                                  }${localStorage.getItem('token') ? `?token=${localStorage.getItem('token')}` : ''}`}
+                              : (() => {
+                                  // Extract just the filename from the image URL
+                                  const imageFilename = comment.image_url.split('/').pop();
+                                  // Use our new dedicated image route
+                                  return `http://localhost:8000/api/v1/image/${imageFilename}`;
+                                })()
+                            } 
                             alt="Comment attachment" 
                             thumbnail 
                             className="comment-image-thumbnail"

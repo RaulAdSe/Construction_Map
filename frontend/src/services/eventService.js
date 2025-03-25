@@ -94,21 +94,9 @@ export const deleteEvent = async (eventId) => {
 
 export const updateEventStatus = async (eventId, status) => {
   try {
-    // First get the current event to preserve its data
-    const response = await api.get(`${API_URL}/events/${eventId}`);
-    const currentEvent = { ...response.data };
-    
-    // CRITICAL FIX: Always force active_maps to be a plain object
-    // This completely replaces any problematic active_maps data
-    currentEvent.active_maps = {}; 
-    
-    // Prepare data with status update
-    const data = { 
-      ...currentEvent,
-      status 
-    };
-    
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    // Instead of sending the whole event object, just send the status field
+    // This avoids the active_maps validation issue
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}/status`, { status });
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} status:`, error);
@@ -118,21 +106,9 @@ export const updateEventStatus = async (eventId, status) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
-    // First get the current event to preserve its data
-    const response = await api.get(`${API_URL}/events/${eventId}`);
-    const currentEvent = { ...response.data };
-    
-    // CRITICAL FIX: Always force active_maps to be a plain object
-    // This completely replaces any problematic active_maps data
-    currentEvent.active_maps = {}; 
-    
-    // Prepare data with state update
-    const data = { 
-      ...currentEvent,
-      state 
-    };
-    
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    // Instead of sending the whole event object, just send the state field
+    // This avoids the active_maps validation issue
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}/state`, { state });
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} state:`, error);

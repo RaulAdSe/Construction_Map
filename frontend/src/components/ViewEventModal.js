@@ -231,33 +231,25 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                       onClick={(e) => {
                         if (!event.image_url.startsWith('http')) {
                           e.preventDefault();
-                          // Fix image URL path with auth token
-                          const baseUrl = 'http://localhost:8000';
-                          // Check if the path starts with /api/v1
-                          let imagePath = event.image_url;
-                          if (!imagePath.startsWith('/api/v1') && !imagePath.startsWith('/api/')) {
-                            // Add /api/v1 prefix if missing
-                            imagePath = imagePath.startsWith('/') 
-                              ? `/api/v1${imagePath}` 
-                              : `/api/v1/${imagePath}`;
-                          }
-                          // Get auth token
-                          const token = localStorage.getItem('token');
-                          const url = `${baseUrl}${imagePath}${token ? `?token=${token}` : ''}`;
-                          window.open(url, '_blank');
+                          
+                          // Extract just the filename from the image URL
+                          const imageFilename = event.image_url.split('/').pop();
+                          // Use our new dedicated image route
+                          const imageUrl = `http://localhost:8000/api/v1/image/${imageFilename}`;
+                          window.open(imageUrl, '_blank');
                         }
                       }}
                     >
                       <Image 
                         src={event.image_url.startsWith('http') 
                           ? event.image_url 
-                          : `http://localhost:8000${
-                              event.image_url.startsWith('/api/v1') || event.image_url.startsWith('/api/')
-                                ? event.image_url
-                                : event.image_url.startsWith('/')
-                                  ? `/api/v1${event.image_url}`
-                                  : `/api/v1/${event.image_url}`
-                            }${localStorage.getItem('token') ? `?token=${localStorage.getItem('token')}` : ''}`} 
+                          : (() => {
+                              // Extract just the filename from the image URL
+                              const imageFilename = event.image_url.split('/').pop();
+                              // Use our new dedicated image route
+                              return `http://localhost:8000/api/v1/image/${imageFilename}`;
+                            })()
+                        } 
                         alt={event.title} 
                         thumbnail 
                         className="w-100 event-image" 
