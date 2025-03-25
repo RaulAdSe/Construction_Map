@@ -232,11 +232,16 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                         // Prevent default only if URL is not valid
                         if (!event.image_url.startsWith('http')) {
                           e.preventDefault();
-                          // Ensure URL has proper format with path separator
+                          // Fix image URL path
                           const baseUrl = 'http://localhost:8000';
-                          const imagePath = event.image_url.startsWith('/') 
-                            ? event.image_url 
-                            : `/${event.image_url}`;
+                          // Check if the path starts with /api/v1
+                          let imagePath = event.image_url;
+                          if (!imagePath.startsWith('/api/v1') && !imagePath.startsWith('/api/')) {
+                            // Add /api/v1 prefix if missing
+                            imagePath = imagePath.startsWith('/') 
+                              ? `/api/v1${imagePath}` 
+                              : `/api/v1/${imagePath}`;
+                          }
                           window.open(`${baseUrl}${imagePath}`, '_blank');
                         }
                       }}
@@ -244,7 +249,13 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                       <Image 
                         src={event.image_url.startsWith('http') 
                           ? event.image_url 
-                          : `http://localhost:8000${event.image_url.startsWith('/') ? event.image_url : `/${event.image_url}`}`} 
+                          : `http://localhost:8000${
+                              event.image_url.startsWith('/api/v1') || event.image_url.startsWith('/api/')
+                                ? event.image_url
+                                : event.image_url.startsWith('/')
+                                  ? `/api/v1${event.image_url}`
+                                  : `/api/v1/${event.image_url}`
+                            }`} 
                         alt={event.title} 
                         thumbnail 
                         className="w-100 event-image" 

@@ -418,11 +418,16 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                             // Prevent default only if URL is not valid
                             if (!comment.image_url.startsWith('http')) {
                               e.preventDefault();
-                              // Ensure URL has proper format with path separator
+                              // Fix image URL path
                               const baseUrl = 'http://localhost:8000';
-                              const imagePath = comment.image_url.startsWith('/') 
-                                ? comment.image_url 
-                                : `/${comment.image_url}`;
+                              // Check if the path starts with /api/v1
+                              let imagePath = comment.image_url;
+                              if (!imagePath.startsWith('/api/v1') && !imagePath.startsWith('/api/')) {
+                                // Add /api/v1 prefix if missing
+                                imagePath = imagePath.startsWith('/') 
+                                  ? `/api/v1${imagePath}` 
+                                  : `/api/v1/${imagePath}`;
+                              }
                               window.open(`${baseUrl}${imagePath}`, '_blank');
                             }
                           }}
@@ -430,7 +435,13 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                           <Image 
                             src={comment.image_url.startsWith('http') 
                               ? comment.image_url 
-                              : `http://localhost:8000${comment.image_url.startsWith('/') ? comment.image_url : `/${comment.image_url}`}`}
+                              : `http://localhost:8000${
+                                  comment.image_url.startsWith('/api/v1') || comment.image_url.startsWith('/api/')
+                                    ? comment.image_url
+                                    : comment.image_url.startsWith('/')
+                                      ? `/api/v1${comment.image_url}`
+                                      : `/api/v1/${comment.image_url}`
+                                }`}
                             alt="Comment attachment" 
                             thumbnail 
                             className="comment-image-thumbnail"
