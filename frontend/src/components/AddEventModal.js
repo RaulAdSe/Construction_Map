@@ -140,6 +140,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
       size="lg"
       dialogClassName="event-modal-dialog"
       backdropClassName="event-modal-backdrop"
+      contentClassName="modal-content"
     >
       <Modal.Header closeButton>
         <Modal.Title>Add New Event</Modal.Title>

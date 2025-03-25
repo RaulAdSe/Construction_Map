@@ -60,6 +60,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
       size="lg"
       dialogClassName="event-modal-dialog"
       backdropClassName="event-modal-backdrop"
+      contentClassName="modal-content"
       centered
     >
       <Form onSubmit={handleSubmit}>

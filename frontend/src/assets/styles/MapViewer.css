@@ -308,7 +308,7 @@ iframe.clean-pdf-view {
 .map-container {
   position: relative;
   width: 100%;
-  height: 680px;
+  height: 590px;
   background-color: #f8f9fa;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
@@ -561,14 +561,15 @@ iframe[src*=".pdf"] {
   border-left: 4px solid #007bff;
 }
 
-/* Custom modal styles to prevent blocking event markers */
+/* Custom modal styles */
 .event-modal-dialog {
-  z-index: 9000 !important;
+  z-index: 10000 !important; /* Higher than everything else */
+  position: relative;
 }
 
 /* Modal backdrop should dim the screen */
 .event-modal-backdrop {
-  background-color: rgba(0, 0, 0, 0.5) !important;
+  background-color: rgba(0, 0, 0, 0.5) !important; 
   z-index: 8999 !important;
 }
 
@@ -576,4 +577,15 @@ iframe[src*=".pdf"] {
 .nav-tabs, .navbar, .tab-content, .tab-pane {
   position: relative;
   z-index: 3000 !important; /* Higher than markers (800) and other UI (2000) */
+}
+
+/* Force modals to display properly */
+.modal {
+  z-index: 9500 !important;
+}
+
+.modal-content {
+  z-index: 10001 !important;
+  background-color: white !important;
+  position: relative;
 } 
