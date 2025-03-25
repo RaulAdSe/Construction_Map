@@ -37,6 +37,9 @@ app.mount("/events", StaticFiles(directory="uploads/events"), name="events")
 # Add a mount for the entire uploads directory
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+# Add a mount specifically for comment images
+app.mount("/comments", StaticFiles(directory="uploads/comments"), name="comments")
+
 # Add a dedicated route for serving event images with authentication
 @app.get("/api/v1/image/{image_path:path}")
 async def get_image(image_path: str, current_user: models.User = Depends(get_current_user)):

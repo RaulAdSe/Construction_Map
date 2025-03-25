@@ -206,8 +206,8 @@ const EventComments = ({ eventId }) => {
                           // Get just the filename without path
                           const imageFilename = comment.image_url.split('/').pop();
                           
-                          // Use uploads/events path
-                          const imageUrl = `http://localhost:8000/uploads/events/${imageFilename}`;
+                          // Use comments path for comment images
+                          const imageUrl = `http://localhost:8000/comments/${imageFilename}`;
                           window.open(imageUrl, '_blank');
                         }
                       }}
@@ -218,8 +218,8 @@ const EventComments = ({ eventId }) => {
                           : (() => {
                               // Get just the filename without path
                               const imageFilename = comment.image_url.split('/').pop();
-                              // Use uploads/events path
-                              return `http://localhost:8000/uploads/events/${imageFilename}`;
+                              // Use comments path for comment images
+                              return `http://localhost:8000/comments/${imageFilename}`;
                             })()
                         } 
                         alt="Comment attachment" 
