@@ -9,6 +9,7 @@ from app.services import event as event_service
 from app.services import project as project_service
 from app.services import event_comment as comment_service
 from app.models.map import Map
+from app.models.event import Event as EventModel
 
 router = APIRouter()
 
@@ -254,4 +255,31 @@ def delete_event(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete event")
     
-    return None 
+    return None
+
+
+# Add special admin route to fix active_maps
+@router.get("/admin/fix-active-maps", response_model=dict)
+def fix_all_events_active_maps(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Fix all events with array active_maps values
+    """
+    # Get all events
+    events = db.query(EventModel).all()
+    
+    fixed_count = 0
+    for event in events:
+        # Check if active_maps is an array or None
+        if event.active_maps is None or isinstance(event._active_maps, list):
+            print(f"Fixing event {event.id} - active_maps was {type(event._active_maps)}")
+            event.active_maps = {}
+            fixed_count += 1
+    
+    # Save changes if any were made
+    if fixed_count > 0:
+        db.commit()
+    
+    return {"message": f"Fixed {fixed_count} events with invalid active_maps values"} 
