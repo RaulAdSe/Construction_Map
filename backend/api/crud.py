@@ -4,7 +4,13 @@ from typing import Dict, Any, Optional
 
 def get_event(db: Session, event_id: int):
     """Get an event by ID"""
-    return db.query(models.Event).filter(models.Event.id == event_id).first()
+    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+    
+    # Ensure active_maps is always a dictionary
+    if event and (event.active_maps is None or isinstance(event.active_maps, list)):
+        event.active_maps = {}
+    
+    return event
 
 def update_event(db: Session, event_id: int, update_data: Dict[str, Any]):
     """Update an event with proper handling of active_maps"""
@@ -22,6 +28,10 @@ def update_event(db: Session, event_id: int, update_data: Dict[str, Any]):
     for key, value in update_data.items():
         if hasattr(event, key):
             setattr(event, key, value)
+    
+    # Final check to ensure active_maps is a dictionary before saving
+    if event.active_maps is None or isinstance(event.active_maps, list):
+        event.active_maps = {}
     
     # Save changes
     db.commit()

@@ -235,9 +235,8 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                           // Get just the filename without path
                           const imageFilename = event.image_url.split('/').pop();
                           
-                          // Use direct path to the image
-                          // The image URL should be /events/filename.jpeg
-                          const imageUrl = `http://localhost:8000/events/${imageFilename}`;
+                          // Use uploads/events path
+                          const imageUrl = `http://localhost:8000/uploads/events/${imageFilename}`;
                           window.open(imageUrl, '_blank');
                         }
                       }}
@@ -248,8 +247,8 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                           : (() => {
                               // Get just the filename without path
                               const imageFilename = event.image_url.split('/').pop();
-                              // Use direct path to the image
-                              return `http://localhost:8000/events/${imageFilename}`;
+                              // Use uploads/events path
+                              return `http://localhost:8000/uploads/events/${imageFilename}`;
                             })()
                         } 
                         alt={event.title} 

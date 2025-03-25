@@ -34,6 +34,9 @@ app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
 # Since the server runs from /backend, we need to use the correct relative path
 app.mount("/events", StaticFiles(directory="uploads/events"), name="events")
 
+# Add a mount for the entire uploads directory
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # Add a dedicated route for serving event images with authentication
 @app.get("/api/v1/image/{image_path:path}")
 async def get_image(image_path: str, current_user: models.User = Depends(get_current_user)):
