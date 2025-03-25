@@ -93,7 +93,7 @@ iframe.clean-pdf-view {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 1000 !important;
+  z-index: 800 !important;
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
@@ -363,7 +363,7 @@ iframe.clean-pdf-view {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 1000 !important;
+  z-index: 800 !important;
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
@@ -566,19 +566,14 @@ iframe[src*=".pdf"] {
   z-index: 9000 !important;
 }
 
-/* Make modal backdrop transparent for event modals */
+/* Modal backdrop should dim the screen */
 .event-modal-backdrop {
   background-color: rgba(0, 0, 0, 0.5) !important;
   z-index: 8999 !important;
 }
 
-/* Make sure event markers stay on top */
-.event-marker {
-  z-index: 9999 !important;
-}
-
 /* Make sure tabs and UI elements stay on top */
-.nav-tabs, .navbar, .tab-content {
+.nav-tabs, .navbar, .tab-content, .tab-pane {
   position: relative;
-  z-index: 2000 !important;
+  z-index: 3000 !important; /* Higher than markers (800) and other UI (2000) */
 } 
