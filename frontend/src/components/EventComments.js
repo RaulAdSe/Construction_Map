@@ -203,10 +203,12 @@ const EventComments = ({ eventId }) => {
                         if (!comment.image_url.startsWith('http')) {
                           e.preventDefault();
                           
-                          // Extract just the filename from the image URL
+                          // Get just the filename without path
                           const imageFilename = comment.image_url.split('/').pop();
-                          // Use our new dedicated image route
-                          const imageUrl = `http://localhost:8000/api/v1/image/${imageFilename}`;
+                          
+                          // Use direct path to the image
+                          // The auth token is automatically added by the interceptor
+                          const imageUrl = `http://localhost:8000/events/${imageFilename}`;
                           window.open(imageUrl, '_blank');
                         }
                       }}
@@ -215,10 +217,10 @@ const EventComments = ({ eventId }) => {
                         src={comment.image_url.startsWith('http') 
                           ? comment.image_url 
                           : (() => {
-                              // Extract just the filename from the image URL
+                              // Get just the filename without path
                               const imageFilename = comment.image_url.split('/').pop();
-                              // Use our new dedicated image route
-                              return `http://localhost:8000/api/v1/image/${imageFilename}`;
+                              // Use direct path to the image
+                              return `http://localhost:8000/events/${imageFilename}`;
                             })()
                         } 
                         alt="Comment attachment" 

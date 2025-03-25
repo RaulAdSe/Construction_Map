@@ -8,7 +8,30 @@ from typing import Optional
 from datetime import datetime, timedelta
 from fastapi.responses import FileResponse
 
-# ... existing code ...
+from api import models, schemas, crud
+from api.deps import get_db, get_current_user
+from api.routes import events, maps, projects, auth
+
+# Create the FastAPI app
+app = FastAPI(title="Construction Map API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For development - restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
+app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
+app.include_router(maps.router, prefix="/api/v1/maps", tags=["maps"])
+app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
+
+# Serve static files from the events directory
+app.mount("/events", StaticFiles(directory="events"), name="events")
 
 # Add a dedicated route for serving event images with authentication
 @app.get("/api/v1/image/{image_path:path}")
@@ -16,7 +39,7 @@ async def get_image(image_path: str, current_user: models.User = Depends(get_cur
     # Check if the file exists
     file_path = os.path.join("events", image_path)
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise HTTPException(status_code=404, detail=f"Image not found: {file_path}")
     
     # Return the file
     return FileResponse(file_path)

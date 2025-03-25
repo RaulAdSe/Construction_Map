@@ -94,9 +94,18 @@ export const deleteEvent = async (eventId) => {
 
 export const updateEventStatus = async (eventId, status) => {
   try {
-    // Instead of sending the whole event object, just send the status field
-    // This avoids the active_maps validation issue
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}/status`, { status });
+    // Avoid using the dedicated endpoint that's giving 404 errors
+    // Instead, update the whole event but only change the status field
+    // First get the current event data
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const event = response.data;
+    
+    // Update with minimal data to avoid validation issues
+    const updateData = {
+      status: status
+    };
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} status:`, error);
@@ -106,9 +115,18 @@ export const updateEventStatus = async (eventId, status) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
-    // Instead of sending the whole event object, just send the state field
-    // This avoids the active_maps validation issue
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}/state`, { state });
+    // Avoid using the dedicated endpoint that's giving 404 errors
+    // Instead, update the whole event but only change the state field
+    // First get the current event data
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const event = response.data;
+    
+    // Update with minimal data to avoid validation issues
+    const updateData = {
+      state: state
+    };
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} state:`, error);
