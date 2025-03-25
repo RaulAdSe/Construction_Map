@@ -76,4 +76,24 @@ export const deleteEvent = async (eventId) => {
     console.error(`Error deleting event ${eventId}:`, error);
     throw error;
   }
+};
+
+export const updateEventStatus = async (eventId, status) => {
+  try {
+    const response = await api.patch(`${API_URL}/events/${eventId}`, { status });
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating event ${eventId} status:`, error);
+    throw error;
+  }
+};
+
+export const updateEventState = async (eventId, state) => {
+  try {
+    const response = await api.patch(`${API_URL}/events/${eventId}`, { state });
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating event ${eventId} state:`, error);
+    throw error;
+  }
 }; 

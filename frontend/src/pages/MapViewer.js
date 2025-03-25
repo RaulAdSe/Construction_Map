@@ -502,6 +502,7 @@ const MapViewer = ({ onLogout }) => {
               events={visibleEvents} 
               onViewEvent={handleViewEvent}
               onEditEvent={handleEditEvent}
+              onEventUpdated={handleEventUpdated}
             />
           </Tab>
         </Tabs>
@@ -541,6 +542,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowViewEventModal(false)}
         event={selectedEvent}
         allMaps={maps}
+        onEventUpdated={handleEventUpdated}
       />
       
       <EditEventModal

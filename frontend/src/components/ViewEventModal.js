@@ -1,9 +1,21 @@
-import React from 'react';
-import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bootstrap';
 import { format } from 'date-fns';
 import EventComments from './EventComments';
+import { updateEventStatus, updateEventState } from '../services/eventService';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [] }) => {
+const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) => {
+  const [updating, setUpdating] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState('');
+  const [currentState, setCurrentState] = useState('');
+  
+  React.useEffect(() => {
+    if (event) {
+      setCurrentStatus(event.status || 'open');
+      setCurrentState(event.state || 'green');
+    }
+  }, [event]);
+
   if (!event) return null;
   
   // Parse active maps configuration from event
@@ -26,7 +38,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [] }) => {
   
   // Get state badge color
   const getStateBadge = () => {
-    switch (event.state) {
+    switch (currentState) {
       case 'red':
         return <Badge bg="danger">Critical</Badge>;
       case 'yellow':
@@ -34,7 +46,59 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [] }) => {
       case 'green':
         return <Badge bg="success">Normal</Badge>;
       default:
-        return <Badge bg="secondary">{event.state}</Badge>;
+        return <Badge bg="secondary">{currentState}</Badge>;
+    }
+  };
+
+  // Get status badge
+  const getStatusBadge = () => {
+    switch (currentStatus) {
+      case 'open':
+        return <Badge bg="primary">Open</Badge>;
+      case 'in-progress':
+        return <Badge bg="info">In Progress</Badge>;
+      case 'resolved':
+        return <Badge bg="success">Resolved</Badge>;
+      case 'closed':
+        return <Badge bg="secondary">Closed</Badge>;
+      default:
+        return <Badge bg="secondary">{currentStatus}</Badge>;
+    }
+  };
+  
+  const handleStatusChange = async (e) => {
+    const newStatus = e.target.value;
+    setCurrentStatus(newStatus);
+    
+    try {
+      setUpdating(true);
+      await updateEventStatus(event.id, newStatus);
+      if (onEventUpdated) {
+        onEventUpdated({...event, status: newStatus});
+      }
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      setCurrentStatus(event.status); // Revert on error
+    } finally {
+      setUpdating(false);
+    }
+  };
+  
+  const handleStateChange = async (e) => {
+    const newState = e.target.value;
+    setCurrentState(newState);
+    
+    try {
+      setUpdating(true);
+      await updateEventState(event.id, newState);
+      if (onEventUpdated) {
+        onEventUpdated({...event, state: newState});
+      }
+    } catch (error) {
+      console.error('Failed to update state:', error);
+      setCurrentState(event.state); // Revert on error
+    } finally {
+      setUpdating(false);
     }
   };
   
@@ -84,18 +148,41 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [] }) => {
                   </Col>
                 </Row>
                 
-                <div className="mb-3">
-                  <h6>Status</h6>
-                  <div className="d-flex align-items-center">
-                    <Badge 
-                      bg={event.status === 'open' ? 'primary' : 'secondary'}
-                      className="me-2"
-                    >
-                      {event.status}
-                    </Badge>
-                    {getStateBadge()}
-                  </div>
-                </div>
+                <Row className="mb-3">
+                  <Col md={6}>
+                    <h6>Status</h6>
+                    <Form.Group>
+                      <Form.Select 
+                        value={currentStatus} 
+                        onChange={handleStatusChange}
+                        disabled={updating}
+                        className="mb-2"
+                      >
+                        <option value="open">Open</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                      </Form.Select>
+                      {getStatusBadge()}
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <h6>State</h6>
+                    <Form.Group>
+                      <Form.Select 
+                        value={currentState} 
+                        onChange={handleStateChange}
+                        disabled={updating}
+                        className="mb-2"
+                      >
+                        <option value="green">Normal (Green)</option>
+                        <option value="yellow">Warning (Yellow)</option>
+                        <option value="red">Critical (Red)</option>
+                      </Form.Select>
+                      {getStateBadge()}
+                    </Form.Group>
+                  </Col>
+                </Row>
                 
                 <div className="mb-3">
                   <h6>Map Location</h6>

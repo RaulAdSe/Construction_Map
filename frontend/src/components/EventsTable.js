@@ -1,8 +1,11 @@
-import React from 'react';
-import { Table, Button, Badge } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Table, Button, Badge, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { format } from 'date-fns';
+import { updateEventStatus, updateEventState } from '../services/eventService';
 
-const EventsTable = ({ events, onViewEvent, onEditEvent }) => {
+const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
+  const [updatingEvent, setUpdatingEvent] = useState(null);
+
   if (!events || events.length === 0) {
     return (
       <div className="p-3 bg-light rounded text-center">
@@ -49,6 +52,36 @@ const EventsTable = ({ events, onViewEvent, onEditEvent }) => {
         return <Badge bg="secondary">{status || 'Unknown'}</Badge>;
     }
   };
+  
+  const handleStatusChange = async (eventId, newStatus) => {
+    setUpdatingEvent(eventId);
+    try {
+      await updateEventStatus(eventId, newStatus);
+      if (onEventUpdated) {
+        const updatedEvent = events.find(e => e.id === eventId);
+        onEventUpdated({...updatedEvent, status: newStatus});
+      }
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    } finally {
+      setUpdatingEvent(null);
+    }
+  };
+  
+  const handleStateChange = async (eventId, newState) => {
+    setUpdatingEvent(eventId);
+    try {
+      await updateEventState(eventId, newState);
+      if (onEventUpdated) {
+        const updatedEvent = events.find(e => e.id === eventId);
+        onEventUpdated({...updatedEvent, state: newState});
+      }
+    } catch (error) {
+      console.error('Failed to update state:', error);
+    } finally {
+      setUpdatingEvent(null);
+    }
+  };
 
   return (
     <div className="events-table-container">
@@ -81,8 +114,49 @@ const EventsTable = ({ events, onViewEvent, onEditEvent }) => {
                         : event.description
                       : "-"}
                   </td>
-                  <td>{getStatusBadge(event.status)}</td>
-                  <td>{getStateBadge(event.state)}</td>
+                  <td>
+                    <OverlayTrigger
+                      placement="top"
+                      overlay={<Tooltip>Click to change status</Tooltip>}
+                    >
+                      <div>
+                        <Form.Select 
+                          size="sm"
+                          value={event.status || 'open'}
+                          onChange={(e) => handleStatusChange(event.id, e.target.value)}
+                          disabled={updatingEvent === event.id}
+                          style={{ marginBottom: '4px' }}
+                        >
+                          <option value="open">Open</option>
+                          <option value="in-progress">In Progress</option>
+                          <option value="resolved">Resolved</option>
+                          <option value="closed">Closed</option>
+                        </Form.Select>
+                        {getStatusBadge(event.status)}
+                      </div>
+                    </OverlayTrigger>
+                  </td>
+                  <td>
+                    <OverlayTrigger
+                      placement="top"
+                      overlay={<Tooltip>Click to change state</Tooltip>}
+                    >
+                      <div>
+                        <Form.Select 
+                          size="sm"
+                          value={event.state || 'green'}
+                          onChange={(e) => handleStateChange(event.id, e.target.value)}
+                          disabled={updatingEvent === event.id}
+                          style={{ marginBottom: '4px' }}
+                        >
+                          <option value="green">Normal</option>
+                          <option value="yellow">Warning</option>
+                          <option value="red">Critical</option>
+                        </Form.Select>
+                        {getStateBadge(event.state)}
+                      </div>
+                    </OverlayTrigger>
+                  </td>
                   <td>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>
                   <td>
