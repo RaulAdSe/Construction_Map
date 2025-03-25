@@ -30,14 +30,14 @@ app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"]
 app.include_router(maps.router, prefix="/api/v1/maps", tags=["maps"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
 
-# Serve static files from the events directory
-app.mount("/events", StaticFiles(directory="events"), name="events")
+# Serve static files from the uploads/events directory
+app.mount("/events", StaticFiles(directory="backend/uploads/events"), name="events")
 
 # Add a dedicated route for serving event images with authentication
 @app.get("/api/v1/image/{image_path:path}")
 async def get_image(image_path: str, current_user: models.User = Depends(get_current_user)):
     # Check if the file exists
-    file_path = os.path.join("events", image_path)
+    file_path = os.path.join("backend/uploads/events", image_path)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail=f"Image not found: {file_path}")
     
