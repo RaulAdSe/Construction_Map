@@ -5,7 +5,7 @@ import { addEvent } from '../services/eventService';
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [] }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [state, setState] = useState('green');
+  const [type, setType] = useState('periodic check');
   const [status, setStatus] = useState('open');
   const [tags, setTags] = useState('');
   const [error, setError] = useState('');
@@ -66,7 +66,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     formData.append('title', title);
     formData.append('description', description || '');
     formData.append('status', status);
-    formData.append('state', state);
+    formData.append('state', type);
     formData.append('x_coordinate', position.x);
     formData.append('y_coordinate', position.y);
     formData.append('active_maps', JSON.stringify(activeMapSettings));
@@ -94,7 +94,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const resetForm = () => {
     setTitle('');
     setDescription('');
-    setState('green');
+    setType('periodic check');
     setStatus('open');
     setTags('');
     setError('');
@@ -186,17 +186,16 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
             </Col>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>State</Form.Label>
+                <Form.Label>Type</Form.Label>
                 <Form.Select
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
                 >
-                  <option value="green">Normal (Green)</option>
-                  <option value="yellow">Warning (Yellow)</option>
-                  <option value="red">Critical (Red)</option>
+                  <option value="periodic check">Periodic Check</option>
+                  <option value="incidence">Incidence</option>
                 </Form.Select>
                 <Form.Text className="text-muted">
-                  State defines the color of the event marker on the map
+                  Type defines the purpose and appearance of the event marker
                 </Form.Text>
               </Form.Group>
             </Col>

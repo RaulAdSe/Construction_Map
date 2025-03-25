@@ -7,12 +7,12 @@ import { updateEventStatus, updateEventState } from '../services/eventService';
 const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
-  const [currentState, setCurrentState] = useState('');
+  const [currentType, setCurrentType] = useState('');
   
   React.useEffect(() => {
     if (event) {
       setCurrentStatus(event.status || 'open');
-      setCurrentState(event.state || 'green');
+      setCurrentType(event.state || 'periodic check');
     }
   }, [event]);
 
@@ -36,17 +36,15 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
     return map ? map.name : `Map ID: ${mapId}`;
   };
   
-  // Get state badge color
-  const getStateBadge = () => {
-    switch (currentState) {
-      case 'red':
-        return <Badge bg="danger">Critical</Badge>;
-      case 'yellow':
-        return <Badge bg="warning" text="dark">Warning</Badge>;
-      case 'green':
-        return <Badge bg="success">Normal</Badge>;
+  // Get type badge
+  const getTypeBadge = () => {
+    switch (currentType) {
+      case 'incidence':
+        return <Badge bg="danger">Incidence</Badge>;
+      case 'periodic check':
+        return <Badge bg="info">Periodic Check</Badge>;
       default:
-        return <Badge bg="secondary">{currentState}</Badge>;
+        return <Badge bg="secondary">{currentType}</Badge>;
     }
   };
 
@@ -84,19 +82,19 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
     }
   };
   
-  const handleStateChange = async (e) => {
-    const newState = e.target.value;
-    setCurrentState(newState);
+  const handleTypeChange = async (e) => {
+    const newType = e.target.value;
+    setCurrentType(newType);
     
     try {
       setUpdating(true);
-      await updateEventState(event.id, newState);
+      await updateEventState(event.id, newType);
       if (onEventUpdated) {
-        onEventUpdated({...event, state: newState});
+        onEventUpdated({...event, state: newType});
       }
     } catch (error) {
-      console.error('Failed to update state:', error);
-      setCurrentState(event.state); // Revert on error
+      console.error('Failed to update type:', error);
+      setCurrentType(event.state); // Revert on error
     } finally {
       setUpdating(false);
     }
@@ -116,7 +114,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
         <Modal.Title>
           <div className="d-flex align-items-center">
             <span className="me-2">Event: {event.title}</span>
-            {getStateBadge()}
+            {getTypeBadge()}
           </div>
         </Modal.Title>
       </Modal.Header>
@@ -167,19 +165,18 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                     </Form.Group>
                   </Col>
                   <Col md={6}>
-                    <h6>State</h6>
+                    <h6>Type</h6>
                     <Form.Group>
                       <Form.Select 
-                        value={currentState} 
-                        onChange={handleStateChange}
+                        value={currentType} 
+                        onChange={handleTypeChange}
                         disabled={updating}
                         className="mb-2"
                       >
-                        <option value="green">Normal (Green)</option>
-                        <option value="yellow">Warning (Yellow)</option>
-                        <option value="red">Critical (Red)</option>
+                        <option value="periodic check">Periodic Check</option>
+                        <option value="incidence">Incidence</option>
                       </Form.Select>
-                      {getStateBadge()}
+                      {getTypeBadge()}
                     </Form.Group>
                   </Col>
                 </Row>

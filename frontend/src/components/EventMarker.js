@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
 
-// Define state colors
-const stateColors = {
-  red: '#FF3333',
-  yellow: '#FFD700',
-  green: '#33CC33'
+// Define type colors
+const typeColors = {
+  'incidence': '#FF3333',
+  'periodic check': '#3399FF'
 };
 
 // Map of user IDs to different colors for consistency
@@ -37,9 +36,9 @@ const EventMarker = ({ event, onClick }) => {
     return null;
   }
   
-  // Use state color or default to user color as fallback
-  const color = event.state && stateColors[event.state] 
-    ? stateColors[event.state] 
+  // Use type color or default to user color as fallback
+  const color = event.state && typeColors[event.state] 
+    ? typeColors[event.state] 
     : getColorForUser(event.created_by_user_id);
   
   const markerStyle = {
@@ -56,20 +55,18 @@ const EventMarker = ({ event, onClick }) => {
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
       : '0 0 6px rgba(0, 0, 0, 0.5)', // Enhanced shadow
     cursor: 'pointer',
-    zIndex: 9999, // Highest possible z-index to ensure visibility above modals
+    zIndex: 800, // Same z-index as other event markers
     transition: 'all 0.2s ease',
     pointerEvents: 'auto'
   };
 
-  // Get state label
-  const getStateLabel = () => {
+  // Get type badge
+  const getTypeBadge = () => {
     switch (event.state) {
-      case 'red':
-        return <Badge bg="danger">Critical</Badge>;
-      case 'yellow':
-        return <Badge bg="warning" text="dark">Warning</Badge>;
-      case 'green':
-        return <Badge bg="success">Normal</Badge>;
+      case 'incidence':
+        return <Badge bg="danger">Incidence</Badge>;
+      case 'periodic check':
+        return <Badge bg="info">Periodic Check</Badge>;
       default:
         return <Badge bg="secondary">{event.state || 'Unknown'}</Badge>;
     }
@@ -81,7 +78,7 @@ const EventMarker = ({ event, onClick }) => {
         <strong>{event.title}</strong>
       </div>
       <div>Created by: {event.created_by_user_name || `User ${event.created_by_user_id}`}</div>
-      <div>{getStateLabel()}</div>
+      <div>{getTypeBadge()}</div>
       <div className="small text-muted">Click for details</div>
     </Tooltip>
   );

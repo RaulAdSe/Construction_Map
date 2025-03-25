@@ -23,15 +23,13 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
     eventsByMap[event.map_id].push(event);
   });
 
-  // Get state badge
-  const getStateBadge = (state) => {
+  // Get type badge
+  const getTypeBadge = (state) => {
     switch (state) {
-      case 'red':
-        return <Badge bg="danger">Critical</Badge>;
-      case 'yellow':
-        return <Badge bg="warning" text="dark">Warning</Badge>;
-      case 'green':
-        return <Badge bg="success">Normal</Badge>;
+      case 'incidence':
+        return <Badge bg="danger">Incidence</Badge>;
+      case 'periodic check':
+        return <Badge bg="info">Periodic Check</Badge>;
       default:
         return <Badge bg="secondary">{state || 'Unknown'}</Badge>;
     }
@@ -68,16 +66,16 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
     }
   };
   
-  const handleStateChange = async (eventId, newState) => {
+  const handleTypeChange = async (eventId, newType) => {
     setUpdatingEvent(eventId);
     try {
-      await updateEventState(eventId, newState);
+      await updateEventState(eventId, newType);
       if (onEventUpdated) {
         const updatedEvent = events.find(e => e.id === eventId);
-        onEventUpdated({...updatedEvent, state: newState});
+        onEventUpdated({...updatedEvent, state: newType});
       }
     } catch (error) {
-      console.error('Failed to update state:', error);
+      console.error('Failed to update type:', error);
     } finally {
       setUpdatingEvent(null);
     }
@@ -95,7 +93,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                 <th>Title</th>
                 <th>Description</th>
                 <th>Status</th>
-                <th>State</th>
+                <th>Type</th>
                 <th>Created By</th>
                 <th>Created At</th>
                 <th>Comments</th>
@@ -139,21 +137,20 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                   <td>
                     <OverlayTrigger
                       placement="top"
-                      overlay={<Tooltip>Click to change state</Tooltip>}
+                      overlay={<Tooltip>Click to change type</Tooltip>}
                     >
                       <div>
                         <Form.Select 
                           size="sm"
-                          value={event.state || 'green'}
-                          onChange={(e) => handleStateChange(event.id, e.target.value)}
+                          value={event.state || 'periodic check'}
+                          onChange={(e) => handleTypeChange(event.id, e.target.value)}
                           disabled={updatingEvent === event.id}
                           style={{ marginBottom: '4px' }}
                         >
-                          <option value="green">Normal</option>
-                          <option value="yellow">Warning</option>
-                          <option value="red">Critical</option>
+                          <option value="periodic check">Periodic Check</option>
+                          <option value="incidence">Incidence</option>
                         </Form.Select>
-                        {getStateBadge(event.state)}
+                        {getTypeBadge(event.state)}
                       </div>
                     </OverlayTrigger>
                   </td>

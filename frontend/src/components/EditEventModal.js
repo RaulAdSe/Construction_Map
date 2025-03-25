@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Row, Col, Image } from 'react-bootstrap';
+import { Modal, Button, Form, Row, Col, Image, Alert } from 'react-bootstrap';
 import { updateEvent } from '../services/eventService';
 
 const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [state, setState] = useState('green');
+  const [type, setType] = useState('periodic check');
   const [status, setStatus] = useState('open');
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
     if (event) {
       setTitle(event.title || '');
       setDescription(event.description || '');
-      setState(event.state || 'green');
+      setType(event.state || 'periodic check');
       setStatus(event.status || 'open');
       setTags(event.tags ? event.tags.join(', ') : '');
       setError('');
@@ -36,7 +36,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
       const updatedEvent = await updateEvent(event.id, {
         title,
         description,
-        state,
+        state: type,
         status,
         tags: tagsArray
       });
@@ -113,17 +113,16 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>State</Form.Label>
+                    <Form.Label>Type</Form.Label>
                     <Form.Select
-                      value={state}
-                      onChange={(e) => setState(e.target.value)}
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
                     >
-                      <option value="green">Normal (Green)</option>
-                      <option value="yellow">Warning (Yellow)</option>
-                      <option value="red">Critical (Red)</option>
+                      <option value="periodic check">Periodic Check</option>
+                      <option value="incidence">Incidence</option>
                     </Form.Select>
                     <Form.Text className="text-muted">
-                      State defines the color of the event marker on the map
+                      Type defines the purpose and appearance of the event marker
                     </Form.Text>
                   </Form.Group>
                 </Col>
