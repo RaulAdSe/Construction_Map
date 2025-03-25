@@ -410,13 +410,29 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                     
                     {comment.image_url && (
                       <div className="comment-image mt-2">
-                        <Image 
-                          src={comment.image_url} 
-                          alt="Comment attachment" 
-                          thumbnail 
-                          className="comment-image-thumbnail"
-                          style={{ maxWidth: '100%', maxHeight: '300px' }}
-                        />
+                        <a 
+                          href={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            // Prevent default only if URL is not valid
+                            if (!comment.image_url.startsWith('http')) {
+                              e.preventDefault();
+                              window.open(`http://localhost:8000${comment.image_url}`, '_blank');
+                            }
+                          }}
+                        >
+                          <Image 
+                            src={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`}
+                            alt="Comment attachment" 
+                            thumbnail 
+                            className="comment-image-thumbnail"
+                            style={{ maxWidth: '100%', maxHeight: '300px' }}
+                          />
+                          <div className="mt-1">
+                            <small className="text-muted">Click to view full size</small>
+                          </div>
+                        </a>
                       </div>
                     )}
                   </div>

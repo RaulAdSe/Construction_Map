@@ -102,8 +102,35 @@ export const deleteEvent = async (eventId) => {
 
 export const updateEventStatus = async (eventId, status) => {
   try {
-    const response = await api.put(`${API_URL}/events/${eventId}`, { status });
-    return response.data;
+    // First get the current event to preserve its data
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const currentEvent = response.data;
+    
+    // Prepare data with properly formatted active_maps
+    const data = { 
+      ...currentEvent,
+      status 
+    };
+    
+    // Handle active_maps as in updateEvent
+    if (data.active_maps) {
+      if (typeof data.active_maps === 'string') {
+        try {
+          data.active_maps = JSON.parse(data.active_maps);
+        } catch (e) {
+          console.warn('Failed to parse active_maps string, setting to empty object');
+          data.active_maps = {};
+        }
+      }
+      
+      if (Array.isArray(data.active_maps)) {
+        console.warn('active_maps is an array, converting to empty object');
+        data.active_maps = {};
+      }
+    }
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} status:`, error);
     throw error;
@@ -112,8 +139,35 @@ export const updateEventStatus = async (eventId, status) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
-    const response = await api.put(`${API_URL}/events/${eventId}`, { state });
-    return response.data;
+    // First get the current event to preserve its data
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const currentEvent = response.data;
+    
+    // Prepare data with properly formatted active_maps
+    const data = { 
+      ...currentEvent,
+      state 
+    };
+    
+    // Handle active_maps as in updateEvent
+    if (data.active_maps) {
+      if (typeof data.active_maps === 'string') {
+        try {
+          data.active_maps = JSON.parse(data.active_maps);
+        } catch (e) {
+          console.warn('Failed to parse active_maps string, setting to empty object');
+          data.active_maps = {};
+        }
+      }
+      
+      if (Array.isArray(data.active_maps)) {
+        console.warn('active_maps is an array, converting to empty object');
+        data.active_maps = {};
+      }
+    }
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} state:`, error);
     throw error;

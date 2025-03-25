@@ -196,12 +196,19 @@ const EventComments = ({ eventId }) => {
                 {comment.image_url && (
                   <div className="comment-image mt-2">
                     <a 
-                      href={comment.image_url} 
+                      href={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
+                      onClick={(e) => {
+                        // Prevent default only if URL is not valid
+                        if (!comment.image_url.startsWith('http')) {
+                          e.preventDefault();
+                          window.open(`http://localhost:8000${comment.image_url}`, '_blank');
+                        }
+                      }}
                     >
                       <Image 
-                        src={comment.image_url} 
+                        src={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`} 
                         alt="Comment attachment" 
                         thumbnail 
                         className="comment-image-thumbnail"

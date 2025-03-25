@@ -228,9 +228,16 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="image-link"
+                      onClick={(e) => {
+                        // Prevent default only if URL is not valid
+                        if (!event.image_url.startsWith('http')) {
+                          e.preventDefault();
+                          window.open(`http://localhost:8000${event.image_url}`, '_blank');
+                        }
+                      }}
                     >
                       <Image 
-                        src={event.image_url} 
+                        src={event.image_url.startsWith('http') ? event.image_url : `http://localhost:8000${event.image_url}`} 
                         alt={event.title} 
                         thumbnail 
                         className="w-100 event-image" 
