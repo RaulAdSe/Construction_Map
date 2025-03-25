@@ -60,32 +60,22 @@ export const addEvent = async (eventData) => {
 
 export const updateEvent = async (eventId, eventData) => {
   try {
+    // Get current event data to preserve fields not in the update
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const currentEvent = { ...response.data };
+    
     // Make a copy of the data to avoid mutating the original
-    const data = { ...eventData };
+    const data = { 
+      ...currentEvent,
+      ...eventData 
+    };
     
-    // Handle active_maps with careful validation
-    // Always ensure active_maps is a valid object 
-    if (!data.active_maps || 
-        Array.isArray(data.active_maps) || 
-        typeof data.active_maps !== 'object') {
-      console.warn('Invalid or missing active_maps, setting to empty object');
-      data.active_maps = {};
-    } else if (typeof data.active_maps === 'string') {
-      try {
-        const parsed = JSON.parse(data.active_maps);
-        if (Array.isArray(parsed) || typeof parsed !== 'object') {
-          data.active_maps = {};
-        } else {
-          data.active_maps = parsed;
-        }
-      } catch (e) {
-        console.warn('Failed to parse active_maps string, setting to empty object');
-        data.active_maps = {};
-      }
-    }
+    // CRITICAL FIX: Always force active_maps to be a plain object
+    // This completely replaces any problematic active_maps data
+    data.active_maps = {}; 
     
-    const response = await api.put(`${API_URL}/events/${eventId}`, data);
-    return response.data;
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId}:`, error);
     throw error;
@@ -106,34 +96,17 @@ export const updateEventStatus = async (eventId, status) => {
   try {
     // First get the current event to preserve its data
     const response = await api.get(`${API_URL}/events/${eventId}`);
-    const currentEvent = response.data;
+    const currentEvent = { ...response.data };
     
-    // Prepare data with properly formatted active_maps
+    // CRITICAL FIX: Always force active_maps to be a plain object
+    // This completely replaces any problematic active_maps data
+    currentEvent.active_maps = {}; 
+    
+    // Prepare data with status update
     const data = { 
       ...currentEvent,
       status 
     };
-    
-    // Handle active_maps with careful validation
-    // Always ensure active_maps is a valid object 
-    if (!data.active_maps || 
-        Array.isArray(data.active_maps) || 
-        typeof data.active_maps !== 'object') {
-      console.warn('Invalid or missing active_maps, setting to empty object');
-      data.active_maps = {};
-    } else if (typeof data.active_maps === 'string') {
-      try {
-        const parsed = JSON.parse(data.active_maps);
-        if (Array.isArray(parsed) || typeof parsed !== 'object') {
-          data.active_maps = {};
-        } else {
-          data.active_maps = parsed;
-        }
-      } catch (e) {
-        console.warn('Failed to parse active_maps string, setting to empty object');
-        data.active_maps = {};
-      }
-    }
     
     const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
     return updateResponse.data;
@@ -147,34 +120,17 @@ export const updateEventState = async (eventId, state) => {
   try {
     // First get the current event to preserve its data
     const response = await api.get(`${API_URL}/events/${eventId}`);
-    const currentEvent = response.data;
+    const currentEvent = { ...response.data };
     
-    // Prepare data with properly formatted active_maps
+    // CRITICAL FIX: Always force active_maps to be a plain object
+    // This completely replaces any problematic active_maps data
+    currentEvent.active_maps = {}; 
+    
+    // Prepare data with state update
     const data = { 
       ...currentEvent,
       state 
     };
-    
-    // Handle active_maps with careful validation
-    // Always ensure active_maps is a valid object 
-    if (!data.active_maps || 
-        Array.isArray(data.active_maps) || 
-        typeof data.active_maps !== 'object') {
-      console.warn('Invalid or missing active_maps, setting to empty object');
-      data.active_maps = {};
-    } else if (typeof data.active_maps === 'string') {
-      try {
-        const parsed = JSON.parse(data.active_maps);
-        if (Array.isArray(parsed) || typeof parsed !== 'object') {
-          data.active_maps = {};
-        } else {
-          data.active_maps = parsed;
-        }
-      } catch (e) {
-        console.warn('Failed to parse active_maps string, setting to empty object');
-        data.active_maps = {};
-      }
-    }
     
     const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
     return updateResponse.data;

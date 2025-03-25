@@ -415,20 +415,18 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                           target="_blank" 
                           rel="noopener noreferrer"
                           onClick={(e) => {
-                            // Prevent default only if URL is not valid
                             if (!comment.image_url.startsWith('http')) {
                               e.preventDefault();
-                              // Fix image URL path
                               const baseUrl = 'http://localhost:8000';
-                              // Check if the path starts with /api/v1
                               let imagePath = comment.image_url;
                               if (!imagePath.startsWith('/api/v1') && !imagePath.startsWith('/api/')) {
-                                // Add /api/v1 prefix if missing
                                 imagePath = imagePath.startsWith('/') 
                                   ? `/api/v1${imagePath}` 
                                   : `/api/v1/${imagePath}`;
                               }
-                              window.open(`${baseUrl}${imagePath}`, '_blank');
+                              const token = localStorage.getItem('token');
+                              const url = `${baseUrl}${imagePath}${token ? `?token=${token}` : ''}`;
+                              window.open(url, '_blank');
                             }
                           }}
                         >
@@ -441,7 +439,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                                     : comment.image_url.startsWith('/')
                                       ? `/api/v1${comment.image_url}`
                                       : `/api/v1/${comment.image_url}`
-                                }`}
+                                  }${localStorage.getItem('token') ? `?token=${localStorage.getItem('token')}` : ''}`}
                             alt="Comment attachment" 
                             thumbnail 
                             className="comment-image-thumbnail"

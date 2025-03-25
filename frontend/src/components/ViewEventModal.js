@@ -229,10 +229,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                       rel="noopener noreferrer"
                       className="image-link"
                       onClick={(e) => {
-                        // Prevent default only if URL is not valid
                         if (!event.image_url.startsWith('http')) {
                           e.preventDefault();
-                          // Fix image URL path
+                          // Fix image URL path with auth token
                           const baseUrl = 'http://localhost:8000';
                           // Check if the path starts with /api/v1
                           let imagePath = event.image_url;
@@ -242,7 +241,10 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                               ? `/api/v1${imagePath}` 
                               : `/api/v1/${imagePath}`;
                           }
-                          window.open(`${baseUrl}${imagePath}`, '_blank');
+                          // Get auth token
+                          const token = localStorage.getItem('token');
+                          const url = `${baseUrl}${imagePath}${token ? `?token=${token}` : ''}`;
+                          window.open(url, '_blank');
                         }
                       }}
                     >
@@ -255,7 +257,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                                 : event.image_url.startsWith('/')
                                   ? `/api/v1${event.image_url}`
                                   : `/api/v1/${event.image_url}`
-                            }`} 
+                            }${localStorage.getItem('token') ? `?token=${localStorage.getItem('token')}` : ''}`} 
                         alt={event.title} 
                         thumbnail 
                         className="w-100 event-image" 
