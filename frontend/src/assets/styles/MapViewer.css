@@ -93,11 +93,12 @@ iframe.clean-pdf-view {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 2000 !important;
+  z-index: 1000 !important;
   cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 0 4px rgba(0,0,0,0.4);
+  border: 3px solid white;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
   border-radius: 50%;
+  pointer-events: auto !important;
 }
 
 /* Pulse animation for active markers */
@@ -361,7 +362,13 @@ iframe.clean-pdf-view {
 /* Event Marker Styles */
 .event-marker {
   position: absolute;
-  z-index: 1000;
+  transform: translate(-50%, -50%);
+  z-index: 1000 !important;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+  border-radius: 50%;
+  pointer-events: auto !important;
 }
 
 .event-count-badge {
@@ -556,16 +563,22 @@ iframe[src*=".pdf"] {
 
 /* Custom modal styles to prevent blocking event markers */
 .event-modal-dialog {
-  z-index: 9000 !important; /* Lower than event markers at 9999 */
+  z-index: 9000 !important;
 }
 
 /* Make modal backdrop transparent for event modals */
 .event-modal-backdrop {
-  background-color: transparent !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
   z-index: 8999 !important;
 }
 
 /* Make sure event markers stay on top */
 .event-marker {
   z-index: 9999 !important;
+}
+
+/* Make sure tabs and UI elements stay on top */
+.nav-tabs, .navbar, .tab-content {
+  position: relative;
+  z-index: 2000 !important;
 } 
