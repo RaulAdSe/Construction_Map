@@ -123,10 +123,14 @@ export const updateEventStatus = async (eventId, status) => {
         }
       }
       
+      // Handle both empty array and populated array cases
       if (Array.isArray(data.active_maps)) {
         console.warn('active_maps is an array, converting to empty object');
         data.active_maps = {};
       }
+    } else {
+      // Ensure we always have an object, not undefined
+      data.active_maps = {};
     }
     
     const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
@@ -160,10 +164,14 @@ export const updateEventState = async (eventId, state) => {
         }
       }
       
+      // Handle both empty array and populated array cases
       if (Array.isArray(data.active_maps)) {
         console.warn('active_maps is an array, converting to empty object');
         data.active_maps = {};
       }
+    } else {
+      // Ensure we always have an object, not undefined
+      data.active_maps = {};
     }
     
     const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);

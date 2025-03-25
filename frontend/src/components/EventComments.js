@@ -203,12 +203,19 @@ const EventComments = ({ eventId }) => {
                         // Prevent default only if URL is not valid
                         if (!comment.image_url.startsWith('http')) {
                           e.preventDefault();
-                          window.open(`http://localhost:8000${comment.image_url}`, '_blank');
+                          // Ensure URL has proper format with path separator
+                          const baseUrl = 'http://localhost:8000';
+                          const imagePath = comment.image_url.startsWith('/') 
+                            ? comment.image_url 
+                            : `/${comment.image_url}`;
+                          window.open(`${baseUrl}${imagePath}`, '_blank');
                         }
                       }}
                     >
                       <Image 
-                        src={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`} 
+                        src={comment.image_url.startsWith('http') 
+                          ? comment.image_url 
+                          : `http://localhost:8000${comment.image_url.startsWith('/') ? comment.image_url : `/${comment.image_url}`}`} 
                         alt="Comment attachment" 
                         thumbnail 
                         className="comment-image-thumbnail"

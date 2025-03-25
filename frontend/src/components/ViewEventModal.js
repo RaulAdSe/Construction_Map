@@ -232,12 +232,19 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
                         // Prevent default only if URL is not valid
                         if (!event.image_url.startsWith('http')) {
                           e.preventDefault();
-                          window.open(`http://localhost:8000${event.image_url}`, '_blank');
+                          // Ensure URL has proper format with path separator
+                          const baseUrl = 'http://localhost:8000';
+                          const imagePath = event.image_url.startsWith('/') 
+                            ? event.image_url 
+                            : `/${event.image_url}`;
+                          window.open(`${baseUrl}${imagePath}`, '_blank');
                         }
                       }}
                     >
                       <Image 
-                        src={event.image_url.startsWith('http') ? event.image_url : `http://localhost:8000${event.image_url}`} 
+                        src={event.image_url.startsWith('http') 
+                          ? event.image_url 
+                          : `http://localhost:8000${event.image_url.startsWith('/') ? event.image_url : `/${event.image_url}`}`} 
                         alt={event.title} 
                         thumbnail 
                         className="w-100 event-image" 
