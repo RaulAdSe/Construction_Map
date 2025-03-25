@@ -80,7 +80,7 @@ export const deleteEvent = async (eventId) => {
 
 export const updateEventStatus = async (eventId, status) => {
   try {
-    const response = await api.patch(`${API_URL}/events/${eventId}`, { status });
+    const response = await api.put(`${API_URL}/events/${eventId}`, { status });
     return response.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} status:`, error);
@@ -90,7 +90,7 @@ export const updateEventStatus = async (eventId, status) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
-    const response = await api.patch(`${API_URL}/events/${eventId}`, { state });
+    const response = await api.put(`${API_URL}/events/${eventId}`, { state });
     return response.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} state:`, error);
