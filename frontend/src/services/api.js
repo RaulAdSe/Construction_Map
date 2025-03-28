@@ -98,7 +98,15 @@ export const projectService = {
   
   // Update a member's field in a project
   updateMemberField: async (projectId, userId, field) => {
-    return await apiClient.put(`/projects/${projectId}/members/${userId}/field`, { field });
+    console.log(`API call: updateMemberField for project ${projectId}, user ${userId}, field "${field}"`);
+    try {
+      const response = await apiClient.put(`/projects/${projectId}/members/${userId}/field`, { field });
+      console.log('Field update API response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Field update API error:', error);
+      throw error;
+    }
   },
   
   // Remove a user from a project

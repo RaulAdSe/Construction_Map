@@ -358,6 +358,9 @@ def update_member_field(
     Update a member's field/area in a project.
     Only admin users can update fields.
     """
+    # Log the operation
+    print(f"Updating field for project {project_id}, user {user_id}, data: {field_data}")
+    
     # Check if project exists
     project = project_service.get_project(db, project_id)
     if not project:
@@ -371,8 +374,11 @@ def update_member_field(
     if not project_service.has_project_permission(db, project_id, user_id):
         raise HTTPException(status_code=404, detail="User not found in this project")
     
-    # Update the field
+    # Get field value from request
     field = field_data.get("field", "")
+    print(f"Field value to be set: '{field}'")
+    
+    # Update the field
     success = project_service.update_user_field(db, project_id, user_id, field)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to update user field")

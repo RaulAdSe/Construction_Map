@@ -298,15 +298,27 @@ def update_user_field(db: Session, project_id: int, user_id: int, field: str) ->
     Update a user's field/area in a project.
     Returns True if successful, False otherwise.
     """
+    print(f"Service: update_user_field for project {project_id}, user {user_id}, field '{field}'")
+    
+    # Find the project_user record
     project_user = db.query(ProjectUser).filter(
         ProjectUser.project_id == project_id,
         ProjectUser.user_id == user_id
     ).first()
     
     if not project_user:
+        print(f"Error: ProjectUser record not found for project {project_id}, user {user_id}")
         return False
     
-    project_user.field = field
-    project_user.last_accessed_at = datetime.utcnow()
-    db.commit()
-    return True 
+    # Update the field
+    try:
+        project_user.field = field
+        project_user.last_accessed_at = datetime.utcnow()
+        db.commit()
+        db.refresh(project_user)
+        print(f"Updated field to '{project_user.field}' for user {user_id} in project {project_id}")
+        return True
+    except Exception as e:
+        print(f"Error updating field: {e}")
+        db.rollback()
+        return False 
