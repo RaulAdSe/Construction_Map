@@ -466,11 +466,9 @@ const MapViewer = ({ onLogout }) => {
                   <h5 className="mb-3">Map Controls</h5>
                   
                   <div className="d-grid gap-2 mb-4">
-                    {effectiveRole === 'ADMIN' && (
-                      <Button variant="success" onClick={handleAddEvent}>
-                        <i className="bi bi-pin-map me-2"></i>Add Event
-                      </Button>
-                    )}
+                    <Button variant="success" onClick={handleAddEvent}>
+                      <i className="bi bi-pin-map me-2"></i>Add Event
+                    </Button>
                   </div>
                   
                   <hr />
@@ -562,24 +560,20 @@ const MapViewer = ({ onLogout }) => {
             )}
           </Tab>
           
-          <Tab eventKey="events" title={effectiveRole === "ADMIN" ? "Events" : null}>
-            {effectiveRole === "ADMIN" && (
-              <>
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <h3>Project Events</h3>
-                  <Button variant="success" onClick={handleAddEvent}>
-                    Add New Event
-                  </Button>
-                </div>
-                
-                <EventsTable 
-                  events={events} 
-                  onViewEvent={handleViewEvent}
-                  onEditEvent={handleEditEvent}
-                  onEventUpdated={handleEventUpdated}
-                />
-              </>
-            )}
+          <Tab eventKey="events" title="Events">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h3>Project Events</h3>
+              <Button variant="success" onClick={handleAddEvent}>
+                Add New Event
+              </Button>
+            </div>
+            
+            <EventsTable 
+              events={events} 
+              onViewEvent={handleViewEvent}
+              onEditEvent={handleEditEvent}
+              onEventUpdated={handleEventUpdated}
+            />
           </Tab>
         </Tabs>
       </Container>
