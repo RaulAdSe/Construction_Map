@@ -573,6 +573,7 @@ const MapViewer = ({ onLogout }) => {
               onViewEvent={handleViewEvent}
               onEditEvent={handleEditEvent}
               onEventUpdated={handleEventUpdated}
+              userRole={effectiveRole}
             />
           </Tab>
         </Tabs>
@@ -615,7 +616,7 @@ const MapViewer = ({ onLogout }) => {
         onEventUpdated={handleEventUpdated}
         currentUser={currentUser}
         projectId={project?.id}
-        userRole={effectiveRole} // Pass the effective role for permission checking
+        userRole={effectiveRole}
       />
       
       <EditEventModal
@@ -623,7 +624,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
-        userRole={effectiveRole} // Pass the effective role for permission checking
+        userRole={effectiveRole}
       />
       
       {/* Notification */}

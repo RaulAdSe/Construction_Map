@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import api from '../api';
 
-const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
+const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRole }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -17,8 +17,15 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
   const [commentError, setCommentError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Check if user is admin on component mount
+  // Check if user is admin based on userRole prop or token
   useEffect(() => {
+    // If userRole prop is provided, use that first
+    if (userRole) {
+      setIsAdmin(userRole === 'ADMIN');
+      return;
+    }
+    
+    // Fallback to checking token
     const token = localStorage.getItem('token');
     if (token) {
       try {
@@ -28,7 +35,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
         console.error('Error parsing token:', error);
       }
     }
-  }, []);
+  }, [userRole]);
 
   if (!events || events.length === 0) {
     return (
@@ -84,7 +91,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
     
     setUpdatingEvent(eventId);
     try {
-      await updateEventStatus(eventId, newStatus);
+      await updateEventStatus(eventId, newStatus, userRole);
       if (onEventUpdated) {
         const updatedEvent = events.find(e => e.id === eventId);
         onEventUpdated({...updatedEvent, status: newStatus});
@@ -92,6 +99,8 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
     } catch (error) {
       console.error('Failed to update status:', error);
       if (error.response && error.response.status === 403) {
+        alert('Permission denied: Only ADMIN users can close events.');
+      } else if (error.message === 'Only ADMIN users can close events') {
         alert('Permission denied: Only ADMIN users can close events.');
       }
     } finally {
