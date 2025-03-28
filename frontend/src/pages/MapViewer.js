@@ -14,7 +14,6 @@ import Notification from '../components/Notification';
 import RoleSwitcher from '../components/RoleSwitcher';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
-import { projectService } from '../services/api';
 import '../assets/styles/MapViewer.css';
 
 const MapViewer = ({ onLogout }) => {
@@ -64,20 +63,14 @@ const MapViewer = ({ onLogout }) => {
           
           setCurrentUser(user);
           
-          // If we have a project ID, fetch the user's role
-          if (projectId) {
-            try {
-              const membersResponse = await projectService.getProjectMembers(projectId);
-              const members = membersResponse.data;
-              const currentMember = members.find(member => member.username === username);
-              
-              if (currentMember) {
-                setUserRole(currentMember.role);
-                setEffectiveRole(currentMember.role); // Initially set to actual role
-              }
-            } catch (error) {
-              console.error('Error fetching user role:', error);
-            }
+          // For now, set a default role until we implement a proper role service
+          // This is a temporary solution until we have a proper API endpoint
+          if (username === 'admin') {
+            setUserRole('ADMIN');
+            setEffectiveRole('ADMIN');
+          } else {
+            setUserRole('MEMBER');
+            setEffectiveRole('MEMBER');
           }
         }
       } catch (error) {

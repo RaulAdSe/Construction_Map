@@ -3,7 +3,6 @@ import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bo
 import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
-import { projectService } from '../services/api';
 
 const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, userRole }) => {
   const [updating, setUpdating] = useState(false);
