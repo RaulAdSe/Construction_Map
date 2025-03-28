@@ -45,7 +45,7 @@ def login_access_token(
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "role": user.role,
+            "is_admin": user.is_admin,
             "is_active": user.is_active
         }
     }
@@ -71,6 +71,6 @@ def register_user(
         username=user_in.username, 
         email=user_in.email, 
         password=user_in.password, 
-        role=user_in.role
+        is_admin=user_in.is_admin
     )
     return user 

@@ -15,6 +15,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [userToRemove, setUserToRemove] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
   const [editField, setEditField] = useState({ userId: null, value: '' });
   const [updatingField, setUpdatingField] = useState(false);
 
@@ -26,10 +27,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
-        if (user.role === 'admin') {
-          localStorage.setItem('systemAdmin', 'true');
-        } else {
-          localStorage.setItem('systemAdmin', 'false');
+        if (user.is_admin) {
+          setIsCurrentUserAdmin(true);
         }
       } catch (error) {
         console.error('Error parsing user data:', error);
@@ -71,9 +70,40 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       setError('');
     } catch (err) {
       console.error('Error updating user field:', err);
-      setError('Failed to update user field. Please try again.');
+      
+      // Show more detailed error message if available
+      if (err.response && err.response.data && err.response.data.detail) {
+        setError(`Error: ${err.response.data.detail}`);
+      } else {
+        setError('Failed to update user field. Please try again.');
+      }
     } finally {
       setUpdatingField(false);
+    }
+  };
+
+  // Handle toggling a user's admin status
+  const handleToggleAdminStatus = async (userId, currentIsAdmin) => {
+    try {
+      await projectService.updateMemberRole(projectId, userId, !currentIsAdmin);
+      
+      // Update the members list with the new admin status
+      setMembers(members.map(member => 
+        member.id === userId 
+          ? { ...member, is_admin: !currentIsAdmin } 
+          : member
+      ));
+      
+      setError('');
+    } catch (err) {
+      console.error('Error updating user admin status:', err);
+      
+      // Show more detailed error message if available
+      if (err.response && err.response.data && err.response.data.detail) {
+        setError(`Error: ${err.response.data.detail}`);
+      } else {
+        setError('Failed to update user admin status. Please try again.');
+      }
     }
   };
 
@@ -96,13 +126,12 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       // Log the response for debugging
       console.log("Project members:", response.data);
       
-      // Transform data to ensure project role is available
+      // Process members data
       const processedMembers = response.data.map(member => {
-        // Ensure project_role is used correctly (might be coming from a different field)
-        const projectRole = member.project_role || member.role;
         return {
           ...member,
-          project_role: projectRole
+          // Ensure we have the field value
+          field: member.field || ''
         };
       });
       
@@ -124,7 +153,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   // Fetch all users when add modal is opened
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!showAddUserModal || effectiveRole !== 'ADMIN') return;
+      if (!showAddUserModal || !isCurrentUserAdmin) return;
       
       try {
         const users = await getAllUsers();
@@ -136,7 +165,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     };
 
     fetchUsers();
-  }, [showAddUserModal, effectiveRole]);
+  }, [showAddUserModal, isCurrentUserAdmin]);
 
   // Handle adding a user to the project
   const handleAddUser = async () => {
@@ -204,7 +233,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4>Project Contacts</h4>
-        {effectiveRole === 'ADMIN' && (
+        {isCurrentUserAdmin && (
           <Button variant="success" onClick={() => setShowAddUserModal(true)}>
             Add User to Project
           </Button>
@@ -213,10 +242,15 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {members.length === 0 ? (
+      {loading ? (
+        <div className="text-center">
+          <Spinner animation="border" />
+          <p className="mt-2">Loading project contacts...</p>
+        </div>
+      ) : members.length === 0 ? (
         <Alert variant="info">
           No contacts found for this project.
-          {effectiveRole === 'ADMIN' && ' Click "Add User to Project" to add team members.'}
+          {isCurrentUserAdmin && ' Click "Add User to Project" to add team members.'}
         </Alert>
       ) : (
         <Table striped bordered hover responsive>
@@ -226,7 +260,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
               <th>Field</th>
               <th>Role</th>
               <th>Status</th>
-              {effectiveRole === 'ADMIN' && <th>Actions</th>}
+              {isCurrentUserAdmin && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -251,7 +285,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                   ) : (
                     <div className="d-flex justify-content-between align-items-center">
                       <span>{member.field || 'Not specified'}</span>
-                      {effectiveRole === 'ADMIN' && (
+                      {isCurrentUserAdmin && (
                         <Button 
                           variant="outline-primary" 
                           size="sm" 
@@ -265,20 +299,30 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                   )}
                 </td>
                 <td>
-                  <span className={`badge ${member.project_role === 'ADMIN' ? 'bg-primary' : 'bg-secondary'}`}>
-                    {member.project_role}
-                  </span>
+                  <div className="d-flex align-items-center">
+                    <span className={`badge ${member.is_admin ? 'bg-primary' : 'bg-secondary'}`}>
+                      {member.is_admin ? 'Admin' : 'Member'}
+                    </span>
+                    {isCurrentUserAdmin && currentUserId !== member.id && (
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        className="ms-2"
+                        onClick={() => handleToggleAdminStatus(member.id, member.is_admin)}
+                      >
+                        {member.is_admin ? 'Demote' : 'Promote'}
+                      </Button>
+                    )}
+                  </div>
                 </td>
                 <td>
                   <span className={`badge ${member.is_active ? 'bg-success' : 'bg-danger'}`}>
                     {member.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                {effectiveRole === 'ADMIN' && (
+                {isCurrentUserAdmin && (
                   <td>
-                    {console.log(`Member ${member.username}: role=${member.role}, project_role=${member.project_role}, id=${member.id}, currentId=${currentUserId}`)}
-                    {/* Check both the system role and project role - don't allow removing system admins or project admins */}
-                    {((member.project_role !== 'ADMIN' && member.role !== 'admin') || member.id === currentUserId || localStorage.getItem('systemAdmin') === 'true') ? (
+                    {(!member.is_admin || member.id === currentUserId) ? (
                       <Button 
                         variant="danger" 
                         size="sm"
@@ -287,7 +331,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                         Remove
                       </Button>
                     ) : (
-                      <span className="text-muted">Cannot remove admins</span>
+                      <span className="text-muted">Cannot remove other admins</span>
                     )}
                   </td>
                 )}

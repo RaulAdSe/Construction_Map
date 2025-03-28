@@ -191,24 +191,23 @@ def remove_user_from_project(db: Session, project_id: int, user_id: int) -> bool
 
 def get_project_users(db: Session, project_id: int) -> List[dict]:
     """
-    Get all users in a project with their project roles.
-    Returns a list of user dictionaries with project_role added.
+    Get all users in a project with their fields.
+    Returns a list of user dictionaries.
     """
-    users = (db.query(User, ProjectUser.role.label("project_role"), ProjectUser.field.label("field"))
+    users = (db.query(User, ProjectUser.field.label("field"))
              .join(ProjectUser)
              .filter(ProjectUser.project_id == project_id)
              .all())
     
     result = []
-    for user, project_role, field in users:
+    for user, field in users:
         # Convert the user object to a dictionary
         user_dict = {
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "role": user.role,  # System role
+            "is_admin": user.is_admin,  # Global admin status
             "is_active": user.is_active,
-            "project_role": project_role,  # Project-specific role
             "field": field or ""  # Work field - default to empty string if null
         }
         result.append(user_dict)
@@ -251,23 +250,30 @@ def update_user_project_role(db: Session, project_id: int, user_id: int, new_rol
     return True
 
 
-def has_project_permission(db: Session, project_id: int, user_id: int, required_role: str = "MEMBER") -> bool:
+def has_project_permission(db: Session, project_id: int, user_id: int, role: str = None) -> bool:
     """
-    Check if a user has the required permission level for a project.
-    ADMIN role has all permissions.
+    Check if a user is a member of a project.
+    Returns True if the user is a project member, False otherwise.
+    The role parameter is ignored in the simplified admin model.
     """
-    user_role = get_user_project_role(db, project_id, user_id)
+    # Check if user is a member of this project
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
     
-    if not user_role:
+    return project_user is not None
+
+
+def is_user_admin(db: Session, user_id: int) -> bool:
+    """
+    Check if a user is an admin.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
         return False
     
-    if user_role == "ADMIN":
-        return True
-    
-    if required_role == "MEMBER" and user_role == "MEMBER":
-        return True
-    
-    return False
+    return user.is_admin
 
 
 def update_user_last_access(db: Session, project_id: int, user_id: int) -> bool:

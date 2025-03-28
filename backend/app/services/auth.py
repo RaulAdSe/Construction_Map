@@ -19,13 +19,13 @@ def get_user_by_username(db: Session, username: str) -> Optional[User]:
     return db.query(User).filter(User.username == username).first()
 
 
-def create_user(db: Session, username: str, email: str, password: str, role: str = "regular") -> User:
+def create_user(db: Session, username: str, email: str, password: str, is_admin: bool = False) -> User:
     hashed_password = get_password_hash(password)
     user = User(
         username=username,
         email=email,
         password_hash=hashed_password,
-        role=role
+        is_admin=is_admin
     )
     db.add(user)
     db.commit()
