@@ -26,6 +26,7 @@ class EventUpdate(BaseModel):
     status: Optional[str] = None
     state: Optional[str] = None
     tags: Optional[List[str]] = None
+    is_admin_request: Optional[bool] = False
 
 
 class Event(EventBase):

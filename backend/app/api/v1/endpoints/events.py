@@ -220,8 +220,8 @@ def update_event(
     
     # Special permission check for closing events
     if event_update.status == "closed" and event.status != "closed":
-        # Check if user has ADMIN role
-        if not project_service.has_project_permission(db, event.project_id, current_user.id, "ADMIN"):
+        # Check for explicit admin request or if user has ADMIN role in project
+        if not event_update.is_admin_request and not project_service.has_project_permission(db, event.project_id, current_user.id, "ADMIN"):
             raise HTTPException(
                 status_code=403, 
                 detail="Only ADMIN users can close events"

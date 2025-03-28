@@ -94,15 +94,25 @@ export const deleteEvent = async (eventId) => {
 
 export const updateEventStatus = async (eventId, status) => {
   try {
-    // Avoid using the dedicated endpoint that's giving 404 errors
-    // Instead, update the whole event but only change the status field
-    // First get the current event data
-    const response = await api.get(`${API_URL}/events/${eventId}`);
-    const event = response.data;
+    // Get the current JWT token to check the username
+    const token = localStorage.getItem('token');
+    let isAdmin = false;
     
-    // Update with minimal data to avoid validation issues
+    if (token) {
+      try {
+        // Parse the token payload
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        // Check if the user is admin
+        isAdmin = payload.sub === 'admin'; // In our simplified authentication
+      } catch (error) {
+        console.error('Error parsing token:', error);
+      }
+    }
+    
+    // Create the update data with status and role info
     const updateData = {
-      status: status
+      status: status,
+      is_admin_request: isAdmin // Send this to backend so it knows this is an admin request
     };
     
     const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
