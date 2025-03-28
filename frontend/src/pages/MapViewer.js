@@ -11,8 +11,10 @@ import EditEventModal from '../components/EditEventModal';
 import ViewEventModal from '../components/ViewEventModal';
 import MapSelectionModal from '../components/MapSelectionModal';
 import Notification from '../components/Notification';
+import RoleSwitcher from '../components/RoleSwitcher';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
+import { projectService } from '../services/api';
 import '../assets/styles/MapViewer.css';
 
 const MapViewer = ({ onLogout }) => {
@@ -26,6 +28,8 @@ const MapViewer = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('map-view');
   const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [effectiveRole, setEffectiveRole] = useState(null); // The role to use for permissions (can be overridden)
 
   const [showAddMapModal, setShowAddMapModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
@@ -40,7 +44,7 @@ const MapViewer = ({ onLogout }) => {
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
   
-  // Fetch current user info from token
+  // Fetch current user info from token and get their role
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
@@ -53,10 +57,28 @@ const MapViewer = ({ onLogout }) => {
           const username = payload.sub;
           
           // For now we'll just create a minimal user object with the username
-          setCurrentUser({ 
+          const user = { 
             id: username, // Using username as ID for now
             username: username
-          });
+          };
+          
+          setCurrentUser(user);
+          
+          // If we have a project ID, fetch the user's role
+          if (projectId) {
+            try {
+              const membersResponse = await projectService.getProjectMembers(projectId);
+              const members = membersResponse.data;
+              const currentMember = members.find(member => member.username === username);
+              
+              if (currentMember) {
+                setUserRole(currentMember.role);
+                setEffectiveRole(currentMember.role); // Initially set to actual role
+              }
+            } catch (error) {
+              console.error('Error fetching user role:', error);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching current user:', error);
@@ -64,7 +86,13 @@ const MapViewer = ({ onLogout }) => {
     };
     
     fetchCurrentUser();
-  }, []);
+  }, [projectId]);
+  
+  // Handle role change from the RoleSwitcher
+  const handleRoleChange = (newRole) => {
+    setEffectiveRole(newRole);
+    showNotification(`Viewing as ${newRole}`, 'info');
+  };
   
   // Add a visibleMapIds state variable to track which maps are currently visible
   const [visibleMapIds, setVisibleMapIds] = useState([]);
@@ -422,6 +450,15 @@ const MapViewer = ({ onLogout }) => {
                 </Nav.Link>
               </Nav.Item>
             </Nav>
+            {userRole === "ADMIN" && (
+              <div className="me-3">
+                <RoleSwitcher 
+                  currentRole={effectiveRole}
+                  onRoleChange={handleRoleChange}
+                  isAdminUser={userRole === "ADMIN"}
+                />
+              </div>
+            )}
             <Button variant="outline-light" onClick={onLogout}>Logout</Button>
           </Navbar.Collapse>
         </Container>
@@ -587,6 +624,7 @@ const MapViewer = ({ onLogout }) => {
         onEventUpdated={handleEventUpdated}
         currentUser={currentUser}
         projectId={project?.id}
+        userRole={effectiveRole} // Pass the effective role for permission checking
       />
       
       <EditEventModal
@@ -594,6 +632,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
+        userRole={effectiveRole} // Pass the effective role for permission checking
       />
       
       {/* Notification */}

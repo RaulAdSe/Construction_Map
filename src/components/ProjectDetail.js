@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Alert, Tab, Tabs, Form, Modal, Table } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Alert, Tab, Tabs, Form, Modal, Table, Navbar } from 'react-bootstrap';
 import { projectService, mapService } from '../services/api';
+import RoleSwitcher from '../components/RoleSwitcher';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -15,10 +16,53 @@ const ProjectDetail = () => {
   const [showMapModal, setShowMapModal] = useState(false);
   const [newMap, setNewMap] = useState({ name: '', file: null });
   const [uploadError, setUploadError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [effectiveRole, setEffectiveRole] = useState(null);
 
   useEffect(() => {
     fetchProjectDetails();
+    fetchCurrentUser();
   }, [projectId]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      // Get user ID from JWT token
+      const token = localStorage.getItem('token');
+      if (token) {
+        // Parse token (token is in the format xxx.yyy.zzz where yyy is the payload)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        // Get username from token sub claim
+        const username = payload.sub;
+        
+        // For now we'll just create a minimal user object with the username
+        const user = { 
+          id: username, // Using username as ID for now
+          username: username
+        };
+        
+        setCurrentUser(user);
+        
+        // If we have a project ID, fetch the user's role
+        if (projectId) {
+          try {
+            const membersResponse = await projectService.getProjectMembers(projectId);
+            const members = membersResponse.data;
+            const currentMember = members.find(member => member.username === username);
+            
+            if (currentMember) {
+              setUserRole(currentMember.role);
+              setEffectiveRole(currentMember.role); // Initially set to actual role
+            }
+          } catch (error) {
+            console.error('Error fetching user role:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
 
   const fetchProjectDetails = async () => {
     try {
@@ -43,6 +87,11 @@ const ProjectDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle role change from the RoleSwitcher
+  const handleRoleChange = (newRole) => {
+    setEffectiveRole(newRole);
   };
 
   const handleFileChange = (e) => {
@@ -101,10 +150,18 @@ const ProjectDetail = () => {
 
   return (
     <Container>
-      <div className="mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <Button variant="outline-secondary" onClick={() => navigate('/projects')}>
           ← Back to Projects
         </Button>
+        
+        {userRole === "ADMIN" && (
+          <RoleSwitcher 
+            currentRole={effectiveRole}
+            onRoleChange={handleRoleChange}
+            isAdminUser={userRole === "ADMIN"}
+          />
+        )}
       </div>
 
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -130,14 +187,16 @@ const ProjectDetail = () => {
         <Tab eventKey="maps" title="Maps">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h4>Project Maps</h4>
-            <Button variant="success" onClick={() => setShowMapModal(true)}>
-              Upload Map
-            </Button>
+            {effectiveRole === "ADMIN" && (
+              <Button variant="success" onClick={() => setShowMapModal(true)}>
+                Upload Map
+              </Button>
+            )}
           </div>
 
           {maps.length === 0 ? (
             <Alert variant="info">
-              No maps found for this project. Click "Upload Map" to add a new map.
+              No maps found for this project. {effectiveRole === "ADMIN" ? "Click \"Upload Map\" to add a new map." : ""}
             </Alert>
           ) : (
             <Row>

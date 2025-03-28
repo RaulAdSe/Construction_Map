@@ -5,40 +5,21 @@ import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import { projectService } from '../services/api';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId }) => {
+const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, userRole }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
-  const [userRole, setUserRole] = useState(null);
   
   useEffect(() => {
     if (event) {
       setCurrentStatus(event.status || 'open');
       setCurrentType(event.state || 'periodic check');
-      
-      // Get user's role in this project
-      async function getUserRole() {
-        try {
-          const response = await projectService.getProjectMembers(projectId);
-          const members = response.data;
-          const currentMember = members.find(member => member.id === currentUser.id);
-          if (currentMember) {
-            setUserRole(currentMember.role);
-          }
-        } catch (error) {
-          console.error('Error fetching user role:', error);
-        }
-      }
-      
-      if (projectId && currentUser) {
-        getUserRole();
-      }
     }
-  }, [event, projectId, currentUser]);
+  }, [event]);
 
   if (!event) return null;
   
-  // Determine if user can close the event
+  // Determine if user can close the event - use passed userRole
   const canCloseEvent = userRole === 'ADMIN';
   
   // Parse active maps configuration from event
