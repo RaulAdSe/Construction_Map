@@ -359,4 +359,38 @@ def update_member_role(
     if not success:
         raise HTTPException(status_code=400, detail="Failed to update user role")
     
-    return {"status": "success", "message": f"User role updated to {role_data.role}"} 
+    return {"status": "success", "message": f"User role updated to {role_data.role}"}
+
+
+@router.put("/{project_id}/members/{user_id}/field", status_code=status.HTTP_200_OK)
+def update_member_field(
+    project_id: int,
+    user_id: int,
+    field_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Update a member's field/area in a project.
+    Only project ADMINs can update fields.
+    """
+    # Check if project exists
+    project = project_service.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check if current user is an admin
+    if not project_service.has_project_permission(db, project_id, current_user.id, "ADMIN"):
+        raise HTTPException(status_code=403, detail="Not enough permissions: ADMIN role required")
+    
+    # Check if target user exists and is a member of the project
+    if not project_service.get_user_project_role(db, project_id, user_id):
+        raise HTTPException(status_code=404, detail="User not found in this project")
+    
+    # Update the field
+    field = field_data.get("field", "")
+    success = project_service.update_user_field(db, project_id, user_id, field)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to update user field")
+    
+    return {"status": "success", "message": "User field updated successfully"} 

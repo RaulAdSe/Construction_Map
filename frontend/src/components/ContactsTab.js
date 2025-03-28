@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Button, Table, Modal, Form, Spinner } from 'react-bootstrap';
+import { Alert, Button, Table, Modal, Form, Spinner, InputGroup, FormControl } from 'react-bootstrap';
 import { getAllUsers } from '../services/userService';
 import { projectService } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
@@ -15,6 +15,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [userToRemove, setUserToRemove] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [editField, setEditField] = useState({ userId: null, value: '' });
+  const [updatingField, setUpdatingField] = useState(false);
 
   // Get current user ID from token
   useEffect(() => {
@@ -48,6 +50,42 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       }
     }
   }, []);
+
+  // Handle updating a user's field
+  const handleUpdateField = async (userId) => {
+    if (!userId) return;
+    
+    try {
+      setUpdatingField(true);
+      await projectService.updateMemberField(projectId, userId, editField.value);
+      
+      // Update the members list with the new field value
+      setMembers(members.map(member => 
+        member.id === userId 
+          ? { ...member, field: editField.value } 
+          : member
+      ));
+      
+      // Reset the edit state
+      setEditField({ userId: null, value: '' });
+      setError('');
+    } catch (err) {
+      console.error('Error updating user field:', err);
+      setError('Failed to update user field. Please try again.');
+    } finally {
+      setUpdatingField(false);
+    }
+  };
+
+  // Start editing a field
+  const startEditField = (userId, currentField) => {
+    setEditField({ userId, value: currentField || '' });
+  };
+
+  // Cancel editing
+  const cancelEditField = () => {
+    setEditField({ userId: null, value: '' });
+  };
 
   // Fetch project members
   const fetchMembers = async () => {
@@ -185,7 +223,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
           <thead>
             <tr>
               <th>Username</th>
-              <th>Email</th>
+              <th>Field</th>
               <th>Role</th>
               <th>Status</th>
               {effectiveRole === 'ADMIN' && <th>Actions</th>}
@@ -196,9 +234,35 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
               <tr key={member.id}>
                 <td>{member.username}</td>
                 <td>
-                  <a href={`mailto:${member.email}`}>
-                    {member.email}
-                  </a>
+                  {editField.userId === member.id ? (
+                    <InputGroup>
+                      <FormControl
+                        value={editField.value}
+                        onChange={(e) => setEditField({ ...editField, value: e.target.value })}
+                        placeholder="Enter field/area"
+                      />
+                      <Button variant="success" onClick={() => handleUpdateField(member.id)} disabled={updatingField}>
+                        {updatingField ? <Spinner animation="border" size="sm" /> : 'Save'}
+                      </Button>
+                      <Button variant="secondary" onClick={cancelEditField}>
+                        Cancel
+                      </Button>
+                    </InputGroup>
+                  ) : (
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span>{member.field || 'Not specified'}</span>
+                      {effectiveRole === 'ADMIN' && (
+                        <Button 
+                          variant="outline-primary" 
+                          size="sm" 
+                          className="ms-2"
+                          onClick={() => startEditField(member.id, member.field)}
+                        >
+                          Edit
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td>
                   <span className={`badge ${member.project_role === 'ADMIN' ? 'bg-primary' : 'bg-secondary'}`}>

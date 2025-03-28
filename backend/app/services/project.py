@@ -194,13 +194,13 @@ def get_project_users(db: Session, project_id: int) -> List[dict]:
     Get all users in a project with their project roles.
     Returns a list of user dictionaries with project_role added.
     """
-    users = (db.query(User, ProjectUser.role.label("project_role"))
+    users = (db.query(User, ProjectUser.role.label("project_role"), ProjectUser.field.label("field"))
              .join(ProjectUser)
              .filter(ProjectUser.project_id == project_id)
              .all())
     
     result = []
-    for user, project_role in users:
+    for user, project_role, field in users:
         # Convert the user object to a dictionary
         user_dict = {
             "id": user.id,
@@ -208,7 +208,8 @@ def get_project_users(db: Session, project_id: int) -> List[dict]:
             "email": user.email,
             "role": user.role,  # System role
             "is_active": user.is_active,
-            "project_role": project_role  # Project-specific role
+            "project_role": project_role,  # Project-specific role
+            "field": field or ""  # Work field - default to empty string if null
         }
         result.append(user_dict)
     
@@ -281,6 +282,25 @@ def update_user_last_access(db: Session, project_id: int, user_id: int) -> bool:
     if not project_user:
         return False
     
+    project_user.last_accessed_at = datetime.utcnow()
+    db.commit()
+    return True
+
+
+def update_user_field(db: Session, project_id: int, user_id: int, field: str) -> bool:
+    """
+    Update a user's field/area in a project.
+    Returns True if successful, False otherwise.
+    """
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
+    
+    if not project_user:
+        return False
+    
+    project_user.field = field
     project_user.last_accessed_at = datetime.utcnow()
     db.commit()
     return True 
