@@ -462,36 +462,58 @@ const MapViewer = ({ onLogout }) => {
           <Tab eventKey="map-view" title="Map View">
             <Row>
               <Col md={3}>
-                <div className="sidebar bg-light p-3 rounded">
-                  <h5>Available Maps</h5>
-                  <MapList
-                    maps={maps}
-                    selectedMapId={selectedMap?.id}
-                    onMapSelect={handleMapSelect}
-                    visibleMapIds={visibleMapIds}
-                    onVisibleMapsChange={setVisibleMapIds}
-                    currentRole={effectiveRole}
-                  />
+                <div className="sidebar-panel">
+                  <h5 className="mb-3">Map Controls</h5>
                   
-                  {effectiveRole === "ADMIN" && (
-                    <div className="mt-3">
-                      <Button 
-                        variant="success" 
-                        size="sm"
-                        className="w-100"
-                        onClick={handleAddMap}
-                      >
-                        <i className="bi bi-plus-circle me-1"></i> Add New Map
+                  <div className="d-grid gap-2 mb-4">
+                    {effectiveRole === 'ADMIN' && (
+                      <Button variant="success" onClick={handleAddEvent}>
+                        <i className="bi bi-pin-map me-2"></i>Add Event
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  
+                  <hr />
+                  
+                  <div className="map-info-section">
+                    <h6>Current View</h6>
+                    {selectedMap && (
+                      <div className="current-map-info mb-3">
+                        <p className="mb-1">
+                          <strong>Main Map:</strong> {selectedMap.name}
+                          {selectedMap.map_type === 'implantation' && (
+                            <span className="badge bg-success ms-2">Primary</span>
+                          )}
+                        </p>
+                        <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
+                        <p className="mb-0">
+                          <strong>Events:</strong> {visibleEvents.length}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <hr />
+                  
+                  <div className="events-summary mb-3">
+                    <h6>Event Categories</h6>
+                    {/* Group events by tags */}
+                    <ul className="list-unstyled">
+                      {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
+                        <li key={tag} className="mb-1">
+                          <span className="badge bg-secondary me-2">{tag}</span>
+                          <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </Col>
               <Col md={9}>
                 {selectedMap ? (
                   <MapDetail
                     map={selectedMap}
-                    events={events.filter(e => e.map_id === selectedMap.id)}
+                    events={visibleEvents}
                     mode={effectiveRole === 'MEMBER' ? 'view' : 'edit'}
                     onMapClick={handleMapClick}
                     isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
