@@ -206,6 +206,7 @@ def update_event(
 ):
     """
     Update event details.
+    Only ADMIN users can close events.
     """
     # Get event
     event = event_service.get_event(db, event_id)
@@ -216,6 +217,15 @@ def update_event(
     project = project_service.get_project(db, event.project_id)
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Special permission check for closing events
+    if event_update.status == "closed" and event.status != "closed":
+        # Check for explicit admin request or if user has ADMIN role in project
+        if not event_update.is_admin_request and not project_service.has_project_permission(db, event.project_id, current_user.id, "ADMIN"):
+            raise HTTPException(
+                status_code=403, 
+                detail="Only ADMIN users can close events"
+            )
     
     # Update event
     updated_event = event_service.update_event(

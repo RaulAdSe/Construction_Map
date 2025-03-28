@@ -11,6 +11,7 @@ import EditEventModal from '../components/EditEventModal';
 import ViewEventModal from '../components/ViewEventModal';
 import MapSelectionModal from '../components/MapSelectionModal';
 import Notification from '../components/Notification';
+import RoleSwitcher from '../components/RoleSwitcher';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
 import '../assets/styles/MapViewer.css';
@@ -25,6 +26,9 @@ const MapViewer = ({ onLogout }) => {
   const [selectedMap, setSelectedMap] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('map-view');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [effectiveRole, setEffectiveRole] = useState(null); // The role to use for permissions (can be overridden)
 
   const [showAddMapModal, setShowAddMapModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
@@ -38,6 +42,50 @@ const MapViewer = ({ onLogout }) => {
   const [mapForEvent, setMapForEvent] = useState(null);
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
+  
+  // Fetch current user info from token and get their role
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        // Get user ID from JWT token
+        const token = localStorage.getItem('token');
+        if (token) {
+          // Parse token (token is in the format xxx.yyy.zzz where yyy is the payload)
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          // Get username from token sub claim
+          const username = payload.sub;
+          
+          // For now we'll just create a minimal user object with the username
+          const user = { 
+            id: username, // Using username as ID for now
+            username: username
+          };
+          
+          setCurrentUser(user);
+          
+          // For now, set a default role until we implement a proper role service
+          // This is a temporary solution until we have a proper API endpoint
+          if (username === 'admin') {
+            setUserRole('ADMIN');
+            setEffectiveRole('ADMIN');
+          } else {
+            setUserRole('MEMBER');
+            setEffectiveRole('MEMBER');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    };
+    
+    fetchCurrentUser();
+  }, [projectId]);
+  
+  // Handle role change from the RoleSwitcher
+  const handleRoleChange = (newRole) => {
+    setEffectiveRole(newRole);
+    showNotification(`Viewing as ${newRole}`, 'info');
+  };
   
   // Add a visibleMapIds state variable to track which maps are currently visible
   const [visibleMapIds, setVisibleMapIds] = useState([]);
@@ -395,17 +443,22 @@ const MapViewer = ({ onLogout }) => {
                 </Nav.Link>
               </Nav.Item>
             </Nav>
+            {userRole === "ADMIN" && (
+              <div className="me-3">
+                <RoleSwitcher 
+                  currentRole={effectiveRole}
+                  onRoleChange={handleRoleChange}
+                  isAdminUser={userRole === "ADMIN"}
+                />
+              </div>
+            )}
             <Button variant="outline-light" onClick={onLogout}>Logout</Button>
           </Navbar.Collapse>
         </Container>
       </Navbar>
       
       <Container className="mt-4">
-        <Tabs
-          activeKey={activeTab}
-          onSelect={(k) => setActiveTab(k)}
-          className="mb-4"
-        >
+        <Tabs activeKey={activeTab} onSelect={setActiveTab} className="mb-4">
           <Tab eventKey="map-view" title="Map View">
             <Row>
               <Col md={3}>
@@ -454,12 +507,12 @@ const MapViewer = ({ onLogout }) => {
                   </div>
                 </div>
               </Col>
-              
               <Col md={9}>
                 {selectedMap ? (
-                  <MapDetail 
-                    map={selectedMap} 
-                    events={visibleEvents} 
+                  <MapDetail
+                    map={selectedMap}
+                    events={visibleEvents}
+                    mode={effectiveRole === 'MEMBER' ? 'view' : 'edit'}
                     onMapClick={handleMapClick}
                     isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
                     onEventClick={handleViewEvent}
@@ -477,32 +530,34 @@ const MapViewer = ({ onLogout }) => {
             </Row>
           </Tab>
           
-          <Tab eventKey="project-maps" title="Project Maps">
-            <MapsManager 
-              projectId={project.id}
-              onMapUpdated={() => {
-                // Force reload the maps data when a map is updated (e.g., set as main)
-                const refreshData = async () => {
-                  try {
-                    // Fetch fresh map data
-                    const mapsData = await fetchMaps(parseInt(projectId, 10));
-                    setMaps(mapsData);
-                    
-                    // Find and select the main map
-                    const mainMap = mapsData.find(map => map.map_type === 'implantation');
-                    if (mainMap) {
-                      setSelectedMap(mainMap);
-                      showNotification('Map updated successfully! Main map has been changed.', 'success');
+          <Tab eventKey="project-maps" title={effectiveRole === "ADMIN" ? "Project Maps" : null}>
+            {effectiveRole === "ADMIN" && (
+              <MapsManager 
+                projectId={project.id}
+                onMapUpdated={() => {
+                  // Force reload the maps data when a map is updated (e.g., set as main)
+                  const refreshData = async () => {
+                    try {
+                      // Fetch fresh map data
+                      const mapsData = await fetchMaps(parseInt(projectId, 10));
+                      setMaps(mapsData);
+                      
+                      // Find and select the main map
+                      const mainMap = mapsData.find(map => map.map_type === 'implantation');
+                      if (mainMap) {
+                        setSelectedMap(mainMap);
+                        showNotification('Map updated successfully! Main map has been changed.', 'success');
+                      }
+                    } catch (error) {
+                      console.error('Error refreshing maps after update:', error);
+                      showNotification('Error updating maps. Please refresh the page.', 'error');
                     }
-                  } catch (error) {
-                    console.error('Error refreshing maps after update:', error);
-                    showNotification('Error updating maps. Please refresh the page.', 'error');
-                  }
-                };
-                
-                refreshData();
-              }}
-            />
+                  };
+                  
+                  refreshData();
+                }}
+              />
+            )}
           </Tab>
           
           <Tab eventKey="events" title="Events">
@@ -518,6 +573,7 @@ const MapViewer = ({ onLogout }) => {
               onViewEvent={handleViewEvent}
               onEditEvent={handleEditEvent}
               onEventUpdated={handleEventUpdated}
+              userRole={effectiveRole}
             />
           </Tab>
         </Tabs>
@@ -558,6 +614,9 @@ const MapViewer = ({ onLogout }) => {
         event={selectedEvent}
         allMaps={maps}
         onEventUpdated={handleEventUpdated}
+        currentUser={currentUser}
+        projectId={project?.id}
+        userRole={effectiveRole}
       />
       
       <EditEventModal
@@ -565,6 +624,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
+        userRole={effectiveRole}
       />
       
       {/* Notification */}

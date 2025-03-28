@@ -1,6 +1,7 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from datetime import datetime
 
 from app.models.project import Project, ProjectUser
 from app.models.user import User
@@ -136,7 +137,7 @@ def delete_project(db: Session, project_id: int) -> bool:
         return False
 
 
-def add_user_to_project(db: Session, project_id: int, user_id: int) -> Optional[ProjectUser]:
+def add_user_to_project(db: Session, project_id: int, user_id: int, role: str = "MEMBER") -> Optional[ProjectUser]:
     # Check if project and user exist
     project = get_project(db, project_id)
     user = db.query(User).filter(User.id == user_id).first()
@@ -151,10 +152,15 @@ def add_user_to_project(db: Session, project_id: int, user_id: int) -> Optional[
     ).first()
     
     if project_user:
+        # If user exists but role needs to be updated
+        if project_user.role != role:
+            project_user.role = role
+            db.commit()
+            db.refresh(project_user)
         return project_user
     
-    # Add user to project
-    project_user = ProjectUser(project_id=project_id, user_id=user_id)
+    # Add user to project with specified role
+    project_user = ProjectUser(project_id=project_id, user_id=user_id, role=role)
     db.add(project_user)
     db.commit()
     db.refresh(project_user)
@@ -179,4 +185,75 @@ def get_project_users(db: Session, project_id: int) -> List[User]:
     return (db.query(User)
               .join(ProjectUser)
               .filter(ProjectUser.project_id == project_id)
-              .all()) 
+              .all())
+
+
+def get_user_project_role(db: Session, project_id: int, user_id: int) -> Optional[str]:
+    """
+    Get the role of a user in a specific project.
+    Returns None if user is not a member of the project.
+    """
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
+    
+    if not project_user:
+        return None
+    
+    return project_user.role
+
+
+def update_user_project_role(db: Session, project_id: int, user_id: int, new_role: str) -> bool:
+    """
+    Update a user's role in a project.
+    Returns True if successful, False otherwise.
+    """
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
+    
+    if not project_user:
+        return False
+    
+    project_user.role = new_role
+    project_user.last_accessed_at = datetime.utcnow()
+    db.commit()
+    return True
+
+
+def has_project_permission(db: Session, project_id: int, user_id: int, required_role: str = "MEMBER") -> bool:
+    """
+    Check if a user has the required permission level for a project.
+    ADMIN role has all permissions.
+    """
+    user_role = get_user_project_role(db, project_id, user_id)
+    
+    if not user_role:
+        return False
+    
+    if user_role == "ADMIN":
+        return True
+    
+    if required_role == "MEMBER" and user_role == "MEMBER":
+        return True
+    
+    return False
+
+
+def update_user_last_access(db: Session, project_id: int, user_id: int) -> bool:
+    """
+    Update the last_accessed_at timestamp for a user in a project.
+    """
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
+    
+    if not project_user:
+        return False
+    
+    project_user.last_accessed_at = datetime.utcnow()
+    db.commit()
+    return True 

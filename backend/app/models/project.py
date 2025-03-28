@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, Table, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Table, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 from app.db.database import Base
 
@@ -23,6 +24,9 @@ class ProjectUser(Base):
 
     project_id = Column(Integer, ForeignKey("projects.id"), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    role = Column(String, default="MEMBER")  # ADMIN or MEMBER
+    joined_at = Column(DateTime, default=datetime.utcnow)
+    last_accessed_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     project = relationship("Project", back_populates="users")

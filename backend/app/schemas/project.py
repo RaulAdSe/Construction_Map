@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
@@ -22,13 +22,21 @@ class ProjectUpdate(BaseModel):
 class ProjectUserBase(BaseModel):
     project_id: int
     user_id: int
+    role: str = "MEMBER"
 
 
 class ProjectUserCreate(ProjectUserBase):
     pass
 
 
+class ProjectUserUpdate(BaseModel):
+    role: Optional[str] = None
+
+
 class ProjectUser(ProjectUserBase):
+    joined_at: datetime
+    last_accessed_at: Optional[datetime] = None
+
     class Config:
         orm_mode = True
 

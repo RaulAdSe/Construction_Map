@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col, Image, Alert } from 'react-bootstrap';
 import { updateEvent } from '../services/eventService';
 
-const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
+const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER" }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('periodic check');
@@ -10,6 +10,9 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Check if user can close events
+  const canCloseEvent = userRole === 'ADMIN';
   
   useEffect(() => {
     if (event) {
@@ -26,6 +29,14 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
+    // Check if a non-admin is trying to close an event
+    if (status === 'closed' && !canCloseEvent && event.status !== 'closed') {
+      setError('Only ADMIN users can close events.');
+      setStatus(event.status); // Revert to original status
+      setLoading(false);
+      return;
+    }
     
     try {
       const tagsArray = tags
@@ -45,7 +56,14 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
       onHide();
     } catch (err) {
       console.error('Error updating event:', err);
-      setError('Failed to update event. Please try again.');
+      
+      // Check for permission denied error
+      if (err.response && err.response.status === 403) {
+        setError('Permission denied: Only ADMIN users can close events.');
+        setStatus(event.status); // Revert to original status
+      } else {
+        setError('Failed to update event. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -107,8 +125,13 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated }) => {
                       <option value="open">Open</option>
                       <option value="in-progress">In Progress</option>
                       <option value="resolved">Resolved</option>
-                      <option value="closed">Closed</option>
+                      <option value="closed" disabled={!canCloseEvent}>Closed {!canCloseEvent && '(Admin Only)'}</option>
                     </Form.Select>
+                    {!canCloseEvent && (
+                      <Form.Text className="text-muted">
+                        Only ADMIN users can close events
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>

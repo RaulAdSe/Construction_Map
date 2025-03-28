@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bootstrap';
 import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) => {
+const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, userRole }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (event) {
       setCurrentStatus(event.status || 'open');
       setCurrentType(event.state || 'periodic check');
@@ -17,6 +17,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
   }, [event]);
 
   if (!event) return null;
+  
+  // Determine if user can close the event - use passed userRole
+  const canCloseEvent = userRole === 'ADMIN';
   
   // Parse active maps configuration from event
   let activeMapSettings = {};
@@ -66,6 +69,13 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
   
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
+    
+    // Check if user is trying to close the event
+    if (newStatus === 'closed' && !canCloseEvent) {
+      alert('Only ADMIN users can close events.');
+      return;
+    }
+    
     setCurrentStatus(newStatus);
     
     try {
@@ -77,6 +87,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
     } catch (error) {
       console.error('Failed to update status:', error);
       setCurrentStatus(event.status); // Revert on error
+      if (error.response && error.response.status === 403) {
+        alert('Permission denied: Only ADMIN users can close events.');
+      }
     } finally {
       setUpdating(false);
     }
