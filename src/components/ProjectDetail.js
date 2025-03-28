@@ -178,51 +178,51 @@ const ProjectDetail = () => {
           </Card>
         </Tab>
         
-        {effectiveRole === "ADMIN" && (
-          <Tab eventKey="maps" title="Maps">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h4>Project Maps</h4>
-              {effectiveRole === "ADMIN" && (
+        <Tab eventKey="maps" title={effectiveRole === "ADMIN" ? "Maps" : null}>
+          {effectiveRole === "ADMIN" && (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h4>Project Maps</h4>
                 <Button variant="success" onClick={() => setShowMapModal(true)}>
                   Upload Map
                 </Button>
-              )}
-            </div>
+              </div>
 
-            {maps.length === 0 ? (
-              <Alert variant="info">
-                No maps found for this project. {effectiveRole === "ADMIN" ? "Click \"Upload Map\" to add a new map." : ""}
-              </Alert>
-            ) : (
-              <Row>
-                {maps.map((map) => (
-                  <Col key={map.id} md={4} className="mb-4">
-                    <Card className="h-100">
-                      <Card.Img 
-                        variant="top" 
-                        src={`http://localhost:8000/uploads/${map.file_path}`} 
-                        style={{ height: '180px', objectFit: 'cover' }}
-                      />
-                      <Card.Body>
-                        <Card.Title>{map.name}</Card.Title>
-                        <Card.Text>Uploaded on: {new Date(map.created_at).toLocaleDateString()}</Card.Text>
-                      </Card.Body>
-                      <Card.Footer>
-                        <Button 
-                          variant="primary" 
-                          onClick={() => viewMap(map.id)}
-                          className="w-100"
-                        >
-                          View Map
-                        </Button>
-                      </Card.Footer>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            )}
-          </Tab>
-        )}
+              {maps.length === 0 ? (
+                <Alert variant="info">
+                  No maps found for this project. Click "Upload Map" to add a new map.
+                </Alert>
+              ) : (
+                <Row>
+                  {maps.map((map) => (
+                    <Col key={map.id} md={4} className="mb-4">
+                      <Card className="h-100">
+                        <Card.Img 
+                          variant="top" 
+                          src={`http://localhost:8000/uploads/${map.file_path}`} 
+                          style={{ height: '180px', objectFit: 'cover' }}
+                        />
+                        <Card.Body>
+                          <Card.Title>{map.name}</Card.Title>
+                          <Card.Text>Uploaded on: {new Date(map.created_at).toLocaleDateString()}</Card.Text>
+                        </Card.Body>
+                        <Card.Footer>
+                          <Button 
+                            variant="primary" 
+                            onClick={() => viewMap(map.id)}
+                            className="w-100"
+                          >
+                            View Map
+                          </Button>
+                        </Card.Footer>
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+              )}
+            </>
+          )}
+        </Tab>
         
         <Tab eventKey="members" title="Team Members">
           <h4>Project Team</h4>

@@ -510,37 +510,39 @@ const MapViewer = ({ onLogout }) => {
             </Row>
           </Tab>
           
-          {effectiveRole === "ADMIN" && (
-            <>
-              <Tab eventKey="project-maps" title="Project Maps">
-                <MapsManager 
-                  projectId={project.id}
-                  onMapUpdated={() => {
-                    // Force reload the maps data when a map is updated (e.g., set as main)
-                    const refreshData = async () => {
-                      try {
-                        // Fetch fresh map data
-                        const mapsData = await fetchMaps(parseInt(projectId, 10));
-                        setMaps(mapsData);
-                        
-                        // Find and select the main map
-                        const mainMap = mapsData.find(map => map.map_type === 'implantation');
-                        if (mainMap) {
-                          setSelectedMap(mainMap);
-                          showNotification('Map updated successfully! Main map has been changed.', 'success');
-                        }
-                      } catch (error) {
-                        console.error('Error refreshing maps after update:', error);
-                        showNotification('Error updating maps. Please refresh the page.', 'error');
+          <Tab eventKey="project-maps" title={effectiveRole === "ADMIN" ? "Project Maps" : null}>
+            {effectiveRole === "ADMIN" && (
+              <MapsManager 
+                projectId={project.id}
+                onMapUpdated={() => {
+                  // Force reload the maps data when a map is updated (e.g., set as main)
+                  const refreshData = async () => {
+                    try {
+                      // Fetch fresh map data
+                      const mapsData = await fetchMaps(parseInt(projectId, 10));
+                      setMaps(mapsData);
+                      
+                      // Find and select the main map
+                      const mainMap = mapsData.find(map => map.map_type === 'implantation');
+                      if (mainMap) {
+                        setSelectedMap(mainMap);
+                        showNotification('Map updated successfully! Main map has been changed.', 'success');
                       }
-                    };
-                    
-                    refreshData();
-                  }}
-                />
-              </Tab>
-              
-              <Tab eventKey="events" title="Events">
+                    } catch (error) {
+                      console.error('Error refreshing maps after update:', error);
+                      showNotification('Error updating maps. Please refresh the page.', 'error');
+                    }
+                  };
+                  
+                  refreshData();
+                }}
+              />
+            )}
+          </Tab>
+          
+          <Tab eventKey="events" title={effectiveRole === "ADMIN" ? "Events" : null}>
+            {effectiveRole === "ADMIN" && (
+              <>
                 <div className="d-flex justify-content-between align-items-center mb-4">
                   <h3>Project Events</h3>
                   <Button variant="success" onClick={handleAddEvent}>
@@ -554,9 +556,9 @@ const MapViewer = ({ onLogout }) => {
                   onEditEvent={handleEditEvent}
                   onEventUpdated={handleEventUpdated}
                 />
-              </Tab>
-            </>
-          )}
+              </>
+            )}
+          </Tab>
         </Tabs>
       </Container>
       
