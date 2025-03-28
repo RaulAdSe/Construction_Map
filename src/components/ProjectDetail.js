@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Alert, Tab, Tabs, Form, Modal, Table, Navbar } from 'react-bootstrap';
 import { projectService, mapService } from '../services/api';
 import RoleSwitcher from '../components/RoleSwitcher';
+import ContactsTab from '../components/ContactsTab';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -270,6 +271,13 @@ const ProjectDetail = () => {
               </Card.Body>
             </Card>
           )}
+        </Tab>
+        
+        <Tab eventKey="contacts" title="Contacts">
+          <ContactsTab 
+            projectId={parseInt(projectId)} 
+            effectiveRole={effectiveRole}
+          />
         </Tab>
       </Tabs>
 
