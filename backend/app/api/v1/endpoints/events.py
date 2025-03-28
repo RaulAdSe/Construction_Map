@@ -25,6 +25,7 @@ def get_events(
 ):
     """
     Get all events for a project.
+    Admin users can see all events, regular users cannot see closed events.
     """
     # Check if project exists and user has access
     project = project_service.get_project(db, project_id)
@@ -35,8 +36,15 @@ def get_events(
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Get events
-    events = event_service.get_events(db, project_id, user_id, skip, limit)
+    # Get events - only include closed events for admin users
+    events = event_service.get_events(
+        db=db,
+        project_id=project_id,
+        user_id=user_id,
+        skip=skip,
+        limit=limit,
+        include_closed=current_user.is_admin  # Only admins see closed events
+    )
     return events
 
 
@@ -205,11 +213,11 @@ def update_event(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Update event details.
-    Only ADMIN users can close events.
+    Update an event.
+    Only admin users can close or reopen events.
     """
-    # Get event
-    event = event_service.get_event(db, event_id)
+    # Check if event exists
+    event = db.query(EventModel).filter(EventModel.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
@@ -218,27 +226,20 @@ def update_event(
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Special permission check for closing events
-    if event_update.status == "closed" and event.status != "closed":
-        # Check for explicit admin request or if user has ADMIN role in project
-        if not event_update.is_admin_request and not project_service.has_project_permission(db, event.project_id, current_user.id, "ADMIN"):
-            raise HTTPException(
-                status_code=403, 
-                detail="Only ADMIN users can close events"
-            )
+    # Check status permissions
+    if event_update.status == "closed" and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admin users can close events")
+    
+    # Don't allow non-admins to reopen closed events
+    if event.status == "closed" and event_update.status != "closed" and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admin users can reopen closed events")
     
     # Update event
-    updated_event = event_service.update_event(
-        db,
-        event_id,
-        title=event_update.title,
-        description=event_update.description,
-        status=event_update.status,
-        state=event_update.state,
-        tags=event_update.tags
-    )
-    
-    return updated_event
+    try:
+        updated_event = event_service.update_event(db, event_id, event_update)
+        return updated_event
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)

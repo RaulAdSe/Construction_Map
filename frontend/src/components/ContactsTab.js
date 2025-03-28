@@ -56,6 +56,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     
     try {
       setUpdatingField(true);
+      console.log(`Updating field for user ${userId} to: ${editField.value}`);
+      
       await projectService.updateMemberField(projectId, userId, editField.value);
       
       // Update the members list with the new field value
