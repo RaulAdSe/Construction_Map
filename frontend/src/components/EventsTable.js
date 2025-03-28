@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Badge, Form, OverlayTrigger, Tooltip, Modal, Spinner, Alert, Image } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
-import api from '../services/api';
+import api from '../api';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
