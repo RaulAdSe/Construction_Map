@@ -12,6 +12,7 @@ import ViewEventModal from '../components/ViewEventModal';
 import MapSelectionModal from '../components/MapSelectionModal';
 import Notification from '../components/Notification';
 import RoleSwitcher from '../components/RoleSwitcher';
+import ContactsTab from '../components/ContactsTab';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
 import '../assets/styles/MapViewer.css';
@@ -574,6 +575,13 @@ const MapViewer = ({ onLogout }) => {
               onEditEvent={handleEditEvent}
               onEventUpdated={handleEventUpdated}
               userRole={effectiveRole}
+            />
+          </Tab>
+          
+          <Tab eventKey="contacts" title="Contacts">
+            <ContactsTab 
+              projectId={parseInt(projectId)} 
+              effectiveRole={effectiveRole}
             />
           </Tab>
         </Tabs>
