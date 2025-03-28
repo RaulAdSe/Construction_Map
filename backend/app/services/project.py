@@ -15,6 +15,14 @@ def get_projects(db: Session, skip: int = 0, limit: int = 100) -> List[Project]:
     return db.query(Project).offset(skip).limit(limit).all()
 
 
+def get_all_projects(db: Session, skip: int = 0, limit: int = 100) -> List[Project]:
+    """
+    Get all projects without filtering by user.
+    This should only be used for admin users.
+    """
+    return db.query(Project).offset(skip).limit(limit).all()
+
+
 def get_user_projects(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[Project]:
     return (db.query(Project)
               .join(ProjectUser)
@@ -181,11 +189,30 @@ def remove_user_from_project(db: Session, project_id: int, user_id: int) -> bool
     return True
 
 
-def get_project_users(db: Session, project_id: int) -> List[User]:
-    return (db.query(User)
-              .join(ProjectUser)
-              .filter(ProjectUser.project_id == project_id)
-              .all())
+def get_project_users(db: Session, project_id: int) -> List[dict]:
+    """
+    Get all users in a project with their project roles.
+    Returns a list of user dictionaries with project_role added.
+    """
+    users = (db.query(User, ProjectUser.role.label("project_role"))
+             .join(ProjectUser)
+             .filter(ProjectUser.project_id == project_id)
+             .all())
+    
+    result = []
+    for user, project_role in users:
+        # Convert the user object to a dictionary
+        user_dict = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,  # System role
+            "is_active": user.is_active,
+            "project_role": project_role  # Project-specific role
+        }
+        result.append(user_dict)
+    
+    return result
 
 
 def get_user_project_role(db: Session, project_id: int, user_id: int) -> Optional[str]:

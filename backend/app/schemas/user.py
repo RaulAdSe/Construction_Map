@@ -36,6 +36,11 @@ class UserInDB(UserInDBBase):
     password_hash: str
 
 
+class ProjectMember(User):
+    """User with additional project-specific information"""
+    project_role: str
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
