@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Button, Badge, Form, OverlayTrigger, Tooltip, Modal, Spinner, Alert, Image } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
-import api from '../api';
+import api from '../services/api';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
@@ -15,6 +15,20 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin on component mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setIsAdmin(payload.sub === 'admin');
+      } catch (error) {
+        console.error('Error parsing token:', error);
+      }
+    }
+  }, []);
 
   if (!events || events.length === 0) {
     return (
@@ -62,6 +76,12 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
   };
   
   const handleStatusChange = async (eventId, newStatus) => {
+    // Check if user is trying to close the event but isn't an admin
+    if (newStatus === 'closed' && !isAdmin) {
+      alert('Only ADMIN users can close events.');
+      return;
+    }
+    
     setUpdatingEvent(eventId);
     try {
       await updateEventStatus(eventId, newStatus);
@@ -71,6 +91,9 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
       }
     } catch (error) {
       console.error('Failed to update status:', error);
+      if (error.response && error.response.status === 403) {
+        alert('Permission denied: Only ADMIN users can close events.');
+      }
     } finally {
       setUpdatingEvent(null);
     }
@@ -228,7 +251,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated }) => {
                           <option value="open">Open</option>
                           <option value="in-progress">In Progress</option>
                           <option value="resolved">Resolved</option>
-                          <option value="closed">Closed</option>
+                          {isAdmin && <option value="closed">Closed</option>}
                         </Form.Select>
                         {getStatusBadge(event.status)}
                       </div>
