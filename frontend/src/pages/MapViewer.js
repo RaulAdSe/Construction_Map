@@ -458,65 +458,41 @@ const MapViewer = ({ onLogout }) => {
       </Navbar>
       
       <Container className="mt-4">
-        <Tabs
-          activeKey={activeTab}
-          onSelect={(k) => setActiveTab(k)}
-          className="mb-4"
-        >
+        <Tabs activeKey={activeTab} onSelect={setActiveTab} className="mb-4">
           <Tab eventKey="map-view" title="Map View">
             <Row>
               <Col md={3}>
-                <div className="sidebar-panel">
-                  <h5 className="mb-3">Map Controls</h5>
+                <div className="sidebar bg-light p-3 rounded">
+                  <h5>Available Maps</h5>
+                  <MapList
+                    maps={maps}
+                    selectedMapId={selectedMap?.id}
+                    onMapSelect={handleMapSelect}
+                    visibleMapIds={visibleMapIds}
+                    onVisibleMapsChange={setVisibleMapIds}
+                    currentRole={effectiveRole}
+                  />
                   
-                  <div className="d-grid gap-2 mb-4">
-                    <Button variant="success" onClick={handleAddEvent}>
-                      <i className="bi bi-pin-map me-2"></i>Add Event
-                    </Button>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div className="map-info-section">
-                    <h6>Current View</h6>
-                    {selectedMap && (
-                      <div className="current-map-info mb-3">
-                        <p className="mb-1">
-                          <strong>Main Map:</strong> {selectedMap.name}
-                          {selectedMap.map_type === 'implantation' && (
-                            <span className="badge bg-success ms-2">Primary</span>
-                          )}
-                        </p>
-                        <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
-                        <p className="mb-0">
-                          <strong>Events:</strong> {visibleEvents.length}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <hr />
-                  
-                  <div className="events-summary mb-3">
-                    <h6>Event Categories</h6>
-                    {/* Group events by tags */}
-                    <ul className="list-unstyled">
-                      {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
-                        <li key={tag} className="mb-1">
-                          <span className="badge bg-secondary me-2">{tag}</span>
-                          <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  {effectiveRole === "ADMIN" && (
+                    <div className="mt-3">
+                      <Button 
+                        variant="success" 
+                        size="sm"
+                        className="w-100"
+                        onClick={handleAddMap}
+                      >
+                        <i className="bi bi-plus-circle me-1"></i> Add New Map
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </Col>
-              
               <Col md={9}>
                 {selectedMap ? (
-                  <MapDetail 
-                    map={selectedMap} 
-                    events={visibleEvents} 
+                  <MapDetail
+                    map={selectedMap}
+                    events={events.filter(e => e.map_id === selectedMap.id)}
+                    mode={effectiveRole === 'MEMBER' ? 'view' : 'edit'}
                     onMapClick={handleMapClick}
                     isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
                     onEventClick={handleViewEvent}
@@ -534,49 +510,53 @@ const MapViewer = ({ onLogout }) => {
             </Row>
           </Tab>
           
-          <Tab eventKey="project-maps" title="Project Maps">
-            <MapsManager 
-              projectId={project.id}
-              onMapUpdated={() => {
-                // Force reload the maps data when a map is updated (e.g., set as main)
-                const refreshData = async () => {
-                  try {
-                    // Fetch fresh map data
-                    const mapsData = await fetchMaps(parseInt(projectId, 10));
-                    setMaps(mapsData);
+          {effectiveRole === "ADMIN" && (
+            <>
+              <Tab eventKey="project-maps" title="Project Maps">
+                <MapsManager 
+                  projectId={project.id}
+                  onMapUpdated={() => {
+                    // Force reload the maps data when a map is updated (e.g., set as main)
+                    const refreshData = async () => {
+                      try {
+                        // Fetch fresh map data
+                        const mapsData = await fetchMaps(parseInt(projectId, 10));
+                        setMaps(mapsData);
+                        
+                        // Find and select the main map
+                        const mainMap = mapsData.find(map => map.map_type === 'implantation');
+                        if (mainMap) {
+                          setSelectedMap(mainMap);
+                          showNotification('Map updated successfully! Main map has been changed.', 'success');
+                        }
+                      } catch (error) {
+                        console.error('Error refreshing maps after update:', error);
+                        showNotification('Error updating maps. Please refresh the page.', 'error');
+                      }
+                    };
                     
-                    // Find and select the main map
-                    const mainMap = mapsData.find(map => map.map_type === 'implantation');
-                    if (mainMap) {
-                      setSelectedMap(mainMap);
-                      showNotification('Map updated successfully! Main map has been changed.', 'success');
-                    }
-                  } catch (error) {
-                    console.error('Error refreshing maps after update:', error);
-                    showNotification('Error updating maps. Please refresh the page.', 'error');
-                  }
-                };
+                    refreshData();
+                  }}
+                />
+              </Tab>
+              
+              <Tab eventKey="events" title="Events">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h3>Project Events</h3>
+                  <Button variant="success" onClick={handleAddEvent}>
+                    Add New Event
+                  </Button>
+                </div>
                 
-                refreshData();
-              }}
-            />
-          </Tab>
-          
-          <Tab eventKey="events" title="Events">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h3>Project Events</h3>
-              <Button variant="success" onClick={handleAddEvent}>
-                Add New Event
-              </Button>
-            </div>
-            
-            <EventsTable 
-              events={events} 
-              onViewEvent={handleViewEvent}
-              onEditEvent={handleEditEvent}
-              onEventUpdated={handleEventUpdated}
-            />
-          </Tab>
+                <EventsTable 
+                  events={events} 
+                  onViewEvent={handleViewEvent}
+                  onEditEvent={handleEditEvent}
+                  onEventUpdated={handleEventUpdated}
+                />
+              </Tab>
+            </>
+          )}
         </Tabs>
       </Container>
       
