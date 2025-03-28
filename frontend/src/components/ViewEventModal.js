@@ -1,22 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bootstrap';
 import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
+import { projectService } from '../services/api';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) => {
+const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
+  const [userRole, setUserRole] = useState(null);
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (event) {
       setCurrentStatus(event.status || 'open');
       setCurrentType(event.state || 'periodic check');
+      
+      // Get user's role in this project
+      async function getUserRole() {
+        try {
+          const response = await projectService.getProjectMembers(projectId);
+          const members = response.data;
+          const currentMember = members.find(member => member.id === currentUser.id);
+          if (currentMember) {
+            setUserRole(currentMember.role);
+          }
+        } catch (error) {
+          console.error('Error fetching user role:', error);
+        }
+      }
+      
+      if (projectId && currentUser) {
+        getUserRole();
+      }
     }
-  }, [event]);
+  }, [event, projectId, currentUser]);
 
   if (!event) return null;
+  
+  // Determine if user can close the event
+  const canCloseEvent = userRole === 'ADMIN';
   
   // Parse active maps configuration from event
   let activeMapSettings = {};
@@ -66,6 +89,13 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
   
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
+    
+    // Check if user is trying to close the event
+    if (newStatus === 'closed' && !canCloseEvent) {
+      alert('Only ADMIN users can close events.');
+      return;
+    }
+    
     setCurrentStatus(newStatus);
     
     try {
@@ -77,6 +107,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated }) =
     } catch (error) {
       console.error('Failed to update status:', error);
       setCurrentStatus(event.status); // Revert on error
+      if (error.response && error.response.status === 403) {
+        alert('Permission denied: Only ADMIN users can close events.');
+      }
     } finally {
       setUpdating(false);
     }

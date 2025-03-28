@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Alert, Tab, Tabs, Form, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Alert, Tab, Tabs, Form, Modal, Table } from 'react-bootstrap';
 import { projectService, mapService } from '../services/api';
 
 const ProjectDetail = () => {
@@ -9,6 +9,7 @@ const ProjectDetail = () => {
   
   const [project, setProject] = useState(null);
   const [maps, setMaps] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showMapModal, setShowMapModal] = useState(false);
@@ -30,6 +31,10 @@ const ProjectDetail = () => {
       // Filter maps by this project
       const projectMaps = mapsResponse.data.filter(map => map.project_id === parseInt(projectId));
       setMaps(projectMaps);
+      
+      // Fetch project members
+      const membersResponse = await projectService.getProjectMembers(projectId);
+      setMembers(membersResponse.data);
       
       setError('');
     } catch (err) {
@@ -161,6 +166,54 @@ const ProjectDetail = () => {
                 </Col>
               ))}
             </Row>
+          )}
+        </Tab>
+        
+        <Tab eventKey="members" title="Team Members">
+          <h4>Project Team</h4>
+          <p>Contact information for all team members working on this project.</p>
+          
+          {members.length === 0 ? (
+            <Alert variant="info">
+              No team members found for this project.
+            </Alert>
+          ) : (
+            <Card>
+              <Card.Body>
+                <Table striped bordered hover responsive>
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((member) => (
+                      <tr key={member.id}>
+                        <td>{member.username}</td>
+                        <td>
+                          <a href={`mailto:${member.email}`}>
+                            {member.email}
+                          </a>
+                        </td>
+                        <td>
+                          <span className={`badge ${member.role === 'ADMIN' ? 'bg-primary' : 'bg-secondary'}`}>
+                            {member.role}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${member.is_active ? 'bg-success' : 'bg-danger'}`}>
+                            {member.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </Card.Body>
+            </Card>
           )}
         </Tab>
       </Tabs>

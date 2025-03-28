@@ -70,8 +70,27 @@ export const projectService = {
     return await apiClient.delete(`/projects/${id}`);
   },
   
-  addUserToProject: async (projectId, userId) => {
-    return await apiClient.post(`/projects/${projectId}/users`, { user_id: userId });
+  // Get all project members
+  getProjectMembers: async (projectId) => {
+    return await apiClient.get(`/projects/${projectId}/members`);
+  },
+  
+  // Add a user to project with optional role
+  addUserToProject: async (projectId, userId, role = "MEMBER") => {
+    return await apiClient.post(`/projects/${projectId}/users`, { 
+      user_id: userId,
+      role: role 
+    });
+  },
+  
+  // Update a member's role in a project
+  updateMemberRole: async (projectId, userId, role) => {
+    return await apiClient.put(`/projects/${projectId}/members/${userId}/role`, { role });
+  },
+  
+  // Remove a user from a project
+  removeUserFromProject: async (projectId, userId) => {
+    return await apiClient.delete(`/projects/${projectId}/users/${userId}`);
   }
 };
 

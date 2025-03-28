@@ -25,6 +25,7 @@ const MapViewer = ({ onLogout }) => {
   const [selectedMap, setSelectedMap] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('map-view');
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [showAddMapModal, setShowAddMapModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
@@ -38,6 +39,32 @@ const MapViewer = ({ onLogout }) => {
   const [mapForEvent, setMapForEvent] = useState(null);
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
+  
+  // Fetch current user info from token
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        // Get user ID from JWT token
+        const token = localStorage.getItem('token');
+        if (token) {
+          // Parse token (token is in the format xxx.yyy.zzz where yyy is the payload)
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          // Get username from token sub claim
+          const username = payload.sub;
+          
+          // For now we'll just create a minimal user object with the username
+          setCurrentUser({ 
+            id: username, // Using username as ID for now
+            username: username
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    };
+    
+    fetchCurrentUser();
+  }, []);
   
   // Add a visibleMapIds state variable to track which maps are currently visible
   const [visibleMapIds, setVisibleMapIds] = useState([]);
@@ -558,6 +585,8 @@ const MapViewer = ({ onLogout }) => {
         event={selectedEvent}
         allMaps={maps}
         onEventUpdated={handleEventUpdated}
+        currentUser={currentUser}
+        projectId={project?.id}
       />
       
       <EditEventModal
