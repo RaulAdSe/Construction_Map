@@ -67,6 +67,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
   // Start editing a field
   const startEditField = (userId, currentField) => {
+    // Only allow admins to edit fields
+    if (!isCurrentUserAdmin) {
+      console.log('Edit field attempted by non-admin user');
+      setError('You do not have permission to edit fields. Only administrators can make changes.');
+      return;
+    }
+    
     console.log(`Starting edit for user ${userId}, current field: "${currentField}"`);
     setEditField({ userId, value: currentField || '' });
   };
@@ -79,6 +86,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   // Handle updating a user's field
   const handleUpdateField = async (userId) => {
     if (!userId) return;
+    
+    // Check if the current user is an admin before allowing updates
+    if (!isCurrentUserAdmin) {
+      setError('You do not have permission to update user fields. Only administrators can make changes.');
+      cancelEditField();
+      return;
+    }
     
     try {
       const fieldValue = editField.value.trim();
