@@ -310,41 +310,14 @@ def update_member_role(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Update a user's admin status.
-    Only admin users can make this change.
-    Admin users cannot modify the admin status of other admin users.
+    Update a user's admin status - CURRENTLY DISABLED.
+    This functionality has been disabled to prevent changes to user roles.
     """
-    # Check if project exists
-    project = project_service.get_project(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Check if current user is an admin
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Not enough permissions: Admin role required")
-    
-    # Check if target user exists and is a member of the project
-    if not project_service.has_project_permission(db, project_id, user_id):
-        raise HTTPException(status_code=404, detail="User not found in this project")
-    
-    # Get new role value (interpret as boolean admin status)
-    target_role = role_data.get("role", "MEMBER")
-    is_admin = target_role.upper() == "ADMIN" if isinstance(target_role, str) else bool(target_role)
-    
-    # Don't allow changing another admin's role
-    target_user = db.query(User).filter(User.id == user_id).first()
-    if target_user.is_admin and user_id != current_user.id:
-        raise HTTPException(
-            status_code=403, 
-            detail="Cannot modify admin status of other admin users"
-        )
-    
-    # Update the role
-    success = project_service.update_user_project_role(db, project_id, user_id, is_admin)
-    if not success:
-        raise HTTPException(status_code=400, detail="Failed to update user role")
-    
-    return {"status": "success", "message": f"User admin status updated to: {is_admin}"}
+    # This feature is now disabled
+    raise HTTPException(
+        status_code=403, 
+        detail="Changing user roles is currently disabled for all users."
+    )
 
 
 @router.put("/{project_id}/users/{user_id}/field", status_code=status.HTTP_200_OK)

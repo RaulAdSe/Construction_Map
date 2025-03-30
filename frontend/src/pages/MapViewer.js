@@ -562,11 +562,8 @@ const MapViewer = ({ onLogout }) => {
           </Tab>
           
           <Tab eventKey="events" title="Events">
-            <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="mb-3 d-flex justify-content-between">
               <h3>Project Events</h3>
-              <Button variant="success" onClick={handleAddEvent}>
-                Add New Event
-              </Button>
             </div>
             
             <EventsTable 
@@ -578,14 +575,12 @@ const MapViewer = ({ onLogout }) => {
             />
           </Tab>
           
-          {effectiveRole === 'ADMIN' ? (
-            <Tab eventKey="contacts" title="Contacts">
-              <ContactsTab 
-                projectId={parseInt(projectId)} 
-                effectiveRole={effectiveRole}
-              />
-            </Tab>
-          ) : null}
+          <Tab eventKey="contacts" title="Contacts">
+            <ContactsTab 
+              projectId={parseInt(projectId)} 
+              effectiveRole={effectiveRole}
+            />
+          </Tab>
         </Tabs>
       </Container>
       

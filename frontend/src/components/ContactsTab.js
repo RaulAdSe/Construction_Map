@@ -251,15 +251,6 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     return <div className="text-center p-4"><Spinner animation="border" /></div>;
   }
 
-  // Block access for non-admin users
-  if (!isCurrentUserAdmin) {
-    return (
-      <Alert variant="danger">
-        You do not have permission to access this page. Only administrators can manage contacts.
-      </Alert>
-    );
-  }
-
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -272,6 +263,12 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      {!isCurrentUserAdmin && (
+        <Alert variant="info">
+          You are viewing contacts in read-only mode. Only administrators can make changes.
+        </Alert>
+      )}
 
       {loading ? (
         <div className="text-center">
@@ -342,16 +339,6 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                     <span className={`badge ${member.is_admin ? 'bg-primary' : 'bg-secondary'}`}>
                       {member.is_admin ? 'Admin' : 'Member'}
                     </span>
-                    {isCurrentUserAdmin && currentUserId !== member.id && (
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        className="ms-2"
-                        onClick={() => handleToggleAdminStatus(member.id, member.is_admin)}
-                      >
-                        {member.is_admin ? 'Demote' : 'Promote'}
-                      </Button>
-                    )}
                   </div>
                 </td>
                 <td>
