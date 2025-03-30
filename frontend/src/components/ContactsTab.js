@@ -21,6 +21,9 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
   // Get current user ID from token
   useEffect(() => {
+    // Initialize to false
+    setIsCurrentUserAdmin(false);
+    
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     
@@ -32,6 +35,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
           setIsCurrentUserAdmin(true);
           console.log('Current user is an admin');
         } else {
+          setIsCurrentUserAdmin(false);
           console.log('Current user is NOT an admin:', user);
         }
       } catch (error) {
@@ -62,7 +66,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     if (effectiveRole === 'ADMIN') {
       setIsCurrentUserAdmin(true);
       console.log('Current user is admin based on effectiveRole prop');
+    } else {
+      // If the effectiveRole is not ADMIN, ensure isCurrentUserAdmin is false
+      console.log('Current user is NOT admin based on effectiveRole prop:', effectiveRole);
     }
+    
+    // Debug the final state
+    console.log('Final admin status:', isCurrentUserAdmin);
   }, [effectiveRole]);
 
   // Start editing a field
@@ -265,6 +275,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     return <div className="text-center p-4"><Spinner animation="border" /></div>;
   }
 
+  console.log('Rendering ContactsTab with isCurrentUserAdmin:', isCurrentUserAdmin, 'and effectiveRole:', effectiveRole);
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -327,7 +339,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                   ) : (
                     <div className="d-flex justify-content-between align-items-center">
                       <span>{member.field || 'Not specified'}</span>
-                      {isCurrentUserAdmin && (
+                      {isCurrentUserAdmin && effectiveRole === 'ADMIN' && (
                         <Button 
                           variant="outline-primary" 
                           size="sm" 
