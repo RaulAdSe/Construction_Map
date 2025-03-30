@@ -578,12 +578,14 @@ const MapViewer = ({ onLogout }) => {
             />
           </Tab>
           
-          <Tab eventKey="contacts" title="Contacts">
-            <ContactsTab 
-              projectId={parseInt(projectId)} 
-              effectiveRole={effectiveRole}
-            />
-          </Tab>
+          {effectiveRole === 'ADMIN' ? (
+            <Tab eventKey="contacts" title="Contacts">
+              <ContactsTab 
+                projectId={parseInt(projectId)} 
+                effectiveRole={effectiveRole}
+              />
+            </Tab>
+          ) : null}
         </Tabs>
       </Container>
       

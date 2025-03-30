@@ -312,6 +312,7 @@ def update_member_role(
     """
     Update a user's admin status.
     Only admin users can make this change.
+    Admin users cannot modify the admin status of other admin users.
     """
     # Check if project exists
     project = project_service.get_project(db, project_id)
@@ -332,7 +333,7 @@ def update_member_role(
     
     # Don't allow changing another admin's role
     target_user = db.query(User).filter(User.id == user_id).first()
-    if target_user.is_admin and user_id != current_user.id and not current_user.is_admin:
+    if target_user.is_admin and user_id != current_user.id:
         raise HTTPException(
             status_code=403, 
             detail="Cannot modify admin status of other admin users"
@@ -346,7 +347,7 @@ def update_member_role(
     return {"status": "success", "message": f"User admin status updated to: {is_admin}"}
 
 
-@router.put("/{project_id}/members/{user_id}/field", status_code=status.HTTP_200_OK)
+@router.put("/{project_id}/users/{user_id}/field", status_code=status.HTTP_200_OK)
 def update_member_field(
     project_id: int,
     user_id: int,

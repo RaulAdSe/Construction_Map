@@ -27,17 +27,24 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
+        console.log('User data from localStorage:', user);
         if (user.is_admin) {
           setIsCurrentUserAdmin(true);
+          console.log('Current user is an admin');
+        } else {
+          console.log('Current user is NOT an admin:', user);
         }
       } catch (error) {
         console.error('Error parsing user data:', error);
       }
+    } else {
+      console.log('No user data in localStorage');
     }
     
     if (token) {
       try {
         const decoded = jwtDecode(token);
+        console.log('Token decoded:', decoded);
         if (decoded.user_id) {
           setCurrentUserId(parseInt(decoded.user_id));
         } else if (decoded.sub) {
@@ -47,8 +54,16 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       } catch (error) {
         console.error('Error decoding token:', error);
       }
+    } else {
+      console.log('No token in localStorage');
     }
-  }, []);
+
+    // Also check if the effectiveRole prop indicates the user is an admin
+    if (effectiveRole === 'ADMIN') {
+      setIsCurrentUserAdmin(true);
+      console.log('Current user is admin based on effectiveRole prop');
+    }
+  }, [effectiveRole]);
 
   // Start editing a field
   const startEditField = (userId, currentField) => {
@@ -236,6 +251,15 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     return <div className="text-center p-4"><Spinner animation="border" /></div>;
   }
 
+  // Block access for non-admin users
+  if (!isCurrentUserAdmin) {
+    return (
+      <Alert variant="danger">
+        You do not have permission to access this page. Only administrators can manage contacts.
+      </Alert>
+    );
+  }
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -297,7 +321,15 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                           variant="outline-primary" 
                           size="sm" 
                           className="ms-2"
-                          onClick={() => startEditField(member.id, member.field)}
+                          onClick={() => {
+                            console.log('Edit field button clicked', {
+                              memberId: member.id,
+                              memberField: member.field,
+                              isAdmin: isCurrentUserAdmin,
+                              effectiveRole
+                            });
+                            startEditField(member.id, member.field);
+                          }}
                         >
                           Edit
                         </Button>
