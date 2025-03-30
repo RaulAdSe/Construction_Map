@@ -50,21 +50,35 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     }
   }, []);
 
+  // Start editing a field
+  const startEditField = (userId, currentField) => {
+    console.log(`Starting edit for user ${userId}, current field: "${currentField}"`);
+    setEditField({ userId, value: currentField || '' });
+  };
+
+  // Cancel editing
+  const cancelEditField = () => {
+    setEditField({ userId: null, value: '' });
+  };
+
   // Handle updating a user's field
   const handleUpdateField = async (userId) => {
     if (!userId) return;
     
     try {
-      setUpdatingField(true);
-      console.log(`Attempting to update field for user ${userId} to: "${editField.value}"`);
+      const fieldValue = editField.value.trim();
+      console.log(`Submitting field update for user ${userId}: "${fieldValue}"`);
       
-      const response = await projectService.updateMemberField(projectId, userId, editField.value);
+      setUpdatingField(true);
+      
+      // Make API call to update the field
+      const response = await projectService.updateMemberField(projectId, userId, fieldValue);
       console.log('Field update response:', response);
       
       // Update the members list with the new field value
       setMembers(members.map(member => 
         member.id === userId 
-          ? { ...member, field: editField.value } 
+          ? { ...member, field: fieldValue } 
           : member
       ));
       
@@ -108,16 +122,6 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
         setError('Failed to update user admin status. Please try again.');
       }
     }
-  };
-
-  // Start editing a field
-  const startEditField = (userId, currentField) => {
-    setEditField({ userId, value: currentField || '' });
-  };
-
-  // Cancel editing
-  const cancelEditField = () => {
-    setEditField({ userId: null, value: '' });
   };
 
   // Fetch project members

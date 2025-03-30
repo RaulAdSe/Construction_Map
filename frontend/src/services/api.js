@@ -100,7 +100,19 @@ export const projectService = {
   updateMemberField: async (projectId, userId, field) => {
     console.log(`API call: updateMemberField for project ${projectId}, user ${userId}, field "${field}"`);
     try {
-      const response = await apiClient.put(`/projects/${projectId}/members/${userId}/field`, { field });
+      // Ensure field is a string
+      const fieldValue = String(field).trim();
+      console.log(`Sending field update with value: "${fieldValue}"`);
+      
+      const response = await apiClient.put(`/projects/${projectId}/members/${userId}/field`, 
+        { field: fieldValue },
+        { 
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
       console.log('Field update API response:', response);
       return response.data;
     } catch (error) {

@@ -16,6 +16,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [filteredEvents, setFilteredEvents] = useState([]);
 
   // Check if user is admin based on userRole prop or token
   useEffect(() => {
@@ -37,7 +38,24 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     }
   }, [userRole]);
 
-  if (!events || events.length === 0) {
+  // Filter out closed events for non-admin users
+  useEffect(() => {
+    if (!events) {
+      setFilteredEvents([]);
+      return;
+    }
+
+    if (isAdmin) {
+      // Admin users can see all events
+      setFilteredEvents(events);
+    } else {
+      // Non-admin users should not see closed events
+      const openEvents = events.filter(event => event.status !== 'closed');
+      setFilteredEvents(openEvents);
+    }
+  }, [events, isAdmin]);
+
+  if (!filteredEvents || filteredEvents.length === 0) {
     return (
       <div className="p-3 bg-light rounded text-center">
         <p>No events available for this project.</p>
@@ -47,7 +65,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
 
   // Group events by map
   const eventsByMap = {};
-  events.forEach(event => {
+  filteredEvents.forEach(event => {
     if (!eventsByMap[event.map_id]) {
       eventsByMap[event.map_id] = [];
     }
@@ -93,7 +111,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     try {
       await updateEventStatus(eventId, newStatus, userRole);
       if (onEventUpdated) {
-        const updatedEvent = events.find(e => e.id === eventId);
+        const updatedEvent = filteredEvents.find(e => e.id === eventId);
         onEventUpdated({...updatedEvent, status: newStatus});
       }
     } catch (error) {
@@ -113,7 +131,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     try {
       await updateEventState(eventId, newType);
       if (onEventUpdated) {
-        const updatedEvent = events.find(e => e.id === eventId);
+        const updatedEvent = filteredEvents.find(e => e.id === eventId);
         onEventUpdated({...updatedEvent, state: newType});
       }
     } catch (error) {
@@ -182,7 +200,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
       
       // Update comment count in the event
       if (onEventUpdated) {
-        const updatedEvent = events.find(e => e.id === selectedEventId);
+        const updatedEvent = filteredEvents.find(e => e.id === selectedEventId);
         onEventUpdated({
           ...updatedEvent, 
           comment_count: (updatedEvent.comment_count || 0) + 1
@@ -217,7 +235,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     <div className="events-table-container">
       {Object.keys(eventsByMap).map(mapId => (
         <div key={mapId} className="mb-4">
-          <h5 className="mb-3">Map: {events.find(e => e.map_id === parseInt(mapId))?.map_name || `ID: ${mapId}`}</h5>
+          <h5 className="mb-3">Map: {filteredEvents.find(e => e.map_id === parseInt(mapId))?.map_name || `ID: ${mapId}`}</h5>
           <Table striped bordered hover responsive>
             <thead>
               <tr>

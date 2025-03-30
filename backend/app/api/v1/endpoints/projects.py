@@ -359,28 +359,33 @@ def update_member_field(
     Only admin users can update fields.
     """
     # Log the operation
-    print(f"Updating field for project {project_id}, user {user_id}, data: {field_data}")
+    print(f"API: update_member_field - project {project_id}, user {user_id}, data: {field_data}")
     
-    # Check if project exists
-    project = project_service.get_project(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Check if current user is an admin
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Not enough permissions: Admin role required")
-    
-    # Check if target user exists and is a member of the project
-    if not project_service.has_project_permission(db, project_id, user_id):
-        raise HTTPException(status_code=404, detail="User not found in this project")
-    
-    # Get field value from request
-    field = field_data.get("field", "")
-    print(f"Field value to be set: '{field}'")
-    
-    # Update the field
-    success = project_service.update_user_field(db, project_id, user_id, field)
-    if not success:
-        raise HTTPException(status_code=400, detail="Failed to update user field")
-    
-    return {"status": "success", "message": "User field updated successfully"} 
+    try:
+        # Check if project exists
+        project = project_service.get_project(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Check if current user is an admin
+        print(f"Current user: {current_user.username}, is_admin: {current_user.is_admin}")
+        if not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Not enough permissions: Admin role required")
+        
+        # Check if target user exists and is a member of the project
+        if not project_service.has_project_permission(db, project_id, user_id):
+            raise HTTPException(status_code=404, detail="User not found in this project")
+        
+        # Get field value from request
+        field = field_data.get("field", "")
+        print(f"Field value to be set: '{field}'")
+        
+        # Update the field
+        success = project_service.update_user_field(db, project_id, user_id, field)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to update user field")
+        
+        return {"status": "success", "message": "User field updated successfully", "field": field}
+    except Exception as e:
+        print(f"Error in update_member_field: {str(e)}")
+        raise 

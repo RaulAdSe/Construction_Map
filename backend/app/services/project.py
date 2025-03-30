@@ -300,22 +300,26 @@ def update_user_field(db: Session, project_id: int, user_id: int, field: str) ->
     """
     print(f"Service: update_user_field for project {project_id}, user {user_id}, field '{field}'")
     
-    # Find the project_user record
-    project_user = db.query(ProjectUser).filter(
-        ProjectUser.project_id == project_id,
-        ProjectUser.user_id == user_id
-    ).first()
-    
-    if not project_user:
-        print(f"Error: ProjectUser record not found for project {project_id}, user {user_id}")
-        return False
-    
-    # Update the field
     try:
+        # Find the project_user record
+        project_user = db.query(ProjectUser).filter(
+            ProjectUser.project_id == project_id,
+            ProjectUser.user_id == user_id
+        ).first()
+        
+        if not project_user:
+            print(f"Error: ProjectUser record not found for project {project_id}, user {user_id}")
+            return False
+        
+        # Update the field
+        print(f"Found project_user record: project_id={project_user.project_id}, user_id={project_user.user_id}, current field='{project_user.field}'")
         project_user.field = field
         project_user.last_accessed_at = datetime.utcnow()
+        
+        # Commit the changes
         db.commit()
         db.refresh(project_user)
+        
         print(f"Updated field to '{project_user.field}' for user {user_id} in project {project_id}")
         return True
     except Exception as e:
