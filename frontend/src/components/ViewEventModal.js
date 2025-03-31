@@ -182,7 +182,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                       >
                         <option value="open">Open</option>
                         <option value="in-progress">In Progress</option>
-                        {isUserAdmin(userRole) && (
+                        {isUserAdmin(userRole) === true && (
                           <>
                             <option value="resolved">Resolved</option>
                             <option value="closed">Closed</option>

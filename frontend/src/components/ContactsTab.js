@@ -41,10 +41,10 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     }
   }, [effectiveRole]);
 
-  // Start editing a field
+  // Start editing a field - add additional safeguards
   const startEditField = (userId, currentField) => {
-    // Block all editing for non-admin users
-    if (!isUserAdmin(effectiveRole)) {
+    // Block all editing for non-admin users with strict checking
+    if (isUserAdmin(effectiveRole) !== true) {
       setError('You do not have permission to edit fields. Only administrators can make changes.');
       console.warn('Non-admin user attempted to edit a field');
       return;
@@ -58,12 +58,12 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     setEditField({ userId: null, value: '' });
   };
 
-  // Handle updating a user's field
+  // Handle updating a user's field - add additional safeguards
   const handleUpdateField = async (userId) => {
     if (!userId) return;
     
-    // Block all updates for non-admin users
-    if (!isUserAdmin(effectiveRole)) {
+    // Block all updates for non-admin users with strict checking
+    if (isUserAdmin(effectiveRole) !== true) {
       setError('You do not have permission to update user fields. Only administrators can make changes.');
       console.warn('Non-admin user attempted to update a field');
       cancelEditField();
@@ -288,8 +288,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
               <tr key={member.id}>
                 <td>{member.username}</td>
                 <td>
-                  {/* Only render edit form for admins */}
-                  {editField.userId === member.id && isUserAdmin(effectiveRole) ? (
+                  {/* Only render edit form for admins with strict checking */}
+                  {editField.userId === member.id && isUserAdmin(effectiveRole) === true ? (
                     <Form.Group className="d-flex align-items-center">
                       <Form.Control
                         type="text"
@@ -314,8 +314,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                   ) : (
                     <div className="d-flex justify-content-between align-items-center">
                       <span>{member.field || "-"}</span>
-                      {/* Only show Edit button if user is admin */}
-                      {isUserAdmin(effectiveRole) && (
+                      {/* Only show Edit button if user is admin with strict checking */}
+                      {isUserAdmin(effectiveRole) === true && (
                         <Button 
                           variant="outline-primary" 
                           size="sm" 
