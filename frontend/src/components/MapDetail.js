@@ -6,9 +6,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const mapContainerRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  // Add containerSize state to track the container dimensions
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [mapScale, setMapScale] = useState(1);
+  const [originalMapSize, setOriginalMapSize] = useState({ width: 0, height: 0 });
   
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
@@ -32,6 +32,14 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     }
   }, [implantationMap]);
   
+  // Track original map dimensions to maintain aspect ratio
+  const updateOriginalMapSize = (width, height) => {
+    if (width > 0 && height > 0 && (originalMapSize.width === 0 || originalMapSize.height === 0)) {
+      setOriginalMapSize({ width, height });
+      console.log(`Original map dimensions set: ${width}x${height}`);
+    }
+  };
+  
   // Add a ResizeObserver to keep track of container size changes
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -42,12 +50,13 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         const { width, height } = container.getBoundingClientRect();
         setContainerSize({ width, height });
         
-        // Calculate and set the map scale factor (consistent scale across all devices)
-        // Using a fixed reference width (e.g. 1200px) for consistency
-        const referenceWidth = 1200;
-        const currentScale = width / referenceWidth;
+        // Use a reference size based on a standard document size (e.g., A1 dimensions in pixels)
+        // This ensures consistent scaling across all devices
+        const referenceWidth = 1200; // Standard reference width in pixels
+        const currentScale = Math.min(width / referenceWidth, 1); // Cap scale at 1.0 to prevent overly large maps
+        
         setMapScale(currentScale);
-        console.log("Map container resized. New scale:", currentScale);
+        console.log("Map container resized. New scale:", currentScale.toFixed(3));
       }
     };
     
@@ -55,7 +64,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     updateContainerSize();
     
     // Set up resize observer
-    const resizeObserver = new ResizeObserver(updateContainerSize);
+    const resizeObserver = new ResizeObserver(entries => {
+      updateContainerSize();
+    });
     resizeObserver.observe(mapContainerRef.current);
     
     // Clean up
@@ -128,6 +139,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     }
   }, [visibleMaps, implantationMap, localStorageKey]);
   
+  // Handle click events for adding new events
   useEffect(() => {
     if (isSelectingLocation && mapContainerRef.current) {
       const container = mapContainerRef.current;
@@ -139,8 +151,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         const y = e.clientY - rect.top;
         
         // Calculate percentage coordinates
-        const xPercent = (x / rect.width) * 100;
-        const yPercent = (y / rect.height) * 100;
+        // Adjust for the current scale to ensure accurate positioning
+        const xPercent = ((x / mapScale) / rect.width) * 100;
+        const yPercent = ((y / mapScale) / rect.height) * 100;
         
         // Create modified map object with the current visibleMaps
         const mapWithVisibleLayers = {
@@ -159,9 +172,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         container.removeEventListener('click', handleClick);
       };
     }
-  }, [isSelectingLocation, map, onMapClick, visibleMaps]);
+  }, [isSelectingLocation, map, onMapClick, visibleMaps, mapScale]);
   
-  const handleImageLoad = () => {
+  const handleImageLoad = (e) => {
+    // Store the natural dimensions of the image when it loads
+    if (e && e.target) {
+      const { naturalWidth, naturalHeight } = e.target;
+      updateOriginalMapSize(naturalWidth, naturalHeight);
+    }
+    
     setImageLoaded(true);
     console.log("Map image loaded, events should now be visible");
   };
@@ -270,7 +289,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               backgroundColor: 'transparent'
             }}
             frameBorder="0"
-            onLoad={() => handleImageLoad()}
+            onLoad={(e) => handleImageLoad(e)}
             onError={() => handleImageError()}
             className="consistent-pdf-view"
           />
@@ -288,7 +307,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               height: '100%', 
               objectFit: 'contain'
             }}
-            onLoad={() => handleImageLoad()}
+            onLoad={(e) => handleImageLoad(e)}
             onError={() => handleImageError()}
             className="consistent-map-image"
           />
@@ -302,7 +321,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
             className="map-iframe-container consistent-iframe-view"
             title={currentMap.name}
             style={{ width: '100%', height: '100%', border: 'none' }}
-            onLoad={() => handleImageLoad()}
+            onLoad={(e) => handleImageLoad(e)}
             onError={() => handleImageError()}
           />
         </div>
@@ -367,7 +386,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     console.log("Visible events:", visibleEvents.length);
   }, []); // Empty dependency array means this runs only on mount
   
-  // Modify event markers container to make it more reliable
+  // Modify event markers container to ensure exact positioning
   const eventMarkersStyle = {
     position: 'absolute',
     top: 0,
@@ -387,6 +406,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         ref={mapContainerRef}
         className="map-container consistent-map-view" 
         data-map-id={map?.id}
+        data-scale={mapScale.toFixed(3)}
       >
         {renderMapContent()}
         
@@ -403,6 +423,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               key={event.id} 
               event={event} 
               onClick={(e) => handleEventClick(event, e)}
+              scale={mapScale}
             />
           ))}
         </div>

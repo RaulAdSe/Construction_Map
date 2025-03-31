@@ -52,13 +52,13 @@ const adjustBrightness = (hex, factor) => {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 };
 
-const EventMarker = ({ event, onClick }) => {
+const EventMarker = ({ event, onClick, scale = 1 }) => {
   const [isHovered, setIsHovered] = useState(false);
   
   useEffect(() => {
     // Log when a marker is rendered with its position
-    console.log(`Event marker rendered: ${event.id} at x:${event.x_coordinate}%, y:${event.y_coordinate}%`);
-  }, [event]);
+    console.log(`Event marker rendered: ${event.id} at x:${event.x_coordinate}%, y:${event.y_coordinate}%, scale:${scale}`);
+  }, [event, scale]);
   
   if (!event || !event.x_coordinate || !event.y_coordinate) {
     console.warn("Invalid event data for marker:", event);
@@ -81,7 +81,11 @@ const EventMarker = ({ event, onClick }) => {
     backgroundColor: color,
     boxShadow: isHovered 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
-      : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`
+      : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`,
+    // Adjust marker size based on scale to maintain proportional appearance
+    width: isHovered ? `${24 / scale}px` : `${20 / scale}px`,
+    height: isHovered ? `${24 / scale}px` : `${20 / scale}px`,
+    borderWidth: `${3 / scale}px`
   };
 
   // Get type badge
@@ -127,7 +131,8 @@ const EventMarker = ({ event, onClick }) => {
   const dataAttributes = {
     'data-event-id': event.id,
     'data-x-position': event.x_coordinate,
-    'data-y-position': event.y_coordinate
+    'data-y-position': event.y_coordinate,
+    'data-scale': scale
   };
   
   return (
