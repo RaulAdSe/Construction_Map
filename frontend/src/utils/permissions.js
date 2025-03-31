@@ -5,16 +5,16 @@
 
 /**
  * Check if a user has admin privileges
- * @param {string} effectiveRole - The role from component props (optional)
+ * @param {boolean} effectiveIsAdmin - Boolean indicating if the user should be treated as admin
  * @returns {boolean} - True if the user is an admin
  */
-export const isUserAdmin = (effectiveRole = null) => {
-  // First check if effectiveRole is provided (used for role switching)
-  if (effectiveRole === 'ADMIN') {
-    return true;
+export const isUserAdmin = (effectiveIsAdmin = null) => {
+  // Prioritize effectiveIsAdmin when provided (used for role switching)
+  if (effectiveIsAdmin !== null) {
+    return effectiveIsAdmin === true;
   }
   
-  // Then check stored user data
+  // Then check stored user data only if effectiveIsAdmin is not provided
   try {
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
     if (storedUser && storedUser.is_admin === true) {
@@ -43,11 +43,11 @@ export const isUserAdmin = (effectiveRole = null) => {
 /**
  * Check if a user can perform an action that requires admin privileges
  * @param {string} action - The action being attempted (for logging)
- * @param {string} effectiveRole - The role from component props (optional)
+ * @param {boolean} effectiveIsAdmin - Boolean indicating if the user should be treated as admin
  * @returns {boolean} - True if the action is allowed
  */
-export const canPerformAdminAction = (action, effectiveRole = null) => {
-  const isAdmin = isUserAdmin(effectiveRole);
+export const canPerformAdminAction = (action, effectiveIsAdmin = null) => {
+  const isAdmin = isUserAdmin(effectiveIsAdmin);
   
   if (!isAdmin) {
     console.warn(`Permission denied: User attempted admin action: ${action}`);

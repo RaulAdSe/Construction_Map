@@ -5,7 +5,7 @@ import { projectService } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
-const ContactsTab = ({ projectId, effectiveRole }) => {
+const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,8 +22,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
   // Get current user ID from token
   useEffect(() => {
-    // Initialize admin state by directly using the permissions utility
-    setIsCurrentUserAdmin(isUserAdmin(effectiveRole));
+    // Initialize admin state based on the effectiveIsAdmin prop
+    setIsCurrentUserAdmin(effectiveIsAdmin === true);
     
     const token = localStorage.getItem('token');
     if (token) {
@@ -39,12 +39,12 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
         console.error('Error decoding token:', error);
       }
     }
-  }, [effectiveRole]);
+  }, [effectiveIsAdmin]);
 
   // Start editing a field - add additional safeguards
   const startEditField = (userId, currentField) => {
     // Block all editing for non-admin users with strict checking
-    if (isUserAdmin(effectiveRole) !== true) {
+    if (effectiveIsAdmin !== true) {
       setError('You do not have permission to edit fields. Only administrators can make changes.');
       console.warn('Non-admin user attempted to edit a field');
       return;
@@ -63,7 +63,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     if (!userId) return;
     
     // Block all updates for non-admin users with strict checking
-    if (isUserAdmin(effectiveRole) !== true) {
+    if (effectiveIsAdmin !== true) {
       setError('You do not have permission to update user fields. Only administrators can make changes.');
       console.warn('Non-admin user attempted to update a field');
       cancelEditField();
@@ -165,7 +165,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   // Fetch all users when add modal is opened
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!showAddUserModal || !isUserAdmin(effectiveRole)) return;
+      if (!showAddUserModal || !effectiveIsAdmin) return;
       
       try {
         const users = await getAllUsers();
@@ -177,7 +177,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     };
 
     fetchUsers();
-  }, [showAddUserModal, effectiveRole]);
+  }, [showAddUserModal, effectiveIsAdmin]);
 
   // Handle adding a user to the project
   const handleAddUser = async () => {
@@ -241,13 +241,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     return <div className="text-center p-4"><Spinner animation="border" /></div>;
   }
 
-  console.log('Rendering ContactsTab with isCurrentUserAdmin:', isUserAdmin(effectiveRole), 'and effectiveRole:', effectiveRole);
+  console.log('Rendering ContactsTab with isCurrentUserAdmin:', isCurrentUserAdmin, 'and effectiveIsAdmin:', effectiveIsAdmin);
 
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4>Project Contacts</h4>
-        {isUserAdmin(effectiveRole) && (
+        {effectiveIsAdmin === true && (
           <Button variant="success" onClick={() => setShowAddUserModal(true)}>
             Add User to Project
           </Button>
@@ -256,7 +256,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {!isUserAdmin(effectiveRole) && (
+      {effectiveIsAdmin !== true && (
         <Alert variant="info">
           You are viewing contacts in read-only mode. Only administrators can make changes.
         </Alert>
@@ -270,7 +270,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       ) : members.length === 0 ? (
         <Alert variant="info">
           No contacts found for this project.
-          {isUserAdmin(effectiveRole) && ' Click "Add User to Project" to add team members.'}
+          {effectiveIsAdmin === true && ' Click "Add User to Project" to add team members.'}
         </Alert>
       ) : (
         <Table striped bordered hover responsive>
@@ -280,7 +280,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
               <th>Field</th>
               <th>Role</th>
               <th>Status</th>
-              {isUserAdmin(effectiveRole) && <th>Actions</th>}
+              {effectiveIsAdmin === true && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -289,7 +289,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                 <td>{member.username}</td>
                 <td>
                   {/* Only render edit form for admins with strict checking */}
-                  {editField.userId === member.id && isUserAdmin(effectiveRole) === true ? (
+                  {editField.userId === member.id && effectiveIsAdmin === true ? (
                     <Form.Group className="d-flex align-items-center">
                       <Form.Control
                         type="text"
@@ -315,7 +315,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                     <div className="d-flex justify-content-between align-items-center">
                       <span>{member.field || "-"}</span>
                       {/* Strict check to ensure members never see edit button */}
-                      {(isUserAdmin(effectiveRole) === true && effectiveRole === 'ADMIN') && (
+                      {(effectiveIsAdmin === true) && (
                         <Button 
                           variant="outline-primary" 
                           size="sm" 
@@ -340,7 +340,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                     {member.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                {isUserAdmin(effectiveRole) && (
+                {effectiveIsAdmin === true && (
                   <td>
                     {(!member.is_admin || member.id === currentUserId) ? (
                       <Button 

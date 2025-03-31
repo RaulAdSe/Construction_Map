@@ -29,8 +29,8 @@ const MapViewer = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('map-view');
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
-  const [effectiveRole, setEffectiveRole] = useState(null); // The role to use for permissions (can be overridden)
+  const [isAdmin, setIsAdmin] = useState(false); // User's actual admin status
+  const [effectiveIsAdmin, setEffectiveIsAdmin] = useState(false); // The admin status to use for permissions (can be overridden)
 
   const [showAddMapModal, setShowAddMapModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
@@ -45,7 +45,7 @@ const MapViewer = ({ onLogout }) => {
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
   
-  // Fetch current user info from token and get their role
+  // Fetch current user info from token and get their admin status
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
@@ -56,16 +56,11 @@ const MapViewer = ({ onLogout }) => {
           const user = JSON.parse(storedUser);
           setCurrentUser(user);
           
-          // Set role based on is_admin flag
-          if (user.is_admin) {
-            console.log('Setting user as ADMIN, is_admin:', user.is_admin);
-            setUserRole('ADMIN');
-            setEffectiveRole('ADMIN');
-          } else {
-            console.log('Setting user as MEMBER, is_admin:', user.is_admin);
-            setUserRole('MEMBER');
-            setEffectiveRole('MEMBER');
-          }
+          // Set admin status based on is_admin flag
+          const userIsAdmin = user.is_admin === true;
+          console.log('User admin status:', userIsAdmin);
+          setIsAdmin(userIsAdmin);
+          setEffectiveIsAdmin(userIsAdmin);
         }
       } catch (error) {
         console.error('Error fetching current user:', error);
@@ -76,9 +71,14 @@ const MapViewer = ({ onLogout }) => {
   }, [projectId]);
   
   // Handle role change from the RoleSwitcher
-  const handleRoleChange = (newRole) => {
-    setEffectiveRole(newRole);
-    showNotification(`Viewing as ${newRole}`, 'info');
+  const handleRoleChange = (newIsAdmin) => {
+    setEffectiveIsAdmin(newIsAdmin);
+    showNotification(`Viewing as ${newIsAdmin ? 'Admin' : 'Member'}`, 'info');
+    
+    // If switching to member view and current tab is admin-only, switch to map view
+    if (!newIsAdmin && (activeTab === 'project-maps' || activeTab === 'events')) {
+      setActiveTab('map-view');
+    }
   };
   
   // Add a visibleMapIds state variable to track which maps are currently visible
@@ -429,14 +429,6 @@ const MapViewer = ({ onLogout }) => {
     }
   };
   
-  // Add a useEffect to reset to Map View tab when changing from admin to member
-  useEffect(() => {
-    // If user switches to MEMBER role, make sure they're on a tab they can see
-    if (effectiveRole === 'MEMBER' && (activeTab === 'project-maps' || activeTab === 'events')) {
-      setActiveTab('map-view');
-    }
-  }, [effectiveRole, activeTab]);
-  
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -483,12 +475,12 @@ const MapViewer = ({ onLogout }) => {
             </Nav>
             <div className="d-flex align-items-center">
               {/* Debug message */}
-              {console.log('Rendering navbar, userRole:', userRole)}
+              {console.log('Rendering navbar, isAdmin:', isAdmin)}
               
               {/* RoleSwitcher component - always render but component will self-hide if not admin */}
               <RoleSwitcher 
-                currentRole={effectiveRole}
-                onRoleChange={handleRoleChange}
+                currentIsAdmin={effectiveIsAdmin}
+                onIsAdminChange={handleRoleChange}
               />
               
               <Button variant="outline-light" onClick={onLogout} className="ms-2">Logout</Button>
@@ -502,7 +494,7 @@ const MapViewer = ({ onLogout }) => {
           activeKey={activeTab} 
           onSelect={setActiveTab} 
           className="mb-4"
-          key={`tabs-${effectiveRole}`}
+          key={`tabs-${effectiveIsAdmin}`}
         >
           {/* Build tabs array dynamically based on user role */}
           {(() => {
@@ -564,7 +556,7 @@ const MapViewer = ({ onLogout }) => {
                       <MapDetail
                         map={selectedMap}
                         events={visibleEvents}
-                        mode={effectiveRole === 'MEMBER' ? 'view' : 'edit'}
+                        mode={effectiveIsAdmin ? 'edit' : 'view'}
                         onMapClick={handleMapClick}
                         isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
                         onEventClick={handleViewEvent}
@@ -622,8 +614,8 @@ const MapViewer = ({ onLogout }) => {
                   onViewEvent={handleViewEvent}
                   onEditEvent={handleEditEvent}
                   onEventUpdated={handleEventUpdated}
-                  userRole={effectiveRole}
-                  isAdmin={isUserAdmin(effectiveRole)}
+                  userIsAdmin={effectiveIsAdmin}
+                  isAdmin={isUserAdmin(effectiveIsAdmin)}
                 />
               </Tab>,
               
@@ -631,13 +623,13 @@ const MapViewer = ({ onLogout }) => {
               <Tab key="contacts" eventKey="contacts" title="Contacts">
                 <ContactsTab 
                   projectId={parseInt(projectId)} 
-                  effectiveRole={effectiveRole}
+                  effectiveIsAdmin={effectiveIsAdmin}
                 />
               </Tab>
             ];
             
             // For members, only return the tabs they should see
-            if (effectiveRole === 'MEMBER') {
+            if (!effectiveIsAdmin) {
               return [tabs[0], tabs[3]]; // Map View and Contacts only
             }
             
@@ -684,7 +676,7 @@ const MapViewer = ({ onLogout }) => {
         onEventUpdated={handleEventUpdated}
         currentUser={currentUser}
         projectId={project?.id}
-        userRole={effectiveRole}
+        userIsAdmin={effectiveIsAdmin}
       />
       
       <EditEventModal
@@ -692,7 +684,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
-        userRole={effectiveRole}
+        userIsAdmin={effectiveIsAdmin}
       />
       
       {/* Notification */}
