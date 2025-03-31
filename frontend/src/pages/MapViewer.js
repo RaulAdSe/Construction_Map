@@ -48,25 +48,15 @@ const MapViewer = ({ onLogout }) => {
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        // Get user ID from JWT token
         const token = localStorage.getItem('token');
-        if (token) {
-          // Parse token (token is in the format xxx.yyy.zzz where yyy is the payload)
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          // Get username from token sub claim
-          const username = payload.sub;
-          
-          // For now we'll just create a minimal user object with the username
-          const user = { 
-            id: username, // Using username as ID for now
-            username: username
-          };
-          
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedUser && token) {
+          const user = JSON.parse(storedUser);
           setCurrentUser(user);
           
-          // For now, set a default role until we implement a proper role service
-          // This is a temporary solution until we have a proper API endpoint
-          if (username === 'admin') {
+          // Set role based on is_admin flag
+          if (user.is_admin) {
             setUserRole('ADMIN');
             setEffectiveRole('ADMIN');
           } else {
