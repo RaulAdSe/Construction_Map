@@ -3,8 +3,9 @@ import { Table, Button, Badge, Form, OverlayTrigger, Tooltip, Modal, Spinner, Al
 import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import api from '../api';
+import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
-const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRole }) => {
+const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRole, isAdmin }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -15,49 +16,14 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [filteredEvents, setFilteredEvents] = useState([]);
 
-  // Check if user is admin based on userRole prop or token
+  // Filter events and update when events prop changes
   useEffect(() => {
-    // Initialize to false
-    setIsAdmin(false);
-    
-    // First check if we have a user object in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.is_admin === true) {
-          setIsAdmin(true);
-          console.log('EventsTable: User is admin from localStorage');
-          return;
-        }
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
-    }
-    
-    // If userRole prop is provided, use that as fallback
-    if (userRole) {
-      setIsAdmin(userRole === 'ADMIN');
-      console.log('EventsTable: Admin status set from userRole prop:', userRole === 'ADMIN');
-      return;
-    }
-    
-    // Last resort: check token
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setIsAdmin(payload.sub === 'admin');
-        console.log('EventsTable: Admin status set from token:', payload.sub === 'admin');
-      } catch (error) {
-        console.error('Error parsing token:', error);
-      }
-    }
-  }, [userRole]);
+    setFilteredEvents(events || []);
+  }, [events]);
 
-  if (!events || events.length === 0) {
+  if (!filteredEvents || filteredEvents.length === 0) {
     return (
       <div className="p-3 bg-light rounded text-center">
         <p>No events available for this project.</p>
@@ -67,7 +33,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
 
   // Group events by map
   const eventsByMap = {};
-  events.forEach(event => {
+  filteredEvents.forEach(event => {
     if (!eventsByMap[event.map_id]) {
       eventsByMap[event.map_id] = [];
     }
@@ -105,7 +71,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
   const handleStatusChange = async (eventId, newStatus) => {
     // Check if user is trying to close the event but isn't an admin
     if (newStatus === 'closed' && !isAdmin) {
-      alert('Only ADMIN users can close events.');
+      alert('Only admin users can close events.');
       return;
     }
     
@@ -113,15 +79,15 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     try {
       await updateEventStatus(eventId, newStatus, userRole);
       if (onEventUpdated) {
-        const updatedEvent = events.find(e => e.id === eventId);
+        const updatedEvent = filteredEvents.find(e => e.id === eventId);
         onEventUpdated({...updatedEvent, status: newStatus});
       }
     } catch (error) {
       console.error('Failed to update status:', error);
       if (error.response && error.response.status === 403) {
-        alert('Permission denied: Only ADMIN users can close events.');
-      } else if (error.message === 'Only ADMIN users can close events') {
-        alert('Permission denied: Only ADMIN users can close events.');
+        alert('Permission denied: Only admin users can close events.');
+      } else if (error.message === 'Only admin users can close events') {
+        alert('Permission denied: Only admin users can close events.');
       }
     } finally {
       setUpdatingEvent(null);
@@ -133,7 +99,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     try {
       await updateEventState(eventId, newType);
       if (onEventUpdated) {
-        const updatedEvent = events.find(e => e.id === eventId);
+        const updatedEvent = filteredEvents.find(e => e.id === eventId);
         onEventUpdated({...updatedEvent, state: newType});
       }
     } catch (error) {
@@ -202,7 +168,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
       
       // Update comment count in the event
       if (onEventUpdated) {
-        const updatedEvent = events.find(e => e.id === selectedEventId);
+        const updatedEvent = filteredEvents.find(e => e.id === selectedEventId);
         onEventUpdated({
           ...updatedEvent, 
           comment_count: (updatedEvent.comment_count || 0) + 1
@@ -237,7 +203,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     <div className="events-table-container">
       {Object.keys(eventsByMap).map(mapId => (
         <div key={mapId} className="mb-4">
-          <h5 className="mb-3">Map: {events.find(e => e.map_id === parseInt(mapId))?.map_name || `ID: ${mapId}`}</h5>
+          <h5 className="mb-3">Map: {filteredEvents.find(e => e.map_id === parseInt(mapId))?.map_name || `ID: ${mapId}`}</h5>
           <Table striped bordered hover responsive>
             <thead>
               <tr>
@@ -351,157 +317,106 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
       ))}
       
       {/* Comments Modal */}
-      <Modal 
-        show={showCommentModal} 
+      <Modal
+        show={showCommentModal}
         onHide={() => setShowCommentModal(false)}
         size="lg"
-        contentClassName="modal-content"
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>
-            Event Comments
-          </Modal.Title>
+          <Modal.Title>Event Comments</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {/* Comment Form */}
-          <Form onSubmit={handleCommentSubmit} className="mb-4">
-            {commentError && <Alert variant="danger">{commentError}</Alert>}
+          <div className="comments-section">
+            {commentError && (
+              <Alert variant="danger">{commentError}</Alert>
+            )}
             
-            <Form.Group className="mb-3">
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="Add a comment..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                disabled={submittingComment}
-              />
-            </Form.Group>
-            
-            <div className="d-flex justify-content-between align-items-center">
+            <Form onSubmit={handleCommentSubmit}>
               <Form.Group className="mb-3">
-                <Form.Label className="text-muted small">Attach Image (optional)</Form.Label>
+                <Form.Label>Add a comment</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Write your comment here..."
+                />
+              </Form.Group>
+              
+              <Form.Group className="mb-3">
+                <Form.Label>Attach image (optional)</Form.Label>
                 <Form.Control
                   type="file"
-                  accept="image/*"
                   onChange={handleFileChange}
-                  disabled={submittingComment}
+                  accept="image/*"
                 />
               </Form.Group>
               
               {imagePreview && (
-                <div className="comment-image-preview">
-                  <Image 
+                <div className="mb-3">
+                  <p className="mb-1">Image preview:</p>
+                  <img 
                     src={imagePreview} 
                     alt="Preview" 
-                    thumbnail 
-                    style={{ maxHeight: '80px' }} 
+                    style={{ maxWidth: '100%', maxHeight: '200px' }} 
                   />
-                  <Button 
-                    variant="link" 
-                    size="sm" 
-                    className="text-danger p-0 ms-2"
-                    onClick={() => {
-                      setCommentImage(null);
-                      setImagePreview('');
-                    }}
-                  >
-                    Remove
-                  </Button>
                 </div>
               )}
-            </div>
-            
-            <div className="d-flex justify-content-end">
+              
               <Button
-                variant="primary"
                 type="submit"
-                disabled={submittingComment || !newComment.trim()}
+                variant="primary"
+                disabled={submittingComment}
+                className="mb-4"
               >
-                {submittingComment ? (
-                  <>
-                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                    <span className="ms-2">Submitting...</span>
-                  </>
-                ) : (
-                  'Post Comment'
-                )}
+                {submittingComment ? 'Submitting...' : 'Submit Comment'}
               </Button>
-            </div>
-          </Form>
-          
-          {/* Comments List */}
-          <div className="comments-list mt-4">
-            <h5>Previous Comments</h5>
+            </Form>
+            
+            <hr />
+            
+            <h6>Comments</h6>
+            
             {loadingComments ? (
-              <div className="text-center py-4">
-                <Spinner animation="border" role="status">
-                  <span className="visually-hidden">Loading comments...</span>
-                </Spinner>
+              <div className="text-center p-3">
+                <Spinner animation="border" size="sm" /> Loading comments...
               </div>
-            ) : comments.length === 0 ? (
-              <p className="text-center text-muted">No comments yet. Be the first to comment!</p>
             ) : (
-              <div className="comments-thread">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="comment-card mb-3 border-bottom pb-3">
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <div>
-                        <h6 className="mb-0">{comment.username}</h6>
-                        <small className="text-muted">
-                          {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                          {comment.updated_at && comment.updated_at !== comment.created_at && (
-                            <span> (edited)</span>
-                          )}
-                        </small>
+              <div className="comment-list">
+                {comments.length === 0 ? (
+                  <p className="text-muted">No comments yet.</p>
+                ) : (
+                  comments.map(comment => (
+                    <div key={comment.id} className="comment-item mb-3 p-3 border rounded">
+                      <div className="d-flex justify-content-between">
+                        <strong>{comment.user_name || `User ID: ${comment.user_id}`}</strong>
+                        <small className="text-muted">{format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}</small>
                       </div>
+                      <p className="mt-2 mb-2">{comment.content}</p>
+                      {comment.image_url && (
+                        <div className="comment-image mt-2">
+                          <a 
+                            href={`http://localhost:8000/comments/${comment.image_url.split('/').pop()}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <Image 
+                              src={`http://localhost:8000/comments/${comment.image_url.split('/').pop()}`} 
+                              alt="Comment attachment" 
+                              thumbnail 
+                              className="comment-image-thumbnail"
+                              style={{ maxWidth: '100%', maxHeight: '300px' }}
+                            />
+                            <div className="mt-1">
+                              <small className="text-muted">Click to view full size</small>
+                            </div>
+                          </a>
+                        </div>
+                      )}
                     </div>
-                    
-                    <p className="mb-2">{comment.content}</p>
-                    
-                    {comment.image_url && (
-                      <div className="comment-image mt-2">
-                        <a 
-                          href={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`}
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          onClick={(e) => {
-                            if (!comment.image_url.startsWith('http')) {
-                              e.preventDefault();
-                              
-                              // Get just the filename without path
-                              const imageFilename = comment.image_url.split('/').pop();
-                              
-                              // Use comments path for comment images
-                              const imageUrl = `http://localhost:8000/comments/${imageFilename}`;
-                              window.open(imageUrl, '_blank');
-                            }
-                          }}
-                        >
-                          <Image 
-                            src={comment.image_url.startsWith('http') 
-                              ? comment.image_url 
-                              : (() => {
-                                  // Get just the filename without path
-                                  const imageFilename = comment.image_url.split('/').pop();
-                                  // Use comments path for comment images
-                                  return `http://localhost:8000/comments/${imageFilename}`;
-                                })()
-                            } 
-                            alt="Comment attachment" 
-                            thumbnail 
-                            className="comment-image-thumbnail"
-                            style={{ maxWidth: '100%', maxHeight: '300px' }}
-                          />
-                          <div className="mt-1">
-                            <small className="text-muted">Click to view full size</small>
-                          </div>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -516,4 +431,4 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
   );
 };
 
-export default EventsTable; 
+export default EventsTable;

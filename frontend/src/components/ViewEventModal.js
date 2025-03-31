@@ -3,13 +3,12 @@ import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bo
 import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
-import { isUserAdmin } from '../utils/permissions';
+import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
 const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, userRole }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
-  const [canCloseEvent, setCanCloseEvent] = useState(false);
   
   useEffect(() => {
     if (event) {
@@ -17,32 +16,11 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       setCurrentType(event.state || 'periodic check');
     }
   }, [event]);
-  
-  // Determine if user can close events based on admin status
-  useEffect(() => {
-    let isAdmin = false;
-    
-    // First check if we have a user object in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.is_admin === true) {
-          isAdmin = true;
-        }
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
-    } 
-    // Next check userRole prop
-    else if (userRole) {
-      isAdmin = userRole === 'ADMIN';
-    }
-    
-    setCanCloseEvent(isAdmin);
-  }, [userRole]);
 
   if (!event) return null;
+  
+  // Use centralized isUserAdmin utility
+  const canCloseEvent = isUserAdmin(userRole);
   
   // Parse active maps configuration from event
   let activeMapSettings = {};
@@ -93,9 +71,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
     
-    // Check if user is trying to close the event
-    if (newStatus === 'closed' && !canCloseEvent) {
-      alert('Only ADMIN users can close events.');
+    // Use canPerformAdminAction for permission check
+    if (newStatus === 'closed' && !canPerformAdminAction('close event', userRole)) {
+      alert('Only admin users can close events.');
       return;
     }
     
@@ -111,7 +89,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       console.error('Failed to update status:', error);
       setCurrentStatus(event.status); // Revert on error
       if (error.response && error.response.status === 403) {
-        alert('Permission denied: Only ADMIN users can close events.');
+        alert('Permission denied: Only admin users can close events.');
       }
     } finally {
       setUpdating(false);
@@ -195,7 +173,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                         <option value="open">Open</option>
                         <option value="in-progress">In Progress</option>
                         <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
+                        {isUserAdmin(userRole) && <option value="closed">Closed</option>}
                       </Form.Select>
                       {getStatusBadge()}
                     </Form.Group>

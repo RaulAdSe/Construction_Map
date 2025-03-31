@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
+import React, { useState, useEffect, useRef } from 'react';
+import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-router-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import MapList from '../components/MapList';
 import MapDetail from '../components/MapDetail';
@@ -308,6 +308,11 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleAddEvent = () => {
+    if (!isUserAdmin(effectiveRole)) {
+      showNotification('Only admin users can add events.', 'warning');
+      return;
+    }
+
     if (!selectedMap) {
       showNotification('Please select a map first before adding an event.', 'warning');
       // Maybe direct them to map selection
@@ -498,8 +503,16 @@ const MapViewer = ({ onLogout }) => {
                   <h5 className="mb-3">Map Controls</h5>
                   
                   <div className="d-grid gap-2 mb-4">
-                    <Button variant="success" onClick={handleAddEvent}>
+                    <Button
+                      variant="success"
+                      onClick={handleAddEvent}
+                      disabled={effectiveRole === 'MEMBER'}
+                      title={effectiveRole === 'MEMBER' ? "Only admins can add events" : "Add a new event"}
+                    >
                       <i className="bi bi-pin-map me-2"></i>Add Event
+                      {effectiveRole === 'MEMBER' && (
+                        <small className="ms-2">(Admin only)</small>
+                      )}
                     </Button>
                   </div>
                   
@@ -603,6 +616,7 @@ const MapViewer = ({ onLogout }) => {
               onEditEvent={handleEditEvent}
               onEventUpdated={handleEventUpdated}
               userRole={effectiveRole}
+              isAdmin={isUserAdmin(effectiveRole)}
             />
           </Tab>
           
