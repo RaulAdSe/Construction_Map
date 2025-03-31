@@ -10,16 +10,14 @@ from sqlalchemy.orm import Session
 from app.core.db_monitoring import get_slow_queries
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
+from app.services import user_activity as activity_service
+from app.schemas.user_activity import UserActivityList, UserActivity as UserActivitySchema
 
 router = APIRouter()
 
 # In-memory metrics storage (simple implementation)
 system_metrics = []
 MAX_METRICS = 1000
-
-# In-memory user activity tracking
-user_activities = []
-MAX_USER_ACTIVITIES = 100
 
 # Set up logging
 monitoring_logger = logging.getLogger("monitoring")
@@ -31,23 +29,49 @@ file_handler.setFormatter(formatter)
 monitoring_logger.addHandler(file_handler)
 
 # Function to log user activity
-def log_user_activity(user_id, username, action, ip_address="Unknown", user_type="Unknown", details=None):
-    activity = {
-        "timestamp": datetime.now().isoformat(),
-        "user_id": user_id,
-        "username": username,
-        "action": action,
-        "ip_address": ip_address,
-        "user_type": user_type,
-        "details": details or {}
-    }
+def log_user_activity(
+    user_id: int, 
+    username: str, 
+    action: str, 
+    ip_address: str = "Unknown", 
+    user_type: str = "Unknown", 
+    details: Optional[Dict[str, Any]] = None,
+    db: Session = None
+):
+    """
+    Log user activity to database and monitoring log
+    """
     
-    user_activities.append(activity)
-    if len(user_activities) > MAX_USER_ACTIVITIES:
-        user_activities.pop(0)
+    # Get a database connection if not provided
+    if not db:
+        # Create a new database session
+        from app.db.database import SessionLocal
+        db = SessionLocal()
+        close_db = True
+    else:
+        close_db = False
     
-    monitoring_logger.info(f"User activity: {activity['username']} ({activity['user_type']}) - {activity['action']}")
-    return activity
+    try:
+        # Create activity in database
+        db_activity = activity_service.create_user_activity(
+            db=db,
+            user_id=user_id,
+            username=username,
+            action=action,
+            ip_address=ip_address,
+            user_type=user_type,
+            details=details
+        )
+        
+        # Log to monitoring log as well
+        monitoring_logger.info(f"User activity: {username} ({user_type}) - {action}")
+        
+        # Convert to Pydantic model and return
+        return UserActivitySchema.from_orm(db_activity)
+    finally:
+        # Close DB session if we created it in this function
+        if close_db:
+            db.close()
 
 @router.get("/health/system")
 def get_system_health(current_user: User = Depends(get_current_user)):
@@ -169,7 +193,7 @@ def get_system_metrics(current_user: User = Depends(get_current_user)):
             detail=f"Failed to get system metrics: {str(e)}"
         )
 
-@router.get("/user-activity")
+@router.get("/user-activity", response_model=UserActivityList)
 def get_user_activity(
     user_id: Optional[int] = None,
     username: Optional[str] = None,
@@ -178,6 +202,8 @@ def get_user_activity(
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     limit: int = Query(50, gt=0, le=500),
+    skip: int = 0,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get user activity logs (logins, actions, etc.)"""
@@ -188,42 +214,42 @@ def get_user_activity(
         )
     
     try:
-        # Filter activities based on query parameters
-        filtered_activities = user_activities.copy()
-        
-        if user_id:
-            filtered_activities = [a for a in filtered_activities if a["user_id"] == user_id]
-            
-        if username:
-            filtered_activities = [a for a in filtered_activities if username.lower() in a["username"].lower()]
-            
-        if action:
-            filtered_activities = [a for a in filtered_activities if action.lower() in a["action"].lower()]
-            
-        if user_type:
-            filtered_activities = [a for a in filtered_activities if user_type.lower() == a["user_type"].lower()]
-            
+        # Parse time parameters if provided
+        start_datetime = None
         if start_time:
-            start = datetime.fromisoformat(start_time)
-            filtered_activities = [
-                a for a in filtered_activities 
-                if datetime.fromisoformat(a["timestamp"]) >= start
-            ]
+            start_datetime = datetime.fromisoformat(start_time)
             
+        end_datetime = None
         if end_time:
-            end = datetime.fromisoformat(end_time)
-            filtered_activities = [
-                a for a in filtered_activities 
-                if datetime.fromisoformat(a["timestamp"]) <= end
-            ]
-            
-        # Sort by timestamp (newest first) and apply limit
-        filtered_activities.sort(key=lambda x: x["timestamp"], reverse=True)
-        filtered_activities = filtered_activities[:limit]
+            end_datetime = datetime.fromisoformat(end_time)
+        
+        # Get activities from database
+        activities = activity_service.get_user_activities(
+            db=db,
+            user_id=user_id,
+            username=username,
+            action=action,
+            user_type=user_type,
+            start_time=start_datetime,
+            end_time=end_datetime,
+            skip=skip,
+            limit=limit
+        )
+        
+        # Get total count for the filtered activities
+        total_count = activity_service.get_activities_count(
+            db=db,
+            user_id=user_id,
+            username=username,
+            action=action,
+            user_type=user_type,
+            start_time=start_datetime,
+            end_time=end_datetime
+        )
         
         return {
-            "total": len(filtered_activities),
-            "activities": filtered_activities
+            "total": total_count,
+            "activities": activities
         }
     except Exception as e:
         monitoring_logger.error(f"Error getting user activity: {str(e)}")
@@ -253,10 +279,11 @@ def record_user_activity(
             action=action,
             ip_address=ip_address,
             user_type=user_type,
-            details=details
+            details=details,
+            db=db
         )
         
-        return activity_record
+        return {"status": "success", "activity": activity_record}
     except Exception as e:
         monitoring_logger.error(f"Error recording user activity: {str(e)}")
         raise HTTPException(
