@@ -99,6 +99,17 @@ iframe.clean-pdf-view {
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
   border-radius: 50%;
   pointer-events: auto !important;
+  transition: width 0.2s, height 0.2s, box-shadow 0.2s;
+  width: 20px;
+  height: 20px;
+}
+
+.event-marker-hover,
+.event-marker:hover {
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8);
+  z-index: 850 !important; /* Higher z-index on hover to appear above other markers */
 }
 
 /* Pulse animation for active markers */
@@ -636,4 +647,156 @@ iframe[src*=".pdf"] {
   padding: 10px;
   background-color: #f9f9f9;
   border-radius: 8px;
+}
+
+/* Consistent map container styles for cross-device compatibility */
+.consistent-map-view {
+  position: relative;
+  width: 100%;
+  height: 800px;
+  overflow: hidden;
+  background-color: #ffffff;
+  transition: none !important; /* Prevent animations that could affect positioning */
+}
+
+/* Ensure that all layers maintain consistent aspect ratio */
+.map-layers-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transform-origin: top left;
+  transition: none !important; /* Prevent animations that could affect positioning */
+}
+
+/* Consistent PDF display */
+.consistent-pdf-view {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: none !important;
+  transform-origin: top left;
+  transition: none !important;
+}
+
+/* Consistent image display */
+.consistent-map-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain !important; /* Always use contain to preserve aspect ratio */
+  transform-origin: top left;
+  transition: none !important;
+}
+
+/* Consistent iframe view */
+.consistent-iframe-view {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  overflow: hidden !important;
+  transform-origin: top left;
+  transition: none !important;
+}
+
+/* Event markers container */
+.event-markers-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2000;
+  pointer-events: none;
+  transform-origin: top left;
+  transition: none !important;
+}
+
+/* Event marker styles */
+.event-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 800 !important;
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+  border-radius: 50%;
+  pointer-events: auto !important;
+  transition: width 0.2s, height 0.2s, box-shadow 0.2s;
+  width: 20px;
+  height: 20px;
+}
+
+.event-marker:hover {
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+
+/* Map container responsive scaling */
+@media (max-width: 1400px) {
+  .consistent-map-view,
+  .map-container {
+    height: 700px;
+  }
+}
+
+@media (max-width: 992px) {
+  .consistent-map-view,
+  .map-container {
+    height: 600px;
+  }
+}
+
+@media (max-width: 768px) {
+  .consistent-map-view,
+  .map-container {
+    height: 500px;
+  }
+}
+
+@media (max-width: 576px) {
+  .consistent-map-view,
+  .map-container {
+    height: 400px;
+  }
+}
+
+/* Make sure markers stay visible on all screen sizes */
+@media (max-width: 576px) {
+  .event-marker {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+  }
+  
+  .event-marker:hover {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* PDF container specific styles */
+.pdf-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: white;
+  overflow: hidden;
+}
+
+/* Map image container specific styles */
+.map-image-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 } 

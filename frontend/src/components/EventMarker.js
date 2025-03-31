@@ -56,7 +56,7 @@ const EventMarker = ({ event, onClick }) => {
   const [isHovered, setIsHovered] = useState(false);
   
   useEffect(() => {
-    // Log when a marker is rendered
+    // Log when a marker is rendered with its position
     console.log(`Event marker rendered: ${event.id} at x:${event.x_coordinate}%, y:${event.y_coordinate}%`);
   }, [event]);
   
@@ -74,23 +74,14 @@ const EventMarker = ({ event, onClick }) => {
   const statusFactor = statusModifiers[event.status] || 1.0;
   const color = adjustBrightness(baseColor, statusFactor);
   
+  // Use CSS classes for core styles and only use inline styles for positioning and color
   const markerStyle = {
-    position: 'absolute',
     left: `${event.x_coordinate}%`,
     top: `${event.y_coordinate}%`,
-    width: isHovered ? '24px' : '20px', // Increased size
-    height: isHovered ? '24px' : '20px', // Increased size
     backgroundColor: color,
-    border: '3px solid white', // Thicker border
-    borderRadius: '50%',
-    transform: 'translate(-50%, -50%)',
     boxShadow: isHovered 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
-      : '0 0 6px rgba(0, 0, 0, 0.5)', // Enhanced shadow
-    cursor: 'pointer',
-    zIndex: 800, // Same z-index as other event markers
-    transition: 'all 0.2s ease',
-    pointerEvents: 'auto'
+      : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`
   };
 
   // Get type badge
@@ -132,6 +123,13 @@ const EventMarker = ({ event, onClick }) => {
     </Tooltip>
   );
   
+  // Add data attributes for debugging if needed
+  const dataAttributes = {
+    'data-event-id': event.id,
+    'data-x-position': event.x_coordinate,
+    'data-y-position': event.y_coordinate
+  };
+  
   return (
     <OverlayTrigger
       placement="top"
@@ -139,12 +137,12 @@ const EventMarker = ({ event, onClick }) => {
       delay={{ show: 200, hide: 100 }}
     >
       <div 
-        className="event-marker"
+        className={`event-marker ${isHovered ? 'event-marker-hover' : ''}`}
         style={markerStyle}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={onClick}
-        data-event-id={event.id}
+        {...dataAttributes}
       />
     </OverlayTrigger>
   );

@@ -6,6 +6,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const mapContainerRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // Add containerSize state to track the container dimensions
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [mapScale, setMapScale] = useState(1);
   
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
@@ -28,6 +31,40 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       });
     }
   }, [implantationMap]);
+  
+  // Add a ResizeObserver to keep track of container size changes
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    
+    const updateContainerSize = () => {
+      const container = mapContainerRef.current;
+      if (container) {
+        const { width, height } = container.getBoundingClientRect();
+        setContainerSize({ width, height });
+        
+        // Calculate and set the map scale factor (consistent scale across all devices)
+        // Using a fixed reference width (e.g. 1200px) for consistency
+        const referenceWidth = 1200;
+        const currentScale = width / referenceWidth;
+        setMapScale(currentScale);
+        console.log("Map container resized. New scale:", currentScale);
+      }
+    };
+    
+    // Initial size calculation
+    updateContainerSize();
+    
+    // Set up resize observer
+    const resizeObserver = new ResizeObserver(updateContainerSize);
+    resizeObserver.observe(mapContainerRef.current);
+    
+    // Clean up
+    return () => {
+      if (mapContainerRef.current) {
+        resizeObserver.unobserve(mapContainerRef.current);
+      }
+    };
+  }, []);
   
   // Track dependency on map types to refresh when they change
   useEffect(() => {
@@ -220,10 +257,11 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     
     if (fileExt === 'pdf') {
       // For PDFs, use an iframe with direct embed and hide UI controls
+      // Use a consistent scaling approach for PDFs
       return (
         <div key={currentMap.id} style={layerStyle} className="pdf-container">
           <iframe 
-            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`} 
+            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
             title={currentMap.name}
             style={{ 
               width: '100%', 
@@ -234,12 +272,14 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
             frameBorder="0"
             onLoad={() => handleImageLoad()}
             onError={() => handleImageError()}
+            className="consistent-pdf-view"
           />
         </div>
       );
     } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(fileExt)) {
+      // For images, contain them in their container with consistent scaling
       return (
-        <div key={currentMap.id} style={layerStyle}>
+        <div key={currentMap.id} style={layerStyle} className="map-image-container">
           <img 
             src={url} 
             alt={currentMap.name} 
@@ -250,6 +290,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
             }}
             onLoad={() => handleImageLoad()}
             onError={() => handleImageError()}
+            className="consistent-map-image"
           />
         </div>
       );
@@ -258,7 +299,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         <div key={currentMap.id} style={layerStyle}>
           <iframe 
             src={url} 
-            className="map-iframe-container"
+            className="map-iframe-container consistent-iframe-view"
             title={currentMap.name}
             style={{ width: '100%', height: '100%', border: 'none' }}
             onLoad={() => handleImageLoad()}
@@ -287,7 +328,16 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
           </div>
         )}
         
-        <div className="map-layers-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div 
+          className="map-layers-container" 
+          style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: '100%',
+            transform: `scale(${mapScale})`,
+            transformOrigin: 'top left'
+          }}
+        >
           {/* Always render main map first */}
           {renderMapLayer(implantationMap, 10)}
           
@@ -325,14 +375,17 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     width: '100%',
     height: '100%',
     zIndex: 2000, // Ensure it's above all map layers
-    pointerEvents: 'none' // Let clicks pass through to the map
+    pointerEvents: 'none', // Let clicks pass through to the map
+    // Apply the same scale transform to events to keep them aligned with the maps
+    transform: `scale(${mapScale})`,
+    transformOrigin: 'top left'
   };
   
   return (
     <div className="map-detail-container">
       <div 
         ref={mapContainerRef}
-        className="map-container" 
+        className="map-container consistent-map-view" 
         data-map-id={map?.id}
       >
         {renderMapContent()}

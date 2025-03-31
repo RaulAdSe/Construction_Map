@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Scaling Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .map-container {
+      position: relative;
+      width: 100%;
+      height: 800px;
+      background-color: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .map-layers-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      transform-origin: top left;
+    }
+    
+    .map-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 1.0;
+      z-index: 10;
+    }
+    
+    .map-layer img,
+    .map-layer iframe {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    
+    .event-markers-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      pointer-events: none;
+    }
+    
+    .event-marker {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      z-index: 800;
+      cursor: pointer;
+      border: 3px solid white;
+      box-shadow: 0 0 6px rgba(0,0,0,0.6);
+      border-radius: 50%;
+      pointer-events: auto;
+      transition: width 0.2s, height 0.2s, box-shadow 0.2s;
+      width: 20px;
+      height: 20px;
+      background-color: red;
+    }
+    
+    .event-marker:hover {
+      width: 24px;
+      height: 24px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.8);
+      z-index: 850;
+    }
+    
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    button {
+      padding: 8px 16px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background-color: #0069d9;
+    }
+    
+    .test-info {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .map-container {
+        height: 500px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Map Scaling Test</h1>
+    
+    <div class="map-container" id="mapContainer">
+      <div class="map-layers-container" id="mapLayers">
+        <div class="map-layer">
+          <img src="https://via.placeholder.com/1200x900" alt="Test Map" id="mapImage">
+        </div>
+      </div>
+      
+      <div class="event-markers-container" id="eventMarkers">
+        <!-- Event markers will be added dynamically -->
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button id="addMarker">Add Random Marker</button>
+      <button id="clearMarkers">Clear Markers</button>
+      <button id="testPdf">Test PDF</button>
+      <button id="testImage">Test Image</button>
+      <button id="resetScale">Reset Scale to 1.0</button>
+    </div>
+    
+    <div class="test-info">
+      <h3>Test Information</h3>
+      <p><strong>Window Size:</strong> <span id="windowSize"></span></p>
+      <p><strong>Container Size:</strong> <span id="containerSize"></span></p>
+      <p><strong>Scale Factor:</strong> <span id="scaleFactor">1.0</span></p>
+      <p><strong>Marker Count:</strong> <span id="markerCount">0</span></p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const mapContainer = document.getElementById('mapContainer');
+      const mapLayers = document.getElementById('mapLayers');
+      const eventMarkers = document.getElementById('eventMarkers');
+      const addMarkerButton = document.getElementById('addMarker');
+      const clearMarkersButton = document.getElementById('clearMarkers');
+      const testPdfButton = document.getElementById('testPdf');
+      const testImageButton = document.getElementById('testImage');
+      const resetScaleButton = document.getElementById('resetScale');
+      
+      const windowSizeEl = document.getElementById('windowSize');
+      const containerSizeEl = document.getElementById('containerSize');
+      const scaleFactorEl = document.getElementById('scaleFactor');
+      const markerCountEl = document.getElementById('markerCount');
+      
+      let scale = 1.0;
+      let markers = [];
+      
+      // Update display sizes
+      function updateSizeInfo() {
+        windowSizeEl.textContent = `${window.innerWidth}px × ${window.innerHeight}px`;
+        
+        const rect = mapContainer.getBoundingClientRect();
+        containerSizeEl.textContent = `${Math.round(rect.width)}px × ${Math.round(rect.height)}px`;
+        
+        // Calculate scale based on a reference width of 1200px
+        const referenceWidth = 1200;
+        scale = rect.width / referenceWidth;
+        scaleFactorEl.textContent = scale.toFixed(3);
+        
+        // Apply scale to map layers and event markers
+        mapLayers.style.transform = `scale(${scale})`;
+        eventMarkers.style.transform = `scale(${scale})`;
+      }
+      
+      // Create a new marker at random position
+      function addRandomMarker() {
+        const marker = document.createElement('div');
+        marker.className = 'event-marker';
+        
+        // Random position - percent based
+        const x = Math.floor(Math.random() * 100);
+        const y = Math.floor(Math.random() * 100);
+        
+        marker.style.left = `${x}%`;
+        marker.style.top = `${y}%`;
+        
+        // Random color
+        const colors = ['#FF3333', '#33FF57', '#3357FF', '#FF33F5', '#33FFF5'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        marker.style.backgroundColor = randomColor;
+        
+        marker.dataset.x = x;
+        marker.dataset.y = y;
+        
+        // Add tooltip behavior - show coordinates on hover
+        marker.title = `Marker at ${x}%, ${y}%`;
+        
+        // Add to DOM
+        eventMarkers.appendChild(marker);
+        markers.push(marker);
+        
+        // Update count
+        markerCountEl.textContent = markers.length;
+      }
+      
+      // Clear all markers
+      function clearMarkers() {
+        markers.forEach(marker => marker.remove());
+        markers = [];
+        markerCountEl.textContent = "0";
+      }
+      
+      // Load a test PDF
+      function loadTestPdf() {
+        // Replace image with a test PDF in an iframe
+        const mapLayer = document.querySelector('.map-layer');
+        mapLayer.innerHTML = `
+          <iframe 
+            src="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" 
+            style="width: 100%; height: 100%; border: none;"
+          ></iframe>
+        `;
+      }
+      
+      // Load a test image
+      function loadTestImage() {
+        // Replace with placeholder image
+        const mapLayer = document.querySelector('.map-layer');
+        mapLayer.innerHTML = `
+          <img src="https://via.placeholder.com/1200x900" alt="Test Map" id="mapImage">
+        `;
+      }
+      
+      // Reset scale to 1.0
+      function resetScale() {
+        scale = 1.0;
+        scaleFactorEl.textContent = "1.0";
+        mapLayers.style.transform = `scale(1)`;
+        eventMarkers.style.transform = `scale(1)`;
+      }
+      
+      // Event listeners
+      addMarkerButton.addEventListener('click', addRandomMarker);
+      clearMarkersButton.addEventListener('click', clearMarkers);
+      testPdfButton.addEventListener('click', loadTestPdf);
+      testImageButton.addEventListener('click', loadTestImage);
+      resetScaleButton.addEventListener('click', resetScale);
+      
+      // Handle window resize
+      window.addEventListener('resize', updateSizeInfo);
+      
+      // Initial setup
+      updateSizeInfo();
+      
+      // Add some initial markers for testing
+      for (let i = 0; i < 5; i++) {
+        addRandomMarker();
+      }
+    });
+  </script>
+</body>
+</html> 
