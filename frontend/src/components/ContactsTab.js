@@ -43,6 +43,12 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
   // Start editing a field
   const startEditField = (userId, currentField) => {
+    // First check with isUserAdmin
+    if (!isUserAdmin(effectiveRole)) {
+      setError('You do not have permission to edit fields. Only administrators can make changes.');
+      return;
+    }
+    
     // Use canPerformAdminAction to check permissions
     if (!canPerformAdminAction('edit field', effectiveRole)) {
       setError('You do not have permission to edit fields. Only administrators can make changes.');
@@ -60,6 +66,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   // Handle updating a user's field
   const handleUpdateField = async (userId) => {
     if (!userId) return;
+    
+    // First check with isUserAdmin
+    if (!isUserAdmin(effectiveRole)) {
+      setError('You do not have permission to update user fields. Only administrators can make changes.');
+      cancelEditField();
+      return;
+    }
     
     // Use canPerformAdminAction to check permissions
     if (!canPerformAdminAction('update field', effectiveRole)) {

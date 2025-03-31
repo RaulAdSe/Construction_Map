@@ -11,7 +11,7 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    is_admin = Column(Boolean, default=False)  # Simplified admin field
+    is_admin = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
     # Relationships
