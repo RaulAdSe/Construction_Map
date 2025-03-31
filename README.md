@@ -84,6 +84,15 @@ construction-map/
 
 This project is under active development. The initial version focuses on core functionality and will expand in future iterations.
 
+## Codebase Cleanup (April 2024)
+
+### Src Folder Consolidation
+The project previously had two React applications:
+1. Root-level app (using Webpack)
+2. Frontend directory app (using Create React App)
+
+We've consolidated to only use the frontend/src implementation, as it was the more recent, actively maintained codebase. The root-level src folder and associated configuration (webpack.config.js) have been removed to simplify the repository structure.
+
 ## License
 
 This project is licensed under the MIT License. 
