@@ -58,9 +58,11 @@ const MapViewer = ({ onLogout }) => {
           
           // Set role based on is_admin flag
           if (user.is_admin) {
+            console.log('Setting user as ADMIN, is_admin:', user.is_admin);
             setUserRole('ADMIN');
             setEffectiveRole('ADMIN');
           } else {
+            console.log('Setting user as MEMBER, is_admin:', user.is_admin);
             setUserRole('MEMBER');
             setEffectiveRole('MEMBER');
           }
@@ -391,6 +393,42 @@ const MapViewer = ({ onLogout }) => {
     }, 3000);
   };
   
+  // Add a debug function to check and fix admin status
+  window.debugAdmin = () => {
+    try {
+      // Check current localStorage
+      const token = localStorage.getItem('token');
+      const userJson = localStorage.getItem('user');
+      console.log('Current token:', token);
+      console.log('Current user data:', userJson);
+      
+      // Try to decode the token
+      if (token) {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        console.log('Token payload:', tokenPayload);
+        
+        // If we have a token but no user data, create user data
+        if (!userJson) {
+          const username = tokenPayload.sub;
+          // Create a basic user object
+          const user = {
+            username: username,
+            is_admin: username === 'admin', // Assume username 'admin' is an admin
+            id: username
+          };
+          localStorage.setItem('user', JSON.stringify(user));
+          console.log('Created user data:', user);
+          alert('Added missing user data. Please refresh the page.');
+          return user;
+        }
+      }
+      return JSON.parse(userJson || '{}');
+    } catch (e) {
+      console.error('Error in debugAdmin:', e);
+      return null;
+    }
+  };
+  
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -435,15 +473,18 @@ const MapViewer = ({ onLogout }) => {
                 </Nav.Link>
               </Nav.Item>
             </Nav>
-            {userRole === 'ADMIN' && (
-              <div className="me-3">
-                <RoleSwitcher 
-                  currentRole={effectiveRole}
-                  onRoleChange={handleRoleChange}
-                />
-              </div>
-            )}
-            <Button variant="outline-light" onClick={onLogout}>Logout</Button>
+            <div className="d-flex align-items-center">
+              {/* Debug message */}
+              {console.log('Rendering navbar, userRole:', userRole)}
+              
+              {/* RoleSwitcher component - always render but component will self-hide if not admin */}
+              <RoleSwitcher 
+                currentRole={effectiveRole}
+                onRoleChange={handleRoleChange}
+              />
+              
+              <Button variant="outline-light" onClick={onLogout} className="ms-2">Logout</Button>
+            </div>
           </Navbar.Collapse>
         </Container>
       </Navbar>
