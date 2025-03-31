@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Button, Table, Modal, Form, Spinner, InputGroup, FormControl } from 'react-bootstrap';
+import { Alert, Button, Table, Modal, Form, Spinner, InputGroup, FormControl, Badge } from 'react-bootstrap';
 import { getAllUsers } from '../services/userService';
 import { projectService } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
@@ -287,22 +287,31 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                 <td>{member.username}</td>
                 <td>
                   {editField.userId === member.id ? (
-                    <InputGroup>
-                      <FormControl
+                    <Form.Group className="d-flex align-items-center">
+                      <Form.Control
+                        type="text"
                         value={editField.value}
                         onChange={(e) => setEditField({ ...editField, value: e.target.value })}
-                        placeholder="Enter field/area"
+                        size="sm"
+                        className="me-2"
                       />
-                      <Button variant="success" onClick={() => handleUpdateField(member.id)} disabled={updatingField}>
-                        {updatingField ? <Spinner animation="border" size="sm" /> : 'Save'}
-                      </Button>
-                      <Button variant="secondary" onClick={cancelEditField}>
-                        Cancel
-                      </Button>
-                    </InputGroup>
+                      {updatingField ? (
+                        <Spinner animation="border" size="sm" />
+                      ) : (
+                        <>
+                          <Button variant="success" size="sm" onClick={() => handleUpdateField(member.id)}>
+                            <i className="bi bi-check"></i>
+                          </Button>
+                          <Button variant="secondary" size="sm" className="ms-1" onClick={cancelEditField}>
+                            <i className="bi bi-x"></i>
+                          </Button>
+                        </>
+                      )}
+                    </Form.Group>
                   ) : (
                     <div className="d-flex justify-content-between align-items-center">
-                      <span>{member.field || 'Not specified'}</span>
+                      <span>{member.field || "-"}</span>
+                      {/* Only show Edit button if user is admin */}
                       {isUserAdmin(effectiveRole) && (
                         <Button 
                           variant="outline-primary" 
@@ -310,18 +319,18 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                           className="ms-2"
                           onClick={() => startEditField(member.id, member.field)}
                         >
-                          Edit
+                          <i className="bi bi-pencil"></i>
                         </Button>
                       )}
                     </div>
                   )}
                 </td>
                 <td>
-                  <div className="d-flex align-items-center">
-                    <span className={`badge ${member.is_admin ? 'bg-primary' : 'bg-secondary'}`}>
-                      {member.is_admin ? 'Admin' : 'Member'}
-                    </span>
-                  </div>
+                  <Badge 
+                    bg={member.is_admin ? "primary" : "secondary"}
+                  >
+                    {member.is_admin ? "Admin" : "Member"}
+                  </Badge>
                 </td>
                 <td>
                   <span className={`badge ${member.is_active ? 'bg-success' : 'bg-danger'}`}>
@@ -336,7 +345,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                         size="sm"
                         onClick={() => confirmRemoveUser(member)}
                       >
-                        Remove
+                        <i className="bi bi-trash"></i>
                       </Button>
                     ) : (
                       <span className="text-muted">Cannot remove other admins</span>
