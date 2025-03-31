@@ -504,6 +504,7 @@ const MapViewer = ({ onLogout }) => {
           className="mb-4"
           key={`tabs-${effectiveRole}`}
         >
+          {/* Always show Map View tab for all users */}
           <Tab eventKey="map-view" title="Map View">
             <Row>
               <Col md={3}>
@@ -578,7 +579,7 @@ const MapViewer = ({ onLogout }) => {
             </Row>
           </Tab>
           
-          {/* Only include admin tabs if user is admin */}
+          {/* Only render admin tabs if the user has admin permissions */}
           {isUserAdmin(effectiveRole) && (
             <Tab eventKey="project-maps" title="Project Maps">
               <MapsManager 
@@ -609,6 +610,7 @@ const MapViewer = ({ onLogout }) => {
             </Tab>
           )}
           
+          {/* Only render Events tab if the user has admin permissions */}
           {isUserAdmin(effectiveRole) && (
             <Tab eventKey="events" title="Events">
               <div className="mb-3 d-flex justify-content-between">
@@ -626,6 +628,7 @@ const MapViewer = ({ onLogout }) => {
             </Tab>
           )}
           
+          {/* Always show Contacts tab for all users */}
           <Tab eventKey="contacts" title="Contacts">
             <ContactsTab 
               projectId={parseInt(projectId)} 
