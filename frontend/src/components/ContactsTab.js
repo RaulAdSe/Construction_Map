@@ -31,7 +31,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       try {
         const user = JSON.parse(storedUser);
         console.log('User data from localStorage:', user);
-        if (user.is_admin) {
+        if (user.is_admin === true) {
           setIsCurrentUserAdmin(true);
           console.log('Current user is an admin');
         } else {
@@ -63,6 +63,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     }
 
     // Also check if the effectiveRole prop indicates the user is an admin
+    // This is the fallback method, prefer the direct is_admin check above
     if (effectiveRole === 'ADMIN') {
       setIsCurrentUserAdmin(true);
       console.log('Current user is admin based on effectiveRole prop');
@@ -339,7 +340,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                   ) : (
                     <div className="d-flex justify-content-between align-items-center">
                       <span>{member.field || 'Not specified'}</span>
-                      {isCurrentUserAdmin && effectiveRole === 'ADMIN' && (
+                      {isCurrentUserAdmin && (
                         <Button 
                           variant="outline-primary" 
                           size="sm" 
@@ -348,8 +349,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                             console.log('Edit field button clicked', {
                               memberId: member.id,
                               memberField: member.field,
-                              isAdmin: isCurrentUserAdmin,
-                              effectiveRole
+                              isAdmin: isCurrentUserAdmin
                             });
                             startEditField(member.id, member.field);
                           }}

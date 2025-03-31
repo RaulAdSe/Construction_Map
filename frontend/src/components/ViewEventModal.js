@@ -3,11 +3,13 @@ import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bo
 import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
+import { isUserAdmin } from '../utils/permissions';
 
 const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, userRole }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
+  const [canCloseEvent, setCanCloseEvent] = useState(false);
   
   useEffect(() => {
     if (event) {
@@ -15,11 +17,32 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       setCurrentType(event.state || 'periodic check');
     }
   }, [event]);
+  
+  // Determine if user can close events based on admin status
+  useEffect(() => {
+    let isAdmin = false;
+    
+    // First check if we have a user object in localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.is_admin === true) {
+          isAdmin = true;
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    } 
+    // Next check userRole prop
+    else if (userRole) {
+      isAdmin = userRole === 'ADMIN';
+    }
+    
+    setCanCloseEvent(isAdmin);
+  }, [userRole]);
 
   if (!event) return null;
-  
-  // Determine if user can close the event - use passed userRole
-  const canCloseEvent = userRole === 'ADMIN';
   
   // Parse active maps configuration from event
   let activeMapSettings = {};
