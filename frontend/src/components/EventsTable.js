@@ -5,7 +5,7 @@ import { updateEventStatus, updateEventState } from '../services/eventService';
 import api from '../api';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
-const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRole, isAdmin }) => {
+const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effectiveIsAdmin }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -70,14 +70,14 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
   
   const handleStatusChange = async (eventId, newStatus) => {
     // Check if user is trying to close the event but isn't an admin
-    if (newStatus === 'closed' && !isAdmin) {
+    if (newStatus === 'closed' && !canPerformAdminAction('close event', effectiveIsAdmin)) {
       alert('Only admin users can close events.');
       return;
     }
     
     setUpdatingEvent(eventId);
     try {
-      await updateEventStatus(eventId, newStatus, userRole);
+      await updateEventStatus(eventId, newStatus);
       if (onEventUpdated) {
         const updatedEvent = filteredEvents.find(e => e.id === eventId);
         onEventUpdated({...updatedEvent, status: newStatus});
@@ -199,6 +199,9 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
     setImagePreview(URL.createObjectURL(file));
   };
 
+  // Helper function to determine if user can edit/close events
+  const canEdit = effectiveIsAdmin === true;
+
   return (
     <div className="events-table-container">
       {Object.keys(eventsByMap).map(mapId => (
@@ -246,7 +249,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, userRol
                           <option value="open">Open</option>
                           <option value="in-progress">In Progress</option>
                           <option value="resolved">Resolved</option>
-                          {isAdmin && <option value="closed">Closed</option>}
+                          {canEdit && <option value="closed">Closed</option>}
                         </Form.Select>
                         {getStatusBadge(event.status)}
                       </div>

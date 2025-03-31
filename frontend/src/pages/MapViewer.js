@@ -614,8 +614,7 @@ const MapViewer = ({ onLogout }) => {
                   onViewEvent={handleViewEvent}
                   onEditEvent={handleEditEvent}
                   onEventUpdated={handleEventUpdated}
-                  userIsAdmin={effectiveIsAdmin}
-                  isAdmin={isUserAdmin(effectiveIsAdmin)}
+                  effectiveIsAdmin={effectiveIsAdmin}
                 />
               </Tab>,
               
@@ -676,7 +675,7 @@ const MapViewer = ({ onLogout }) => {
         onEventUpdated={handleEventUpdated}
         currentUser={currentUser}
         projectId={project?.id}
-        userIsAdmin={effectiveIsAdmin}
+        effectiveIsAdmin={effectiveIsAdmin}
       />
       
       <EditEventModal
@@ -684,7 +683,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
-        userIsAdmin={effectiveIsAdmin}
+        effectiveIsAdmin={effectiveIsAdmin}
       />
       
       {/* Notification */}

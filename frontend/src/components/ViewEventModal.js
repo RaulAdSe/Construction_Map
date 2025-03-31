@@ -5,7 +5,7 @@ import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, userIsAdmin }) => {
+const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, effectiveIsAdmin }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
@@ -69,7 +69,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
     const newStatus = e.target.value;
     
     // Prevent members from closing or resolving events
-    if ((newStatus === 'closed' || newStatus === 'resolved') && !canPerformAdminAction('change event status', userIsAdmin)) {
+    if ((newStatus === 'closed' || newStatus === 'resolved') && !canPerformAdminAction('change event status', effectiveIsAdmin)) {
       alert('Only admin users can close or resolve events.');
       return;
     }
@@ -97,7 +97,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
     const newType = e.target.value;
     
     // Prevent members from changing event type
-    if (!canPerformAdminAction('change event type', userIsAdmin)) {
+    if (!canPerformAdminAction('change event type', effectiveIsAdmin)) {
       alert('Only admin users can change event type.');
       return;
     }
@@ -172,7 +172,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                     <h6>Status</h6>
                     <Form.Group>
                       {/* For members: Only show a disabled badge, no dropdown */}
-                      {userIsAdmin !== true ? (
+                      {effectiveIsAdmin !== true ? (
                         <div>
                           {getStatusBadge()}
                           <small className="text-muted d-block mt-2">
@@ -202,7 +202,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                     <h6>Type</h6>
                     <Form.Group>
                       {/* For members: Only show a badge, no dropdown */}
-                      {userIsAdmin !== true ? (
+                      {effectiveIsAdmin !== true ? (
                         <div>
                           {getTypeBadge()}
                           <small className="text-muted d-block mt-2">
