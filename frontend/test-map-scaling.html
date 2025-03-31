@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Map Scaling Test</title>
+  <title>Map Content-Fit Test</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -21,6 +21,7 @@
       margin-bottom: 20px;
     }
     
+    /* Map container */
     .map-container {
       position: relative;
       width: 100%;
@@ -30,39 +31,33 @@
       border: 1px solid #e0e0e0;
       border-radius: 4px;
       overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
     }
     
-    .map-layers-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      transform-origin: top left;
+    /* Content container */
+    .map-content-container {
+      position: absolute;
+      transform-origin: center center;
+      background-color: #fff;
     }
     
+    /* Map layer */
     .map-layer {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      opacity: 1.0;
       z-index: 10;
-      display: flex;
-      justify-content: center;
-      align-items: center;
     }
     
     .map-layer img,
     .map-layer iframe {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      display: block;
     }
     
+    /* Event markers */
     .event-markers-container {
       position: absolute;
       top: 0;
@@ -82,8 +77,10 @@
       box-shadow: 0 0 6px rgba(0,0,0,0.6);
       border-radius: 50%;
       pointer-events: auto;
-      transition: transform 0.2s ease;
+      width: 20px;
+      height: 20px;
       background-color: red;
+      transition: transform 0.2s ease;
     }
     
     .event-marker:hover {
@@ -92,6 +89,7 @@
       z-index: 850;
     }
     
+    /* Controls */
     .controls {
       margin-top: 20px;
       display: flex;
@@ -128,17 +126,17 @@
 </head>
 <body>
   <div class="container">
-    <h1>Map Scaling Test</h1>
+    <h1>Map Content-Fit Test</h1>
     
     <div class="map-container" id="mapContainer">
-      <div class="map-layers-container" id="mapLayers">
-        <div class="map-layer">
+      <div class="map-content-container" id="mapContent">
+        <div class="map-layer" id="mapLayer">
           <img src="https://via.placeholder.com/1200x900" alt="Test Map" id="mapImage">
         </div>
-      </div>
-      
-      <div class="event-markers-container" id="eventMarkers">
-        <!-- Event markers will be added dynamically -->
+        
+        <div class="event-markers-container" id="eventMarkers">
+          <!-- Event markers will be added dynamically -->
+        </div>
       </div>
     </div>
     
@@ -147,135 +145,172 @@
       <button id="clearMarkers">Clear Markers</button>
       <button id="testPdf">Test PDF</button>
       <button id="testImage">Test Image</button>
-      <button id="resetScale">Reset Scale to 1.0</button>
       <button id="toggleFullWidth">Toggle Full Width</button>
+      <button id="toggleAspectRatio">Toggle Aspect Ratio</button>
     </div>
     
     <div class="test-info">
       <h3>Test Information</h3>
       <p><strong>Window Size:</strong> <span id="windowSize"></span></p>
       <p><strong>Container Size:</strong> <span id="containerSize"></span></p>
+      <p><strong>Content Size:</strong> <span id="contentSize"></span></p>
       <p><strong>Scale Factor:</strong> <span id="scaleFactor">1.0</span></p>
-      <p><strong>Marker Count:</strong> <span id="markerCount">0</span></p>
-      <p><strong>Last Marker Position:</strong> <span id="lastMarkerPosition">None</span></p>
+      <p><strong>Markers:</strong> <span id="markerCount">0</span></p>
+      <p><strong>Last Click Position:</strong> <span id="lastClickPos">None</span></p>
     </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Get DOM elements
       const mapContainer = document.getElementById('mapContainer');
-      const mapLayers = document.getElementById('mapLayers');
+      const mapContent = document.getElementById('mapContent');
+      const mapLayer = document.getElementById('mapLayer');
       const eventMarkers = document.getElementById('eventMarkers');
+      
+      // Buttons
       const addMarkerButton = document.getElementById('addMarker');
       const clearMarkersButton = document.getElementById('clearMarkers');
       const testPdfButton = document.getElementById('testPdf');
       const testImageButton = document.getElementById('testImage');
-      const resetScaleButton = document.getElementById('resetScale');
       const toggleFullWidthButton = document.getElementById('toggleFullWidth');
+      const toggleAspectRatioButton = document.getElementById('toggleAspectRatio');
       
+      // Info elements
       const windowSizeEl = document.getElementById('windowSize');
       const containerSizeEl = document.getElementById('containerSize');
+      const contentSizeEl = document.getElementById('contentSize');
       const scaleFactorEl = document.getElementById('scaleFactor');
       const markerCountEl = document.getElementById('markerCount');
-      const lastMarkerPositionEl = document.getElementById('lastMarkerPosition');
+      const lastClickPosEl = document.getElementById('lastClickPos');
       
-      let scale = 1.0;
+      // State variables
       let markers = [];
       let isFullWidth = false;
+      let useWideAspectRatio = false;
+      let contentWidth = 1200;
+      let contentHeight = 900;
+      let scale = 1;
       
-      // Update display sizes
-      function updateSizeInfo() {
+      // Set initial content size
+      mapContent.style.width = `${contentWidth}px`;
+      mapContent.style.height = `${contentHeight}px`;
+      
+      // Calculate and update the viewport scaling
+      function updateViewportScaling() {
+        // Get container dimensions
+        const containerRect = mapContainer.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+        
+        // Calculate scale factors for width and height
+        const scaleX = containerWidth / contentWidth;
+        const scaleY = containerHeight / contentHeight;
+        
+        // Choose the smaller scale to ensure the content fits entirely
+        scale = Math.min(scaleX, scaleY) * 0.95; // 0.95 to leave slight margins
+        
+        // Update the content position and scale
+        mapContent.style.transform = `scale(${scale})`;
+        mapContent.style.top = '50%';
+        mapContent.style.left = '50%';
+        mapContent.style.marginLeft = `-${contentWidth / 2}px`;
+        mapContent.style.marginTop = `-${contentHeight / 2}px`;
+        
+        // Update display info
         windowSizeEl.textContent = `${window.innerWidth}px × ${window.innerHeight}px`;
-        
-        const rect = mapContainer.getBoundingClientRect();
-        containerSizeEl.textContent = `${Math.round(rect.width)}px × ${Math.round(rect.height)}px`;
-        
-        // Calculate scale based on a reference width of 1200px
-        const referenceWidth = 1200;
-        scale = Math.min(rect.width / referenceWidth, 1.0); // Cap at 1.0 for consistency
+        containerSizeEl.textContent = `${Math.round(containerWidth)}px × ${Math.round(containerHeight)}px`;
+        contentSizeEl.textContent = `${contentWidth}px × ${contentHeight}px`;
         scaleFactorEl.textContent = scale.toFixed(3);
-        
-        // Apply scale to map layers and event markers
-        mapLayers.style.transform = `scale(${scale})`;
-        eventMarkers.style.transform = `scale(${scale})`;
-        
-        // Update existing markers size to account for scale
-        markers.forEach(marker => {
-          marker.style.width = `${20 / scale}px`;
-          marker.style.height = `${20 / scale}px`;
-          marker.style.borderWidth = `${3 / scale}px`;
-        });
       }
       
-      // Track click on map to add marker at exact position
+      // Toggle the aspect ratio of the content
+      function toggleAspectRatio() {
+        if (useWideAspectRatio) {
+          contentWidth = 1200;
+          contentHeight = 900;
+        } else {
+          contentWidth = 1600;
+          contentHeight = 800;
+        }
+        
+        useWideAspectRatio = !useWideAspectRatio;
+        toggleAspectRatioButton.textContent = useWideAspectRatio ? 'Use Standard Aspect Ratio' : 'Use Wide Aspect Ratio';
+        
+        mapContent.style.width = `${contentWidth}px`;
+        mapContent.style.height = `${contentHeight}px`;
+        
+        updateViewportScaling();
+      }
+      
+      // Handle clicks on the map container to add markers
       mapContainer.addEventListener('click', function(e) {
-        if (e.target === mapContainer || e.target === mapLayers) {
-          const rect = mapContainer.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          
-          // Calculate percentage coordinates adjusted for scale
-          const xPercent = ((x / scale) / rect.width) * 100;
-          const yPercent = ((y / scale) / rect.height) * 100;
-          
+        // Convert click coordinates to content coordinates
+        const containerRect = mapContainer.getBoundingClientRect();
+        const contentRect = mapContent.getBoundingClientRect();
+        
+        // Get click position relative to the container
+        const containerX = e.clientX - containerRect.left;
+        const containerY = e.clientY - containerRect.top;
+        
+        // Convert to content coordinates
+        const contentX = (containerX - (containerRect.width - contentRect.width) / 2) / scale;
+        const contentY = (containerY - (containerRect.height - contentRect.height) / 2) / scale;
+        
+        // Convert to percentage position within the content
+        const xPercent = (contentX / contentWidth) * 100;
+        const yPercent = (contentY / contentHeight) * 100;
+        
+        // Add a marker at the click position if within bounds
+        if (xPercent >= 0 && xPercent <= 100 && yPercent >= 0 && yPercent <= 100) {
           addMarker(xPercent, yPercent);
+          lastClickPosEl.textContent = `${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`;
         }
       });
       
-      // Create a new marker at specified position
+      // Create a marker at the specified position
       function addMarker(x, y) {
         const marker = document.createElement('div');
         marker.className = 'event-marker';
         
+        // Position the marker
         marker.style.left = `${x}%`;
         marker.style.top = `${y}%`;
         
-        // Size adjusted for scale
-        marker.style.width = `${20 / scale}px`;
-        marker.style.height = `${20 / scale}px`;
-        marker.style.borderWidth = `${3 / scale}px`;
-        
-        // Random color
+        // Use a random color
         const colors = ['#FF3333', '#33FF57', '#3357FF', '#FF33F5', '#33FFF5'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
         marker.style.backgroundColor = randomColor;
         
-        marker.dataset.x = x.toFixed(2);
-        marker.dataset.y = y.toFixed(2);
+        // Add tooltip/title
+        marker.title = `Position: ${x.toFixed(1)}%, ${y.toFixed(1)}%`;
         
-        // Add tooltip behavior - show coordinates on hover
-        marker.title = `Marker at ${x.toFixed(1)}%, ${y.toFixed(1)}%`;
-        
-        // Add to DOM
+        // Add to DOM and tracking array
         eventMarkers.appendChild(marker);
         markers.push(marker);
         
-        // Update count and last position
-        markerCountEl.textContent = markers.length;
-        lastMarkerPositionEl.textContent = `${x.toFixed(1)}%, ${y.toFixed(1)}%`;
+        // Update marker count
+        markerCountEl.textContent = markers.length.toString();
       }
       
-      // Create a new marker at random position
+      // Add a random marker
       function addRandomMarker() {
-        // Random position - percent based
-        const x = Math.floor(Math.random() * 100);
-        const y = Math.floor(Math.random() * 100);
-        
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
         addMarker(x, y);
+        lastClickPosEl.textContent = `${x.toFixed(1)}%, ${y.toFixed(1)}%`;
       }
       
       // Clear all markers
       function clearMarkers() {
         markers.forEach(marker => marker.remove());
         markers = [];
-        markerCountEl.textContent = "0";
-        lastMarkerPositionEl.textContent = "None";
+        markerCountEl.textContent = '0';
+        lastClickPosEl.textContent = 'None';
       }
       
       // Load a test PDF
       function loadTestPdf() {
-        // Replace image with a test PDF in an iframe
-        const mapLayer = document.querySelector('.map-layer');
         mapLayer.innerHTML = `
           <iframe 
             src="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" 
@@ -286,26 +321,13 @@
       
       // Load a test image
       function loadTestImage() {
-        // Replace with placeholder image
-        const mapLayer = document.querySelector('.map-layer');
+        const imgSrc = useWideAspectRatio ? 
+          'https://via.placeholder.com/1600x800' : 
+          'https://via.placeholder.com/1200x900';
+          
         mapLayer.innerHTML = `
-          <img src="https://via.placeholder.com/1200x900" alt="Test Map" id="mapImage">
+          <img src="${imgSrc}" alt="Test Map" id="mapImage" style="width: 100%; height: 100%; object-fit: contain;">
         `;
-      }
-      
-      // Reset scale to 1.0
-      function resetScale() {
-        scale = 1.0;
-        scaleFactorEl.textContent = "1.0";
-        mapLayers.style.transform = `scale(1)`;
-        eventMarkers.style.transform = `scale(1)`;
-        
-        // Update markers for the new scale
-        markers.forEach(marker => {
-          marker.style.width = `${20 / scale}px`;
-          marker.style.height = `${20 / scale}px`;
-          marker.style.borderWidth = `${3 / scale}px`;
-        });
       }
       
       // Toggle full width container
@@ -320,8 +342,8 @@
         }
         isFullWidth = !isFullWidth;
         
-        // Update size info after layout change
-        setTimeout(updateSizeInfo, 100);
+        // Update after layout changes
+        setTimeout(updateViewportScaling, 100);
       }
       
       // Event listeners
@@ -329,14 +351,14 @@
       clearMarkersButton.addEventListener('click', clearMarkers);
       testPdfButton.addEventListener('click', loadTestPdf);
       testImageButton.addEventListener('click', loadTestImage);
-      resetScaleButton.addEventListener('click', resetScale);
       toggleFullWidthButton.addEventListener('click', toggleFullWidth);
+      toggleAspectRatioButton.addEventListener('click', toggleAspectRatio);
       
       // Handle window resize
-      window.addEventListener('resize', updateSizeInfo);
+      window.addEventListener('resize', updateViewportScaling);
       
       // Initial setup
-      updateSizeInfo();
+      updateViewportScaling();
       
       // Add some initial markers for testing
       for (let i = 0; i < 5; i++) {
