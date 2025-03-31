@@ -429,6 +429,14 @@ const MapViewer = ({ onLogout }) => {
     }
   };
   
+  // Add a useEffect to reset to Map View tab when changing from admin to member
+  useEffect(() => {
+    // If user switches to MEMBER role, make sure they're on a tab they can see
+    if (effectiveRole === 'MEMBER' && (activeTab === 'project-maps' || activeTab === 'events')) {
+      setActiveTab('map-view');
+    }
+  }, [effectiveRole, activeTab]);
+  
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -490,7 +498,12 @@ const MapViewer = ({ onLogout }) => {
       </Navbar>
       
       <Container className="mt-4">
-        <Tabs activeKey={activeTab} onSelect={setActiveTab} className="mb-4">
+        <Tabs 
+          activeKey={activeTab} 
+          onSelect={setActiveTab} 
+          className="mb-4"
+          key={`tabs-${effectiveRole}`}
+        >
           <Tab eventKey="map-view" title="Map View">
             <Row>
               <Col md={3}>
