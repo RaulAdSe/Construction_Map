@@ -480,7 +480,7 @@ const MapViewer = ({ onLogout }) => {
               {/* RoleSwitcher component - always render but component will self-hide if not admin */}
               <RoleSwitcher 
                 currentIsAdmin={effectiveIsAdmin}
-                onIsAdminChange={handleRoleChange}
+                onRoleChange={handleRoleChange}
               />
               
               <Button variant="outline-light" onClick={onLogout} className="ms-2">Logout</Button>
