@@ -96,11 +96,8 @@ cd "$(dirname "$0")" # Ensure we're in the script's directory
 if [ -d "venv311" ]; then
   echo -e "${YELLOW}Activating venv311 virtual environment...${NC}"
   source venv311/bin/activate
-elif [ -d "backend/venv" ]; then
-  echo -e "${YELLOW}Activating backend/venv virtual environment...${NC}"
-  source backend/venv/bin/activate
 else
-  echo -e "${RED}Error: Virtual environment not found!${NC}"
+  echo -e "${RED}Error: Virtual environment venv311 not found!${NC}"
   exit 1
 fi
 
