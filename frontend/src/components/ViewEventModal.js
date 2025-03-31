@@ -3,8 +3,9 @@ import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bo
 import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
+import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, userRole }) => {
+const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, effectiveIsAdmin }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
@@ -17,9 +18,6 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   }, [event]);
 
   if (!event) return null;
-  
-  // Determine if user can close the event - use passed userRole
-  const canCloseEvent = userRole === 'ADMIN';
   
   // Parse active maps configuration from event
   let activeMapSettings = {};
@@ -70,9 +68,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
     
-    // Check if user is trying to close the event
-    if (newStatus === 'closed' && !canCloseEvent) {
-      alert('Only ADMIN users can close events.');
+    // Prevent members from closing or resolving events
+    if ((newStatus === 'closed' || newStatus === 'resolved') && !canPerformAdminAction('change event status', effectiveIsAdmin)) {
+      alert('Only admin users can close or resolve events.');
       return;
     }
     
@@ -88,7 +86,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       console.error('Failed to update status:', error);
       setCurrentStatus(event.status); // Revert on error
       if (error.response && error.response.status === 403) {
-        alert('Permission denied: Only ADMIN users can close events.');
+        alert('Permission denied: Only admin users can modify event status.');
       }
     } finally {
       setUpdating(false);
@@ -97,6 +95,13 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   
   const handleTypeChange = async (e) => {
     const newType = e.target.value;
+    
+    // Prevent members from changing event type
+    if (!canPerformAdminAction('change event type', effectiveIsAdmin)) {
+      alert('Only admin users can change event type.');
+      return;
+    }
+    
     setCurrentType(newType);
     
     try {
@@ -108,6 +113,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
     } catch (error) {
       console.error('Failed to update type:', error);
       setCurrentType(event.state); // Revert on error
+      if (error.response && error.response.status === 403) {
+        alert('Permission denied: Only admin users can modify event type.');
+      }
     } finally {
       setUpdating(false);
     }
@@ -163,33 +171,59 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                   <Col md={6}>
                     <h6>Status</h6>
                     <Form.Group>
-                      <Form.Select 
-                        value={currentStatus} 
-                        onChange={handleStatusChange}
-                        disabled={updating}
-                        className="mb-2"
-                      >
-                        <option value="open">Open</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
-                      </Form.Select>
-                      {getStatusBadge()}
+                      {/* For members: Only show a disabled badge, no dropdown */}
+                      {effectiveIsAdmin !== true ? (
+                        <div>
+                          {getStatusBadge()}
+                          <small className="text-muted d-block mt-2">
+                            Only administrators can change event status.
+                          </small>
+                        </div>
+                      ) : (
+                        /* For admins: Show the dropdown with all options */
+                        <>
+                          <Form.Select 
+                            value={currentStatus} 
+                            onChange={handleStatusChange}
+                            disabled={updating}
+                            className="mb-2"
+                          >
+                            <option value="open">Open</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="closed">Closed</option>
+                          </Form.Select>
+                          {getStatusBadge()}
+                        </>
+                      )}
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <h6>Type</h6>
                     <Form.Group>
-                      <Form.Select 
-                        value={currentType} 
-                        onChange={handleTypeChange}
-                        disabled={updating}
-                        className="mb-2"
-                      >
-                        <option value="periodic check">Periodic Check</option>
-                        <option value="incidence">Incidence</option>
-                      </Form.Select>
-                      {getTypeBadge()}
+                      {/* For members: Only show a badge, no dropdown */}
+                      {effectiveIsAdmin !== true ? (
+                        <div>
+                          {getTypeBadge()}
+                          <small className="text-muted d-block mt-2">
+                            Only administrators can change event type.
+                          </small>
+                        </div>
+                      ) : (
+                        /* For admins: Show the dropdown with all options */
+                        <>
+                          <Form.Select 
+                            value={currentType} 
+                            onChange={handleTypeChange}
+                            disabled={updating}
+                            className="mb-2"
+                          >
+                            <option value="periodic check">Periodic Check</option>
+                            <option value="incidence">Incidence</option>
+                          </Form.Select>
+                          {getTypeBadge()}
+                        </>
+                      )}
                     </Form.Group>
                   </Col>
                 </Row>

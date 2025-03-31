@@ -24,7 +24,7 @@ class ProjectUser(Base):
 
     project_id = Column(Integer, ForeignKey("projects.id"), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    role = Column(String, default="MEMBER")  # ADMIN or MEMBER
+    field = Column(String, nullable=True)  # User's work field/area
     joined_at = Column(DateTime, default=datetime.utcnow)
     last_accessed_at = Column(DateTime, default=datetime.utcnow)
 

@@ -10,9 +10,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Check if user can close events
-  const canCloseEvent = userRole === 'ADMIN';
+  const [canCloseEvent, setCanCloseEvent] = useState(false);
   
   useEffect(() => {
     if (event) {
@@ -24,6 +22,30 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
       setError('');
     }
   }, [event]);
+  
+  useEffect(() => {
+    // Determine if user can close events based on admin status
+    let isAdmin = false;
+    
+    // First check if we have a user object in localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.is_admin === true) {
+          isAdmin = true;
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    } 
+    // Next check userRole prop
+    else if (userRole) {
+      isAdmin = userRole === 'ADMIN';
+    }
+    
+    setCanCloseEvent(isAdmin);
+  }, [userRole]);
   
   const handleSubmit = async (e) => {
     e.preventDefault();

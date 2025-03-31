@@ -24,7 +24,7 @@ def get_projects(
     Admin users can access all projects.
     """
     # If the user is an admin, return all projects
-    if current_user.role == "admin":
+    if current_user.is_admin:
         projects = project_service.get_all_projects(db, skip, limit)
     else:
         # Otherwise, return only projects the user is a member of
@@ -71,7 +71,7 @@ def get_project(
         raise HTTPException(status_code=404, detail="Project not found")
     
     # Check if user has access to project or is an admin
-    if current_user.role != "admin" and not any(pu.user_id == current_user.id for pu in project.users):
+    if not current_user.is_admin and not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     # Get additional stats
@@ -106,7 +106,7 @@ def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
     
     # Check if user has access to project or is an admin
-    if current_user.role != "admin" and not any(pu.user_id == current_user.id for pu in project.users):
+    if not current_user.is_admin and not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     # Update project
@@ -137,7 +137,7 @@ def delete_project(
         raise HTTPException(status_code=404, detail="Project not found")
     
     # Check if user has access to project or is an admin
-    if current_user.role != "admin" and not any(pu.user_id == current_user.id for pu in project.users):
+    if not current_user.is_admin and not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     try:
@@ -160,23 +160,23 @@ def add_user_to_project(
 ):
     """
     Add a user to a project.
-    Only ADMIN users can add users to a project.
+    Only admin users can add users to a project.
     """
     # Check if project exists
     project = project_service.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Check if current user is an admin for this project
-    if not project_service.has_project_permission(db, project_id, current_user.id, "ADMIN"):
-        raise HTTPException(status_code=403, detail="Not enough permissions: ADMIN role required")
+    # Check if current user is an admin
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not enough permissions: Admin role required")
     
-    # Add user to project with the specified role (or default to MEMBER)
-    project_user = project_service.add_user_to_project(db, project_id, user_data.user_id, user_data.role)
+    # Add user to project (role field is no longer used)
+    project_user = project_service.add_user_to_project(db, project_id, user_data.user_id)
     if not project_user:
         raise HTTPException(status_code=400, detail="Failed to add user to project")
     
-    return {"status": "success", "message": f"User added to project with role: {project_user.role}"}
+    return {"status": "success", "message": "User added to project successfully"}
 
 
 @router.delete("/{project_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -188,8 +188,7 @@ def remove_user_from_project(
 ):
     """
     Remove a user from a project.
-    Only ADMIN users can remove members from a project.
-    Admins cannot remove other admins for security reasons.
+    Only admin users can remove members from a project.
     """
     # Check if project exists
     project = project_service.get_project(db, project_id)
@@ -197,35 +196,31 @@ def remove_user_from_project(
         raise HTTPException(status_code=404, detail="Project not found")
     
     # Check if current user is an admin
-    if not project_service.has_project_permission(db, project_id, current_user.id, "ADMIN"):
-        raise HTTPException(status_code=403, detail="Not enough permissions: ADMIN role required")
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not enough permissions: Admin role required")
     
-    # Don't allow removing yourself if you're the only admin
+    # Check if user is trying to remove themselves
     if user_id == current_user.id:
-        # Check if there are other admins in the project
-        admin_count = db.query(ProjectUser).filter(
-            ProjectUser.project_id == project_id,
-            ProjectUser.role == "ADMIN",
-            ProjectUser.user_id != current_user.id
+        # Check if there are other users in the project
+        user_count = db.query(ProjectUser).filter(
+            ProjectUser.project_id == project_id
         ).count()
         
-        if admin_count == 0:
+        if user_count <= 1:
             raise HTTPException(
                 status_code=400, 
-                detail="Cannot remove yourself from project as you are the only admin. Assign another admin first."
+                detail="Cannot remove yourself as you are the only user in the project."
             )
     
-    # Check if target user is an admin
-    target_role = project_service.get_user_project_role(db, project_id, user_id)
+    # Check if target user exists and is an admin
     target_user = db.query(User).filter(User.id == user_id).first()
     
-    # Check if target user has a project admin role OR system admin role (both are protected)
-    if ((target_role == "ADMIN" or target_user.role == "admin") and 
-        user_id != current_user.id and 
-        current_user.role != "admin"):
+    # Don't allow non-admin users to remove admin users
+    # But admin users can remove other admin users (and themselves)
+    if target_user and target_user.is_admin and not current_user.is_admin:
         raise HTTPException(
             status_code=403,
-            detail="Cannot remove an admin from the project. Only system admins can remove other admins."
+            detail="Cannot remove an admin user. Only admins can remove other admins."
         )
     
     # Remove user from project
@@ -283,14 +278,14 @@ def debug_project(
         raise HTTPException(status_code=500, detail=f"Error getting debug info: {str(e)}")
 
 
-@router.get("/{project_id}/members")
+@router.get("/{project_id}/members", response_model=List[dict])
 def get_project_members(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
-) -> List[Dict[str, Any]]:
+):
     """
-    Get all members of a project with their roles.
+    Get all members of a project.
     """
     # Check if project exists
     project = project_service.get_project(db, project_id)
@@ -298,10 +293,10 @@ def get_project_members(
         raise HTTPException(status_code=404, detail="Project not found")
     
     # Check if user has access to project or is an admin
-    if current_user.role != "admin" and not any(pu.user_id == current_user.id for pu in project.users):
+    if not current_user.is_admin and not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Get project members with their roles
+    # Get all members of the project
     members = project_service.get_project_users(db, project_id)
     return members
 
@@ -310,53 +305,61 @@ def get_project_members(
 def update_member_role(
     project_id: int,
     user_id: int,
-    role_data: ProjectUserUpdate,
+    role_data: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Update a member's role in a project.
-    Only project ADMINs can update roles.
-    Admins cannot modify other admins' roles for security reasons.
+    Update a user's admin status - CURRENTLY DISABLED.
+    This functionality has been disabled to prevent changes to user roles.
     """
-    # Check if project exists
-    project = project_service.get_project(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    # This feature is now disabled
+    raise HTTPException(
+        status_code=403, 
+        detail="Changing user roles is currently disabled for all users."
+    )
+
+
+@router.put("/{project_id}/users/{user_id}/field", status_code=status.HTTP_200_OK)
+def update_member_field(
+    project_id: int,
+    user_id: int,
+    field_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Update a member's field/area in a project.
+    Only admin users can update fields.
+    """
+    # Log the operation
+    print(f"API: update_member_field - project {project_id}, user {user_id}, data: {field_data}")
     
-    # Check if current user is an admin
-    if not project_service.has_project_permission(db, project_id, current_user.id, "ADMIN"):
-        raise HTTPException(status_code=403, detail="Not enough permissions: ADMIN role required")
-    
-    # Check if target user exists and is a member of the project
-    target_role = project_service.get_user_project_role(db, project_id, user_id)
-    if not target_role:
-        raise HTTPException(status_code=404, detail="User not found in this project")
-    
-    # Don't allow changing another admin's role
-    if target_role == "ADMIN" and user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(
-            status_code=403, 
-            detail="Cannot modify another admin's role. Admins can only modify their own role or non-admin members."
-        )
-    
-    # If demoting yourself from admin, ensure there's at least one other admin
-    if user_id == current_user.id and target_role == "ADMIN" and role_data.role != "ADMIN":
-        admin_count = db.query(ProjectUser).filter(
-            ProjectUser.project_id == project_id,
-            ProjectUser.role == "ADMIN",
-            ProjectUser.user_id != current_user.id
-        ).count()
+    try:
+        # Check if project exists
+        project = project_service.get_project(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
         
-        if admin_count == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot demote yourself from admin as you are the only admin. Assign another admin first."
-            )
-    
-    # Update the role
-    success = project_service.update_user_project_role(db, project_id, user_id, role_data.role)
-    if not success:
-        raise HTTPException(status_code=400, detail="Failed to update user role")
-    
-    return {"status": "success", "message": f"User role updated to {role_data.role}"} 
+        # Check if current user is an admin
+        print(f"Current user: {current_user.username}, is_admin: {current_user.is_admin}")
+        if not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Not enough permissions: Admin role required")
+        
+        # Check if target user exists and is a member of the project
+        if not project_service.has_project_permission(db, project_id, user_id):
+            raise HTTPException(status_code=404, detail="User not found in this project")
+        
+        # Get field value from request
+        field = field_data.get("field", "")
+        print(f"Field value to be set: '{field}'")
+        
+        # Update the field
+        success = project_service.update_user_field(db, project_id, user_id, field)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to update user field")
+        
+        return {"status": "success", "message": "User field updated successfully", "field": field}
+    except Exception as e:
+        print(f"Error in update_member_field: {str(e)}")
+        raise 

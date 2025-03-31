@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Button, Table, Modal, Form, Spinner } from 'react-bootstrap';
+import { Alert, Button, Table, Modal, Form, Spinner, InputGroup, FormControl, Badge } from 'react-bootstrap';
 import { getAllUsers } from '../services/userService';
 import { projectService } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
+import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
-const ContactsTab = ({ projectId, effectiveRole }) => {
+const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -15,25 +16,16 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [userToRemove, setUserToRemove] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
+  const [editField, setEditField] = useState({ userId: null, value: '' });
+  const [updatingField, setUpdatingField] = useState(false);
 
   // Get current user ID from token
   useEffect(() => {
+    // Initialize admin state based on the effectiveIsAdmin prop
+    setIsCurrentUserAdmin(effectiveIsAdmin === true);
+    
     const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.role === 'admin') {
-          localStorage.setItem('systemAdmin', 'true');
-        } else {
-          localStorage.setItem('systemAdmin', 'false');
-        }
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
-    }
-    
     if (token) {
       try {
         const decoded = jwtDecode(token);
@@ -47,7 +39,95 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
         console.error('Error decoding token:', error);
       }
     }
-  }, []);
+  }, [effectiveIsAdmin]);
+
+  // Start editing a field - add additional safeguards
+  const startEditField = (userId, currentField) => {
+    // Block all editing for non-admin users with strict checking
+    if (effectiveIsAdmin !== true) {
+      setError('You do not have permission to edit fields. Only administrators can make changes.');
+      console.warn('Non-admin user attempted to edit a field');
+      return;
+    }
+    
+    setEditField({ userId, value: currentField || '' });
+  };
+
+  // Cancel editing
+  const cancelEditField = () => {
+    setEditField({ userId: null, value: '' });
+  };
+
+  // Handle updating a user's field - add additional safeguards
+  const handleUpdateField = async (userId) => {
+    if (!userId) return;
+    
+    // Block all updates for non-admin users with strict checking
+    if (effectiveIsAdmin !== true) {
+      setError('You do not have permission to update user fields. Only administrators can make changes.');
+      console.warn('Non-admin user attempted to update a field');
+      cancelEditField();
+      return;
+    }
+    
+    try {
+      const fieldValue = editField.value.trim();
+      console.log(`Submitting field update for user ${userId}: "${fieldValue}"`);
+      
+      setUpdatingField(true);
+      
+      // Make API call to update the field
+      const response = await projectService.updateMemberField(projectId, userId, fieldValue);
+      console.log('Field update response:', response);
+      
+      // Update the members list with the new field value
+      setMembers(members.map(member => 
+        member.id === userId 
+          ? { ...member, field: fieldValue } 
+          : member
+      ));
+      
+      // Reset the edit state
+      setEditField({ userId: null, value: '' });
+      setError('');
+    } catch (err) {
+      console.error('Error updating user field:', err);
+      
+      // Show more detailed error message if available
+      if (err.response && err.response.data && err.response.data.detail) {
+        setError(`Error: ${err.response.data.detail}`);
+      } else {
+        setError('Failed to update user field. Please try again.');
+      }
+    } finally {
+      setUpdatingField(false);
+    }
+  };
+
+  // Handle toggling a user's admin status
+  const handleToggleAdminStatus = async (userId, currentIsAdmin) => {
+    try {
+      await projectService.updateMemberRole(projectId, userId, !currentIsAdmin);
+      
+      // Update the members list with the new admin status
+      setMembers(members.map(member => 
+        member.id === userId 
+          ? { ...member, is_admin: !currentIsAdmin } 
+          : member
+      ));
+      
+      setError('');
+    } catch (err) {
+      console.error('Error updating user admin status:', err);
+      
+      // Show more detailed error message if available
+      if (err.response && err.response.data && err.response.data.detail) {
+        setError(`Error: ${err.response.data.detail}`);
+      } else {
+        setError('Failed to update user admin status. Please try again.');
+      }
+    }
+  };
 
   // Fetch project members
   const fetchMembers = async () => {
@@ -58,13 +138,12 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       // Log the response for debugging
       console.log("Project members:", response.data);
       
-      // Transform data to ensure project role is available
+      // Process members data
       const processedMembers = response.data.map(member => {
-        // Ensure project_role is used correctly (might be coming from a different field)
-        const projectRole = member.project_role || member.role;
         return {
           ...member,
-          project_role: projectRole
+          // Ensure we have the field value
+          field: member.field || ''
         };
       });
       
@@ -86,7 +165,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   // Fetch all users when add modal is opened
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!showAddUserModal || effectiveRole !== 'ADMIN') return;
+      if (!showAddUserModal || !effectiveIsAdmin) return;
       
       try {
         const users = await getAllUsers();
@@ -98,7 +177,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     };
 
     fetchUsers();
-  }, [showAddUserModal, effectiveRole]);
+  }, [showAddUserModal, effectiveIsAdmin]);
 
   // Handle adding a user to the project
   const handleAddUser = async () => {
@@ -162,11 +241,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     return <div className="text-center p-4"><Spinner animation="border" /></div>;
   }
 
+  console.log('Rendering ContactsTab with isCurrentUserAdmin:', isCurrentUserAdmin, 'and effectiveIsAdmin:', effectiveIsAdmin);
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4>Project Contacts</h4>
-        {effectiveRole === 'ADMIN' && (
+        {effectiveIsAdmin === true && (
           <Button variant="success" onClick={() => setShowAddUserModal(true)}>
             Add User to Project
           </Button>
@@ -175,20 +256,31 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {members.length === 0 ? (
+      {effectiveIsAdmin !== true && (
+        <Alert variant="info">
+          You are viewing contacts in read-only mode. Only administrators can make changes.
+        </Alert>
+      )}
+
+      {loading ? (
+        <div className="text-center">
+          <Spinner animation="border" />
+          <p className="mt-2">Loading project contacts...</p>
+        </div>
+      ) : members.length === 0 ? (
         <Alert variant="info">
           No contacts found for this project.
-          {effectiveRole === 'ADMIN' && ' Click "Add User to Project" to add team members.'}
+          {effectiveIsAdmin === true && ' Click "Add User to Project" to add team members.'}
         </Alert>
       ) : (
         <Table striped bordered hover responsive>
           <thead>
             <tr>
               <th>Username</th>
-              <th>Email</th>
+              <th>Field</th>
               <th>Role</th>
               <th>Status</th>
-              {effectiveRole === 'ADMIN' && <th>Actions</th>}
+              {effectiveIsAdmin === true && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -196,34 +288,70 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
               <tr key={member.id}>
                 <td>{member.username}</td>
                 <td>
-                  <a href={`mailto:${member.email}`}>
-                    {member.email}
-                  </a>
+                  {/* Only render edit form for admins with strict checking */}
+                  {editField.userId === member.id && effectiveIsAdmin === true ? (
+                    <Form.Group className="d-flex align-items-center">
+                      <Form.Control
+                        type="text"
+                        value={editField.value}
+                        onChange={(e) => setEditField({ ...editField, value: e.target.value })}
+                        size="sm"
+                        className="me-2"
+                      />
+                      {updatingField ? (
+                        <Spinner animation="border" size="sm" />
+                      ) : (
+                        <>
+                          <Button variant="success" size="sm" onClick={() => handleUpdateField(member.id)}>
+                            <i className="bi bi-check"></i>
+                          </Button>
+                          <Button variant="secondary" size="sm" className="ms-1" onClick={cancelEditField}>
+                            <i className="bi bi-x"></i>
+                          </Button>
+                        </>
+                      )}
+                    </Form.Group>
+                  ) : (
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span>{member.field || "-"}</span>
+                      {/* Strict check to ensure members never see edit button */}
+                      {(effectiveIsAdmin === true) && (
+                        <Button 
+                          variant="outline-primary" 
+                          size="sm" 
+                          className="ms-2"
+                          onClick={() => startEditField(member.id, member.field)}
+                        >
+                          <i className="bi bi-pencil"></i>
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td>
-                  <span className={`badge ${member.project_role === 'ADMIN' ? 'bg-primary' : 'bg-secondary'}`}>
-                    {member.project_role}
-                  </span>
+                  <Badge 
+                    bg={member.is_admin ? "primary" : "secondary"}
+                  >
+                    {member.is_admin ? "Admin" : "Member"}
+                  </Badge>
                 </td>
                 <td>
                   <span className={`badge ${member.is_active ? 'bg-success' : 'bg-danger'}`}>
                     {member.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                {effectiveRole === 'ADMIN' && (
+                {effectiveIsAdmin === true && (
                   <td>
-                    {console.log(`Member ${member.username}: role=${member.role}, project_role=${member.project_role}, id=${member.id}, currentId=${currentUserId}`)}
-                    {/* Check both the system role and project role - don't allow removing system admins or project admins */}
-                    {((member.project_role !== 'ADMIN' && member.role !== 'admin') || member.id === currentUserId || localStorage.getItem('systemAdmin') === 'true') ? (
+                    {(!member.is_admin || member.id === currentUserId) ? (
                       <Button 
                         variant="danger" 
                         size="sm"
                         onClick={() => confirmRemoveUser(member)}
                       >
-                        Remove
+                        <i className="bi bi-trash"></i>
                       </Button>
                     ) : (
-                      <span className="text-muted">Cannot remove admins</span>
+                      <span className="text-muted">Cannot remove other admins</span>
                     )}
                   </td>
                 )}

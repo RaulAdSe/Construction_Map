@@ -23,6 +23,7 @@ class ProjectUserBase(BaseModel):
     project_id: int
     user_id: int
     role: str = "MEMBER"
+    field: Optional[str] = None
 
 
 class ProjectUserCreate(ProjectUserBase):
@@ -31,6 +32,7 @@ class ProjectUserCreate(ProjectUserBase):
 
 class ProjectUserUpdate(BaseModel):
     role: Optional[str] = None
+    field: Optional[str] = None
 
 
 class ProjectUser(ProjectUserBase):

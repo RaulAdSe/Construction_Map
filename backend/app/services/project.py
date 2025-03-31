@@ -160,15 +160,12 @@ def add_user_to_project(db: Session, project_id: int, user_id: int, role: str = 
     ).first()
     
     if project_user:
-        # If user exists but role needs to be updated
-        if project_user.role != role:
-            project_user.role = role
-            db.commit()
-            db.refresh(project_user)
+        # User is already in the project, no need to update role
+        # since 'role' column doesn't exist in the database
         return project_user
     
-    # Add user to project with specified role
-    project_user = ProjectUser(project_id=project_id, user_id=user_id, role=role)
+    # Add user to project (no role - use the user.is_admin from User model instead)
+    project_user = ProjectUser(project_id=project_id, user_id=user_id)
     db.add(project_user)
     db.commit()
     db.refresh(project_user)
@@ -191,24 +188,24 @@ def remove_user_from_project(db: Session, project_id: int, user_id: int) -> bool
 
 def get_project_users(db: Session, project_id: int) -> List[dict]:
     """
-    Get all users in a project with their project roles.
-    Returns a list of user dictionaries with project_role added.
+    Get all users in a project with their fields.
+    Returns a list of user dictionaries.
     """
-    users = (db.query(User, ProjectUser.role.label("project_role"))
+    users = (db.query(User, ProjectUser.field.label("field"))
              .join(ProjectUser)
              .filter(ProjectUser.project_id == project_id)
              .all())
     
     result = []
-    for user, project_role in users:
+    for user, field in users:
         # Convert the user object to a dictionary
         user_dict = {
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "role": user.role,  # System role
+            "is_admin": user.is_admin,  # Global admin status
             "is_active": user.is_active,
-            "project_role": project_role  # Project-specific role
+            "field": field or ""  # Work field - default to empty string if null
         }
         result.append(user_dict)
     
@@ -219,6 +216,8 @@ def get_user_project_role(db: Session, project_id: int, user_id: int) -> Optiona
     """
     Get the role of a user in a specific project.
     Returns None if user is not a member of the project.
+    
+    Note: The role is determined by the User.is_admin flag, not project_users.role
     """
     project_user = db.query(ProjectUser).filter(
         ProjectUser.project_id == project_id,
@@ -228,12 +227,19 @@ def get_user_project_role(db: Session, project_id: int, user_id: int) -> Optiona
     if not project_user:
         return None
     
-    return project_user.role
+    # Get the user's admin status
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.is_admin:
+        return "ADMIN"
+    else:
+        return "MEMBER"
 
 
 def update_user_project_role(db: Session, project_id: int, user_id: int, new_role: str) -> bool:
     """
     Update a user's role in a project.
+    
+    Note: Since project_users.role doesn't exist, we update the User.is_admin flag instead.
     Returns True if successful, False otherwise.
     """
     project_user = db.query(ProjectUser).filter(
@@ -244,29 +250,44 @@ def update_user_project_role(db: Session, project_id: int, user_id: int, new_rol
     if not project_user:
         return False
     
-    project_user.role = new_role
+    # Update the user's admin status based on the new role
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return False
+        
+    # Update admin status based on the new role
+    user.is_admin = (new_role == "ADMIN")
+    
+    # Update last_accessed time
     project_user.last_accessed_at = datetime.utcnow()
     db.commit()
     return True
 
 
-def has_project_permission(db: Session, project_id: int, user_id: int, required_role: str = "MEMBER") -> bool:
+def has_project_permission(db: Session, project_id: int, user_id: int, role: str = None) -> bool:
     """
-    Check if a user has the required permission level for a project.
-    ADMIN role has all permissions.
+    Check if a user is a member of a project.
+    Returns True if the user is a project member, False otherwise.
+    The role parameter is ignored in the simplified admin model.
     """
-    user_role = get_user_project_role(db, project_id, user_id)
+    # Check if user is a member of this project
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
     
-    if not user_role:
+    return project_user is not None
+
+
+def is_user_admin(db: Session, user_id: int) -> bool:
+    """
+    Check if a user is an admin.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
         return False
     
-    if user_role == "ADMIN":
-        return True
-    
-    if required_role == "MEMBER" and user_role == "MEMBER":
-        return True
-    
-    return False
+    return user.is_admin
 
 
 def update_user_last_access(db: Session, project_id: int, user_id: int) -> bool:
@@ -283,4 +304,35 @@ def update_user_last_access(db: Session, project_id: int, user_id: int) -> bool:
     
     project_user.last_accessed_at = datetime.utcnow()
     db.commit()
-    return True 
+    return True
+
+
+def update_user_field(db: Session, project_id: int, user_id: int, field: str) -> bool:
+    """
+    Update a user's field/area in a project.
+    Returns True if successful, False otherwise.
+    """
+    print(f"Service: update_user_field for project {project_id}, user {user_id}, field '{field}'")
+    
+    # Find the project_user record
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
+    
+    if not project_user:
+        print(f"Error: ProjectUser record not found for project {project_id}, user {user_id}")
+        return False
+    
+    # Update the field
+    try:
+        project_user.field = field
+        project_user.last_accessed_at = datetime.utcnow()
+        db.commit()
+        db.refresh(project_user)
+        print(f"Updated field to '{project_user.field}' for user {user_id} in project {project_id}")
+        return True
+    except Exception as e:
+        print(f"Error updating field: {e}")
+        db.rollback()
+        return False 

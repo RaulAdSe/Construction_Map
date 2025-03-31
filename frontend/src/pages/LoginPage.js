@@ -25,6 +25,22 @@ const LoginPage = ({ onLogin }) => {
       
       if (data.access_token) {
         localStorage.setItem('token', data.access_token);
+        
+        // Store user data in localStorage
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          console.log('Stored user data:', data.user);
+        } else {
+          // If no user data, create basic user data based on username
+          const user = {
+            username: username,
+            is_admin: username === 'admin', // Assume username 'admin' is an admin
+            id: username
+          };
+          localStorage.setItem('user', JSON.stringify(user));
+          console.log('Created basic user data:', user);
+        }
+        
         onLogin();
       } else {
         throw new Error('No access token received');

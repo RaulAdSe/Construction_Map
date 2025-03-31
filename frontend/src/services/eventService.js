@@ -98,10 +98,25 @@ export const updateEventStatus = async (eventId, status, userRole) => {
     const token = localStorage.getItem('token');
     let isAdmin = false;
     
-    // First check if userRole was passed
-    if (userRole) {
+    // First check if we have a user object in localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.is_admin === true) {
+          isAdmin = true;
+          console.log('eventService: User is admin from localStorage');
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    } 
+    // Next check if userRole was passed
+    else if (userRole) {
       isAdmin = userRole === 'ADMIN';
-    } else if (token) {
+    } 
+    // Last resort, parse the token payload
+    else if (token) {
       try {
         // Parse the token payload as fallback
         const payload = JSON.parse(atob(token.split('.')[1]));

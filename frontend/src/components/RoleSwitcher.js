@@ -1,34 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, Badge } from 'react-bootstrap';
+import { Button, Badge } from 'react-bootstrap';
+import { isUserAdmin } from '../utils/permissions';
 
 /**
- * Component to allow admin users to temporarily switch their view between ADMIN and MEMBER
+ * Component to allow admin users to temporarily switch their view between admin and member roles
  * This is useful for testing functionality with different permission levels
  */
 const RoleSwitcher = ({ 
-  currentRole,
-  onRoleChange,
-  isAdminUser = false 
+  currentIsAdmin,
+  onRoleChange
 }) => {
-  const [viewAs, setViewAs] = useState(currentRole || 'ADMIN');
+  const [viewAsAdmin, setViewAsAdmin] = useState(currentIsAdmin !== false);
   
   // Update internal state when prop changes
   useEffect(() => {
-    if (currentRole) {
-      setViewAs(currentRole);
+    if (currentIsAdmin !== undefined) {
+      setViewAsAdmin(currentIsAdmin);
     }
-  }, [currentRole]);
+  }, [currentIsAdmin]);
   
-  // Only render if user is an admin
-  if (!isAdminUser) {
+  // Get the actual admin status from localStorage, not the effective role
+  // This ensures the switcher always appears for true admins even when in member view
+  const isActualAdmin = () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      return storedUser && storedUser.is_admin === true;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
+  
+  // Only render if user is actually an admin
+  if (!isActualAdmin()) {
     return null;
   }
   
   const handleRoleToggle = () => {
-    const newRole = viewAs === 'ADMIN' ? 'MEMBER' : 'ADMIN';
-    setViewAs(newRole);
+    const newIsAdmin = !viewAsAdmin;
+    setViewAsAdmin(newIsAdmin);
     if (onRoleChange) {
-      onRoleChange(newRole);
+      onRoleChange(newIsAdmin);
     }
   };
   
@@ -37,14 +49,14 @@ const RoleSwitcher = ({
       <small className="text-muted me-2">View as:</small>
       <Button 
         size="sm" 
-        variant={viewAs === 'ADMIN' ? 'primary' : 'secondary'}
+        variant={viewAsAdmin ? 'primary' : 'secondary'}
         onClick={handleRoleToggle}
         className="d-flex align-items-center"
       >
-        <Badge bg={viewAs === 'ADMIN' ? 'light' : 'dark'} text={viewAs === 'ADMIN' ? 'dark' : 'light'} className="me-1">
-          {viewAs}
+        <Badge bg={viewAsAdmin ? 'light' : 'dark'} text={viewAsAdmin ? 'dark' : 'light'} className="me-1">
+          {viewAsAdmin ? 'ADMIN' : 'MEMBER'}
         </Badge>
-        <small>{viewAs === 'ADMIN' ? '→ Switch to Member' : '→ Switch to Admin'}</small>
+        <small>{viewAsAdmin ? '→ Switch to Member' : '→ Switch to Admin'}</small>
       </Button>
     </div>
   );

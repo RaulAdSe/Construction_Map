@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
 import MapList from '../components/MapList';
 import MapDetail from '../components/MapDetail';
 import MapsManager from '../components/MapsManager';
@@ -15,6 +15,7 @@ import RoleSwitcher from '../components/RoleSwitcher';
 import ContactsTab from '../components/ContactsTab';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
+import { isUserAdmin } from '../utils/permissions';
 import '../assets/styles/MapViewer.css';
 
 const MapViewer = ({ onLogout }) => {
@@ -28,8 +29,8 @@ const MapViewer = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('map-view');
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
-  const [effectiveRole, setEffectiveRole] = useState(null); // The role to use for permissions (can be overridden)
+  const [isAdmin, setIsAdmin] = useState(false); // User's actual admin status
+  const [effectiveIsAdmin, setEffectiveIsAdmin] = useState(false); // The admin status to use for permissions (can be overridden)
 
   const [showAddMapModal, setShowAddMapModal] = useState(false);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
@@ -44,35 +45,22 @@ const MapViewer = ({ onLogout }) => {
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
   
-  // Fetch current user info from token and get their role
+  // Fetch current user info from token and get their admin status
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        // Get user ID from JWT token
         const token = localStorage.getItem('token');
-        if (token) {
-          // Parse token (token is in the format xxx.yyy.zzz where yyy is the payload)
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          // Get username from token sub claim
-          const username = payload.sub;
-          
-          // For now we'll just create a minimal user object with the username
-          const user = { 
-            id: username, // Using username as ID for now
-            username: username
-          };
-          
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedUser && token) {
+          const user = JSON.parse(storedUser);
           setCurrentUser(user);
           
-          // For now, set a default role until we implement a proper role service
-          // This is a temporary solution until we have a proper API endpoint
-          if (username === 'admin') {
-            setUserRole('ADMIN');
-            setEffectiveRole('ADMIN');
-          } else {
-            setUserRole('MEMBER');
-            setEffectiveRole('MEMBER');
-          }
+          // Set admin status based on is_admin flag
+          const userIsAdmin = user.is_admin === true;
+          console.log('User admin status:', userIsAdmin);
+          setIsAdmin(userIsAdmin);
+          setEffectiveIsAdmin(userIsAdmin);
         }
       } catch (error) {
         console.error('Error fetching current user:', error);
@@ -83,9 +71,14 @@ const MapViewer = ({ onLogout }) => {
   }, [projectId]);
   
   // Handle role change from the RoleSwitcher
-  const handleRoleChange = (newRole) => {
-    setEffectiveRole(newRole);
-    showNotification(`Viewing as ${newRole}`, 'info');
+  const handleRoleChange = (newIsAdmin) => {
+    setEffectiveIsAdmin(newIsAdmin);
+    showNotification(`Viewing as ${newIsAdmin ? 'Admin' : 'Member'}`, 'info');
+    
+    // If switching to member view and current tab is admin-only, switch to map view
+    if (!newIsAdmin && (activeTab === 'project-maps' || activeTab === 'events')) {
+      setActiveTab('map-view');
+    }
   };
   
   // Add a visibleMapIds state variable to track which maps are currently visible
@@ -400,6 +393,42 @@ const MapViewer = ({ onLogout }) => {
     }, 3000);
   };
   
+  // Add a debug function to check and fix admin status
+  window.debugAdmin = () => {
+    try {
+      // Check current localStorage
+      const token = localStorage.getItem('token');
+      const userJson = localStorage.getItem('user');
+      console.log('Current token:', token);
+      console.log('Current user data:', userJson);
+      
+      // Try to decode the token
+      if (token) {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        console.log('Token payload:', tokenPayload);
+        
+        // If we have a token but no user data, create user data
+        if (!userJson) {
+          const username = tokenPayload.sub;
+          // Create a basic user object
+          const user = {
+            username: username,
+            is_admin: username === 'admin', // Assume username 'admin' is an admin
+            id: username
+          };
+          localStorage.setItem('user', JSON.stringify(user));
+          console.log('Created user data:', user);
+          alert('Added missing user data. Please refresh the page.');
+          return user;
+        }
+      }
+      return JSON.parse(userJson || '{}');
+    } catch (e) {
+      console.error('Error in debugAdmin:', e);
+      return null;
+    }
+  };
+  
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -444,146 +473,168 @@ const MapViewer = ({ onLogout }) => {
                 </Nav.Link>
               </Nav.Item>
             </Nav>
-            {userRole === "ADMIN" && (
-              <div className="me-3">
-                <RoleSwitcher 
-                  currentRole={effectiveRole}
-                  onRoleChange={handleRoleChange}
-                  isAdminUser={userRole === "ADMIN"}
-                />
-              </div>
-            )}
-            <Button variant="outline-light" onClick={onLogout}>Logout</Button>
+            <div className="d-flex align-items-center">
+              {/* Debug message */}
+              {console.log('Rendering navbar, isAdmin:', isAdmin)}
+              
+              {/* RoleSwitcher component - always render but component will self-hide if not admin */}
+              <RoleSwitcher 
+                currentIsAdmin={effectiveIsAdmin}
+                onRoleChange={handleRoleChange}
+              />
+              
+              <Button variant="outline-light" onClick={onLogout} className="ms-2">Logout</Button>
+            </div>
           </Navbar.Collapse>
         </Container>
       </Navbar>
       
       <Container className="mt-4">
-        <Tabs activeKey={activeTab} onSelect={setActiveTab} className="mb-4">
-          <Tab eventKey="map-view" title="Map View">
-            <Row>
-              <Col md={3}>
-                <div className="sidebar-panel">
-                  <h5 className="mb-3">Map Controls</h5>
-                  
-                  <div className="d-grid gap-2 mb-4">
-                    <Button variant="success" onClick={handleAddEvent}>
-                      <i className="bi bi-pin-map me-2"></i>Add Event
-                    </Button>
-                  </div>
-                  
-                  <hr />
-                  
-                  <div className="map-info-section">
-                    <h6>Current View</h6>
-                    {selectedMap && (
-                      <div className="current-map-info mb-3">
-                        <p className="mb-1">
-                          <strong>Main Map:</strong> {selectedMap.name}
-                          {selectedMap.map_type === 'implantation' && (
-                            <span className="badge bg-success ms-2">Primary</span>
-                          )}
-                        </p>
-                        <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
-                        <p className="mb-0">
-                          <strong>Events:</strong> {visibleEvents.length}
-                        </p>
+        <Tabs 
+          activeKey={activeTab} 
+          onSelect={setActiveTab} 
+          className="mb-4"
+          key={`tabs-${effectiveIsAdmin}`}
+        >
+          {/* Build tabs array dynamically based on user role */}
+          {(() => {
+            // Define all potential tabs
+            const tabs = [
+              // Map View tab - available to all users
+              <Tab key="map-view" eventKey="map-view" title="Map View">
+                <Row>
+                  <Col md={3}>
+                    <div className="sidebar-panel">
+                      <h5 className="mb-3">Map Controls</h5>
+                      
+                      <div className="d-grid gap-2 mb-4">
+                        <Button
+                          variant="success"
+                          onClick={handleAddEvent}
+                        >
+                          <i className="bi bi-pin-map me-2"></i>Add Event
+                        </Button>
+                      </div>
+                      
+                      <hr />
+                      
+                      <div className="map-info-section">
+                        <h6>Current View</h6>
+                        {selectedMap && (
+                          <div className="current-map-info mb-3">
+                            <p className="mb-1">
+                              <strong>Main Map:</strong> {selectedMap.name}
+                              {selectedMap.map_type === 'implantation' && (
+                                <span className="badge bg-success ms-2">Primary</span>
+                              )}
+                            </p>
+                            <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
+                            <p className="mb-0">
+                              <strong>Events:</strong> {visibleEvents.length}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <hr />
+                      
+                      <div className="events-summary mb-3">
+                        <h6>Event Categories</h6>
+                        <ul className="list-unstyled">
+                          {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
+                            <li key={tag} className="mb-1">
+                              <span className="badge bg-secondary me-2">{tag}</span>
+                              <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </Col>
+                  <Col md={9}>
+                    {selectedMap ? (
+                      <MapDetail
+                        map={selectedMap}
+                        events={visibleEvents}
+                        mode={effectiveIsAdmin ? 'edit' : 'view'}
+                        onMapClick={handleMapClick}
+                        isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
+                        onEventClick={handleViewEvent}
+                        allMaps={maps.filter(m => m.project_id === project.id)}
+                        projectId={project.id}
+                        onVisibleMapsChanged={handleVisibleMapsChanged}
+                      />
+                    ) : (
+                      <div className="text-center p-5 bg-light rounded">
+                        <h3>No map selected</h3>
+                        <p>Please select a map from the Project Maps tab or add a new one.</p>
                       </div>
                     )}
-                  </div>
-                  
-                  <hr />
-                  
-                  <div className="events-summary mb-3">
-                    <h6>Event Categories</h6>
-                    {/* Group events by tags */}
-                    <ul className="list-unstyled">
-                      {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
-                        <li key={tag} className="mb-1">
-                          <span className="badge bg-secondary me-2">{tag}</span>
-                          <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </Col>
-              <Col md={9}>
-                {selectedMap ? (
-                  <MapDetail
-                    map={selectedMap}
-                    events={visibleEvents}
-                    mode={effectiveRole === 'MEMBER' ? 'view' : 'edit'}
-                    onMapClick={handleMapClick}
-                    isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
-                    onEventClick={handleViewEvent}
-                    allMaps={maps.filter(m => m.project_id === project.id)}
-                    projectId={project.id}
-                    onVisibleMapsChanged={handleVisibleMapsChanged}
-                  />
-                ) : (
-                  <div className="text-center p-5 bg-light rounded">
-                    <h3>No map selected</h3>
-                    <p>Please select a map from the Project Maps tab or add a new one.</p>
-                  </div>
-                )}
-              </Col>
-            </Row>
-          </Tab>
-          
-          <Tab eventKey="project-maps" title={effectiveRole === "ADMIN" ? "Project Maps" : null}>
-            {effectiveRole === "ADMIN" && (
-              <MapsManager 
-                projectId={project.id}
-                onMapUpdated={() => {
-                  // Force reload the maps data when a map is updated (e.g., set as main)
-                  const refreshData = async () => {
-                    try {
-                      // Fetch fresh map data
-                      const mapsData = await fetchMaps(parseInt(projectId, 10));
-                      setMaps(mapsData);
-                      
-                      // Find and select the main map
-                      const mainMap = mapsData.find(map => map.map_type === 'implantation');
-                      if (mainMap) {
-                        setSelectedMap(mainMap);
-                        showNotification('Map updated successfully! Main map has been changed.', 'success');
+                  </Col>
+                </Row>
+              </Tab>,
+              
+              // Project Maps tab - admin only
+              <Tab key="project-maps" eventKey="project-maps" title="Project Maps">
+                <MapsManager 
+                  projectId={project.id}
+                  onMapUpdated={() => {
+                    // Force reload the maps data when a map is updated
+                    const refreshData = async () => {
+                      try {
+                        // Fetch fresh map data
+                        const mapsData = await fetchMaps(parseInt(projectId, 10));
+                        setMaps(mapsData);
+                        
+                        // Find and select the main map
+                        const mainMap = mapsData.find(map => map.map_type === 'implantation');
+                        if (mainMap) {
+                          setSelectedMap(mainMap);
+                          showNotification('Map updated successfully! Main map has been changed.', 'success');
+                        }
+                      } catch (error) {
+                        console.error('Error refreshing maps after update:', error);
+                        showNotification('Error updating maps. Please refresh the page.', 'error');
                       }
-                    } catch (error) {
-                      console.error('Error refreshing maps after update:', error);
-                      showNotification('Error updating maps. Please refresh the page.', 'error');
-                    }
-                  };
-                  
-                  refreshData();
-                }}
-              />
-            )}
-          </Tab>
-          
-          <Tab eventKey="events" title="Events">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h3>Project Events</h3>
-              <Button variant="success" onClick={handleAddEvent}>
-                Add New Event
-              </Button>
-            </div>
+                    };
+                    
+                    refreshData();
+                  }}
+                />
+              </Tab>,
+              
+              // Events tab - admin only
+              <Tab key="events" eventKey="events" title="Events">
+                <div className="mb-3 d-flex justify-content-between">
+                  <h3>Project Events</h3>
+                </div>
+                
+                <EventsTable 
+                  events={events} 
+                  onViewEvent={handleViewEvent}
+                  onEditEvent={handleEditEvent}
+                  onEventUpdated={handleEventUpdated}
+                  effectiveIsAdmin={effectiveIsAdmin}
+                />
+              </Tab>,
+              
+              // Contacts tab - available to all users
+              <Tab key="contacts" eventKey="contacts" title="Contacts">
+                <ContactsTab 
+                  projectId={parseInt(projectId)} 
+                  effectiveIsAdmin={effectiveIsAdmin}
+                />
+              </Tab>
+            ];
             
-            <EventsTable 
-              events={events} 
-              onViewEvent={handleViewEvent}
-              onEditEvent={handleEditEvent}
-              onEventUpdated={handleEventUpdated}
-              userRole={effectiveRole}
-            />
-          </Tab>
-          
-          <Tab eventKey="contacts" title="Contacts">
-            <ContactsTab 
-              projectId={parseInt(projectId)} 
-              effectiveRole={effectiveRole}
-            />
-          </Tab>
+            // For members, only return the tabs they should see
+            if (!effectiveIsAdmin) {
+              return [tabs[0], tabs[3]]; // Map View and Contacts only
+            }
+            
+            // For admins, return all tabs
+            return tabs;
+          })()}
         </Tabs>
       </Container>
       
@@ -624,7 +675,7 @@ const MapViewer = ({ onLogout }) => {
         onEventUpdated={handleEventUpdated}
         currentUser={currentUser}
         projectId={project?.id}
-        userRole={effectiveRole}
+        effectiveIsAdmin={effectiveIsAdmin}
       />
       
       <EditEventModal
@@ -632,7 +683,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
-        userRole={effectiveRole}
+        effectiveIsAdmin={effectiveIsAdmin}
       />
       
       {/* Notification */}

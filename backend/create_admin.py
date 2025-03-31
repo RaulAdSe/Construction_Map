@@ -19,7 +19,7 @@ def create_admin_user(db: Session):
         username="admin",
         email="admin@example.com",
         password_hash=hashed_password,
-        role="admin",
+        is_admin=True,
         is_active=True
     )
     

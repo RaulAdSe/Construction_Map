@@ -5,7 +5,7 @@ from typing import Optional, List
 class UserBase(BaseModel):
     username: str
     email: EmailStr
-    role: Optional[str] = "regular"
+    is_admin: bool = False
 
 
 class UserCreate(UserBase):
@@ -16,7 +16,7 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
-    role: Optional[str] = None
+    is_admin: Optional[bool] = None
     is_active: Optional[bool] = None
 
 
@@ -38,7 +38,7 @@ class UserInDB(UserInDBBase):
 
 class ProjectMember(User):
     """User with additional project-specific information"""
-    project_role: str
+    field: Optional[str] = None
 
 
 class Token(BaseModel):

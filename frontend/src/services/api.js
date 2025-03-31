@@ -82,17 +82,43 @@ export const projectService = {
     return await apiClient.get(`/projects/${projectId}/members`);
   },
   
-  // Add a user to project with optional role
-  addUserToProject: async (projectId, userId, role = "MEMBER") => {
+  // Add a user to project
+  addUserToProject: async (projectId, userId) => {
     return await apiClient.post(`/projects/${projectId}/users`, { 
-      user_id: userId,
-      role: role 
+      user_id: userId
     });
   },
   
-  // Update a member's role in a project
-  updateMemberRole: async (projectId, userId, role) => {
-    return await apiClient.put(`/projects/${projectId}/members/${userId}/role`, { role });
+  // Update a member's admin status
+  updateMemberRole: async (projectId, userId, isAdmin) => {
+    return await apiClient.put(`/projects/${projectId}/members/${userId}/role`, {
+      role: isAdmin ? "ADMIN" : "MEMBER" 
+    });
+  },
+  
+  // Update a member's field in a project
+  updateMemberField: async (projectId, userId, field) => {
+    console.log(`API call: updateMemberField for project ${projectId}, user ${userId}, field "${field}"`);
+    try {
+      // Ensure field is a string
+      const fieldValue = String(field).trim();
+      console.log(`Sending field update with value: "${fieldValue}"`);
+      
+      const response = await apiClient.put(`/projects/${projectId}/members/${userId}/field`, 
+        { field: fieldValue },
+        { 
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Field update API response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Field update API error:', error);
+      throw error;
+    }
   },
   
   // Remove a user from a project

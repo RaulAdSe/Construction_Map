@@ -22,14 +22,29 @@ def get_events(
     project_id: int, 
     user_id: Optional[int] = None,
     skip: int = 0, 
-    limit: int = 100
+    limit: int = 100,
+    include_closed: bool = False
 ) -> List[Event]:
+    """
+    Get all events for a project.
+    Admin users can see all events, regular users cannot see closed events.
+    """
     query = db.query(Event).filter(Event.project_id == project_id)
     
+    # Filter by user
     if user_id:
         query = query.filter(Event.created_by_user_id == user_id)
     
-    return query.order_by(desc(Event.created_at)).offset(skip).limit(limit).all()
+    # Filter out closed events if include_closed is False
+    if not include_closed:
+        query = query.filter(Event.status != 'closed')
+    
+    # Order by most recent first
+    query = query.order_by(Event.created_at.desc())
+    
+    # Get events
+    events = query.offset(skip).limit(limit).all()
+    return events
 
 
 def get_events_by_map(
@@ -198,29 +213,22 @@ async def create_event(
 
 
 def update_event(
-    db: Session,
-    event_id: int,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    status: Optional[str] = None,
-    state: Optional[str] = None,
-    tags: Optional[List[str]] = None
+    db: Session, 
+    event_id: int, 
+    event_update
 ) -> Optional[Event]:
-    """Update an existing event"""
-    event = get_event(db, event_id)
+    """
+    Update an event.
+    """
+    event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         return None
     
-    if title is not None:
-        event.title = title
-    if description is not None:
-        event.description = description
-    if status is not None:
-        event.status = status
-    if state is not None:
-        event.state = state
-    if tags is not None:
-        event.tags = tags
+    # Update fields if provided
+    update_data = event_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        if hasattr(event, key):
+            setattr(event, key, value)
     
     db.commit()
     db.refresh(event)
