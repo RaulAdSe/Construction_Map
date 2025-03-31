@@ -308,11 +308,6 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleAddEvent = () => {
-    if (!isUserAdmin(effectiveRole)) {
-      showNotification('Only admin users can add events.', 'warning');
-      return;
-    }
-
     if (!selectedMap) {
       showNotification('Please select a map first before adding an event.', 'warning');
       // Maybe direct them to map selection
@@ -506,13 +501,8 @@ const MapViewer = ({ onLogout }) => {
                     <Button
                       variant="success"
                       onClick={handleAddEvent}
-                      disabled={effectiveRole === 'MEMBER'}
-                      title={effectiveRole === 'MEMBER' ? "Only admins can add events" : "Add a new event"}
                     >
                       <i className="bi bi-pin-map me-2"></i>Add Event
-                      {effectiveRole === 'MEMBER' && (
-                        <small className="ms-2">(Admin only)</small>
-                      )}
                     </Button>
                   </div>
                   
@@ -575,8 +565,8 @@ const MapViewer = ({ onLogout }) => {
             </Row>
           </Tab>
           
-          <Tab eventKey="project-maps" title={isUserAdmin(effectiveRole) ? "Project Maps" : null}>
-            {isUserAdmin(effectiveRole) && (
+          {isUserAdmin(effectiveRole) && (
+            <Tab eventKey="project-maps" title="Project Maps">
               <MapsManager 
                 projectId={project.id}
                 onMapUpdated={() => {
@@ -602,27 +592,25 @@ const MapViewer = ({ onLogout }) => {
                   refreshData();
                 }}
               />
-            )}
-          </Tab>
+            </Tab>
+          )}
           
-          <Tab eventKey="events" title={isUserAdmin(effectiveRole) ? "Events" : null}>
-            {isUserAdmin(effectiveRole) && (
-              <>
-                <div className="mb-3 d-flex justify-content-between">
-                  <h3>Project Events</h3>
-                </div>
-                
-                <EventsTable 
-                  events={events} 
-                  onViewEvent={handleViewEvent}
-                  onEditEvent={handleEditEvent}
-                  onEventUpdated={handleEventUpdated}
-                  userRole={effectiveRole}
-                  isAdmin={isUserAdmin(effectiveRole)}
-                />
-              </>
-            )}
-          </Tab>
+          {isUserAdmin(effectiveRole) && (
+            <Tab eventKey="events" title="Events">
+              <div className="mb-3 d-flex justify-content-between">
+                <h3>Project Events</h3>
+              </div>
+              
+              <EventsTable 
+                events={events} 
+                onViewEvent={handleViewEvent}
+                onEditEvent={handleEditEvent}
+                onEventUpdated={handleEventUpdated}
+                userRole={effectiveRole}
+                isAdmin={isUserAdmin(effectiveRole)}
+              />
+            </Tab>
+          )}
           
           <Tab eventKey="contacts" title="Contacts">
             <ContactsTab 
