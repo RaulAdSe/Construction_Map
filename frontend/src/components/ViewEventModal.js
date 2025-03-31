@@ -98,6 +98,13 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   
   const handleTypeChange = async (e) => {
     const newType = e.target.value;
+    
+    // Prevent members from changing event type
+    if (!canPerformAdminAction('change event type', userRole)) {
+      alert('Only admin users can change event type.');
+      return;
+    }
+    
     setCurrentType(newType);
     
     try {
@@ -109,6 +116,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
     } catch (error) {
       console.error('Failed to update type:', error);
       setCurrentType(event.state); // Revert on error
+      if (error.response && error.response.status === 403) {
+        alert('Permission denied: Only admin users can modify event type.');
+      }
     } finally {
       setUpdating(false);
     }
@@ -167,7 +177,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                       <Form.Select 
                         value={currentStatus} 
                         onChange={handleStatusChange}
-                        disabled={updating}
+                        disabled={updating || !isUserAdmin(userRole)}
                         className="mb-2"
                       >
                         <option value="open">Open</option>
@@ -180,6 +190,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                         )}
                       </Form.Select>
                       {getStatusBadge()}
+                      {!isUserAdmin(userRole) && (
+                        <small className="text-muted d-block">Only administrators can change event status.</small>
+                      )}
                     </Form.Group>
                   </Col>
                   <Col md={6}>
@@ -188,13 +201,16 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                       <Form.Select 
                         value={currentType} 
                         onChange={handleTypeChange}
-                        disabled={updating}
+                        disabled={updating || !isUserAdmin(userRole)}
                         className="mb-2"
                       >
                         <option value="periodic check">Periodic Check</option>
                         <option value="incidence">Incidence</option>
                       </Form.Select>
                       {getTypeBadge()}
+                      {!isUserAdmin(userRole) && (
+                        <small className="text-muted d-block">Only administrators can change event type.</small>
+                      )}
                     </Form.Group>
                   </Col>
                 </Row>

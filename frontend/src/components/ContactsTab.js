@@ -43,9 +43,10 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
   // Start editing a field
   const startEditField = (userId, currentField) => {
-    // Directly check if user is admin - no need for secondary check
+    // Block all editing for non-admin users
     if (!isUserAdmin(effectiveRole)) {
       setError('You do not have permission to edit fields. Only administrators can make changes.');
+      console.warn('Non-admin user attempted to edit a field');
       return;
     }
     
@@ -61,9 +62,10 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   const handleUpdateField = async (userId) => {
     if (!userId) return;
     
-    // Only perform permission check once
+    // Block all updates for non-admin users
     if (!isUserAdmin(effectiveRole)) {
       setError('You do not have permission to update user fields. Only administrators can make changes.');
+      console.warn('Non-admin user attempted to update a field');
       cancelEditField();
       return;
     }
@@ -286,7 +288,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
               <tr key={member.id}>
                 <td>{member.username}</td>
                 <td>
-                  {editField.userId === member.id ? (
+                  {/* Only render edit form for admins */}
+                  {editField.userId === member.id && isUserAdmin(effectiveRole) ? (
                     <Form.Group className="d-flex align-items-center">
                       <Form.Control
                         type="text"
