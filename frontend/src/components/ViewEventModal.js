@@ -71,9 +71,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
     
-    // Use canPerformAdminAction for permission check
-    if (newStatus === 'closed' && !canPerformAdminAction('close event', userRole)) {
-      alert('Only admin users can close events.');
+    // Prevent members from closing or resolving events
+    if ((newStatus === 'closed' || newStatus === 'resolved') && !canPerformAdminAction('change event status', userRole)) {
+      alert('Only admin users can close or resolve events.');
       return;
     }
     
@@ -89,7 +89,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       console.error('Failed to update status:', error);
       setCurrentStatus(event.status); // Revert on error
       if (error.response && error.response.status === 403) {
-        alert('Permission denied: Only admin users can close events.');
+        alert('Permission denied: Only admin users can modify event status.');
       }
     } finally {
       setUpdating(false);
@@ -172,8 +172,12 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                       >
                         <option value="open">Open</option>
                         <option value="in-progress">In Progress</option>
-                        <option value="resolved">Resolved</option>
-                        {isUserAdmin(userRole) && <option value="closed">Closed</option>}
+                        {isUserAdmin(userRole) && (
+                          <>
+                            <option value="resolved">Resolved</option>
+                            <option value="closed">Closed</option>
+                          </>
+                        )}
                       </Form.Select>
                       {getStatusBadge()}
                     </Form.Group>

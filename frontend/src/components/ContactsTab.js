@@ -43,14 +43,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
   // Start editing a field
   const startEditField = (userId, currentField) => {
-    // First check with isUserAdmin
+    // Directly check if user is admin - no need for secondary check
     if (!isUserAdmin(effectiveRole)) {
-      setError('You do not have permission to edit fields. Only administrators can make changes.');
-      return;
-    }
-    
-    // Use canPerformAdminAction to check permissions
-    if (!canPerformAdminAction('edit field', effectiveRole)) {
       setError('You do not have permission to edit fields. Only administrators can make changes.');
       return;
     }
@@ -67,15 +61,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   const handleUpdateField = async (userId) => {
     if (!userId) return;
     
-    // First check with isUserAdmin
+    // Only perform permission check once
     if (!isUserAdmin(effectiveRole)) {
-      setError('You do not have permission to update user fields. Only administrators can make changes.');
-      cancelEditField();
-      return;
-    }
-    
-    // Use canPerformAdminAction to check permissions
-    if (!canPerformAdminAction('update field', effectiveRole)) {
       setError('You do not have permission to update user fields. Only administrators can make changes.');
       cancelEditField();
       return;
@@ -188,7 +175,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     };
 
     fetchUsers();
-  }, [showAddUserModal, isUserAdmin(effectiveRole)]);
+  }, [showAddUserModal, effectiveRole]);
 
   // Handle adding a user to the project
   const handleAddUser = async () => {
