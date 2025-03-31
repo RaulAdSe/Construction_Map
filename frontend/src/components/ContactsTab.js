@@ -314,8 +314,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                   ) : (
                     <div className="d-flex justify-content-between align-items-center">
                       <span>{member.field || "-"}</span>
-                      {/* Only show Edit button if user is admin with strict checking */}
-                      {isUserAdmin(effectiveRole) === true && (
+                      {/* Strict check to ensure members never see edit button */}
+                      {(isUserAdmin(effectiveRole) === true && effectiveRole === 'ADMIN') && (
                         <Button 
                           variant="outline-primary" 
                           size="sm" 

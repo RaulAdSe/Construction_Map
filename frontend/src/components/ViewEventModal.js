@@ -174,42 +174,58 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                   <Col md={6}>
                     <h6>Status</h6>
                     <Form.Group>
-                      <Form.Select 
-                        value={currentStatus} 
-                        onChange={handleStatusChange}
-                        disabled={updating || !isUserAdmin(userRole)}
-                        className="mb-2"
-                      >
-                        <option value="open">Open</option>
-                        <option value="in-progress">In Progress</option>
-                        {isUserAdmin(userRole) === true && (
-                          <>
+                      {/* For members: Only show a disabled badge, no dropdown */}
+                      {isUserAdmin(userRole) !== true ? (
+                        <div>
+                          {getStatusBadge()}
+                          <small className="text-muted d-block mt-2">
+                            Only administrators can change event status.
+                          </small>
+                        </div>
+                      ) : (
+                        /* For admins: Show the dropdown with all options */
+                        <>
+                          <Form.Select 
+                            value={currentStatus} 
+                            onChange={handleStatusChange}
+                            disabled={updating}
+                            className="mb-2"
+                          >
+                            <option value="open">Open</option>
+                            <option value="in-progress">In Progress</option>
                             <option value="resolved">Resolved</option>
                             <option value="closed">Closed</option>
-                          </>
-                        )}
-                      </Form.Select>
-                      {getStatusBadge()}
-                      {!isUserAdmin(userRole) && (
-                        <small className="text-muted d-block">Only administrators can change event status.</small>
+                          </Form.Select>
+                          {getStatusBadge()}
+                        </>
                       )}
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <h6>Type</h6>
                     <Form.Group>
-                      <Form.Select 
-                        value={currentType} 
-                        onChange={handleTypeChange}
-                        disabled={updating || !isUserAdmin(userRole)}
-                        className="mb-2"
-                      >
-                        <option value="periodic check">Periodic Check</option>
-                        <option value="incidence">Incidence</option>
-                      </Form.Select>
-                      {getTypeBadge()}
-                      {!isUserAdmin(userRole) && (
-                        <small className="text-muted d-block">Only administrators can change event type.</small>
+                      {/* For members: Only show a badge, no dropdown */}
+                      {isUserAdmin(userRole) !== true ? (
+                        <div>
+                          {getTypeBadge()}
+                          <small className="text-muted d-block mt-2">
+                            Only administrators can change event type.
+                          </small>
+                        </div>
+                      ) : (
+                        /* For admins: Show the dropdown with all options */
+                        <>
+                          <Form.Select 
+                            value={currentType} 
+                            onChange={handleTypeChange}
+                            disabled={updating}
+                            className="mb-2"
+                          >
+                            <option value="periodic check">Periodic Check</option>
+                            <option value="incidence">Incidence</option>
+                          </Form.Select>
+                          {getTypeBadge()}
+                        </>
                       )}
                     </Form.Group>
                   </Col>
