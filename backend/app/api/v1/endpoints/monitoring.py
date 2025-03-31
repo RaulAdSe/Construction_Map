@@ -400,4 +400,52 @@ def get_slow_queries_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get slow queries: {str(e)}"
+        )
+
+@router.get("/user-activity/stats")
+def get_user_activity_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get statistics about user activity storage"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin users can access user activity statistics"
+        )
+    
+    try:
+        stats = activity_service.get_storage_statistics(db)
+        return stats
+    except Exception as e:
+        monitoring_logger.error(f"Error getting user activity statistics: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get user activity statistics: {str(e)}"
+        )
+
+@router.post("/user-activity/cleanup")
+def trigger_activity_cleanup(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Manually trigger cleanup of old user activity records"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin users can trigger activity cleanup"
+        )
+    
+    try:
+        deleted_count = activity_service.cleanup_old_activities(db)
+        return {
+            "status": "success",
+            "deleted_records": deleted_count,
+            "message": f"Successfully deleted {deleted_count} old activity records"
+        }
+    except Exception as e:
+        monitoring_logger.error(f"Error during user activity cleanup: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clean up user activities: {str(e)}"
         ) 

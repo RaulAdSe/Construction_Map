@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Form, Button, Row, Col, Spinner, Badge } from 'react-bootstrap';
-import { getUserActivity } from '../../services/monitoringService';
+import { Card, Table, Form, Button, Row, Col, Spinner, Badge, Alert, Modal } from 'react-bootstrap';
+import { getUserActivity, getUserActivityStats, triggerUserActivityCleanup } from '../../services/monitoringService';
 
 const UserActivity = () => {
   const [activities, setActivities] = useState([]);
@@ -12,6 +12,16 @@ const UserActivity = () => {
     userType: '',
     limit: 50
   });
+  
+  // Storage statistics state
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  
+  // Cleanup state
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState(null);
 
   const fetchActivities = async () => {
     try {
@@ -27,9 +37,41 @@ const UserActivity = () => {
       setLoading(false);
     }
   };
+  
+  const fetchStats = async () => {
+    try {
+      setLoadingStats(true);
+      const data = await getUserActivityStats();
+      setStats(data);
+    } catch (err) {
+      console.error('Error fetching user activity statistics:', err);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+  
+  const handleCleanup = async () => {
+    try {
+      setCleanupLoading(true);
+      setCleanupResult(null);
+      
+      const result = await triggerUserActivityCleanup();
+      setCleanupResult(result);
+      
+      // Refresh stats and activities after cleanup
+      fetchStats();
+      fetchActivities();
+    } catch (err) {
+      console.error('Error during cleanup:', err);
+      setCleanupResult({ status: 'error', message: 'Failed to perform cleanup' });
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchActivities();
+    fetchStats();
     
     // Refresh activities every 30 seconds
     const interval = setInterval(fetchActivities, 30000);
@@ -77,21 +119,38 @@ const UserActivity = () => {
     }
     return <Badge bg="secondary">{userType}</Badge>;
   };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
 
   return (
     <div className="user-activity">
-      <Card>
+      <Card className="mb-4">
         <Card.Header>
           <div className="d-flex justify-content-between align-items-center">
             <h3 className="mb-0">User Activity</h3>
-            <Button 
-              variant="outline-primary" 
-              size="sm" 
-              onClick={fetchActivities}
-              disabled={loading}
-            >
-              Refresh
-            </Button>
+            <div>
+              <Button 
+                variant="outline-info" 
+                size="sm" 
+                className="me-2"
+                onClick={() => setShowStats(true)}
+                disabled={loadingStats}
+              >
+                {loadingStats ? <Spinner animation="border" size="sm" /> : 'Storage Statistics'}
+              </Button>
+              <Button 
+                variant="outline-primary" 
+                size="sm" 
+                onClick={fetchActivities}
+                disabled={loading}
+              >
+                Refresh
+              </Button>
+            </div>
           </div>
         </Card.Header>
         
@@ -226,6 +285,150 @@ const UserActivity = () => {
           </small>
         </Card.Footer>
       </Card>
+      
+      {/* Statistics Modal */}
+      <Modal show={showStats} onHide={() => setShowStats(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>User Activity Storage Statistics</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {loadingStats ? (
+            <div className="text-center my-4">
+              <Spinner animation="border" />
+              <p>Loading statistics...</p>
+            </div>
+          ) : !stats ? (
+            <Alert variant="warning">No statistics available</Alert>
+          ) : (
+            <>
+              <Row className="mb-4">
+                <Col md={4}>
+                  <Card className="text-center h-100">
+                    <Card.Body>
+                      <h5>Total Activities</h5>
+                      <h2>{stats.total_activities || 0}</h2>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col md={4}>
+                  <Card className="text-center h-100">
+                    <Card.Body>
+                      <h5>Retention Period</h5>
+                      <h2>{stats.retention_days || 0} days</h2>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col md={4}>
+                  <Card className="text-center h-100">
+                    <Card.Body>
+                      <h5>Max Per User</h5>
+                      <h2>{stats.max_per_user || 0}</h2>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+              
+              <Row className="mb-4">
+                <Col md={6}>
+                  <Card className="h-100">
+                    <Card.Body>
+                      <h5>Time Range</h5>
+                      <p><strong>Oldest:</strong> {formatDate(stats.oldest_activity)}</p>
+                      <p><strong>Newest:</strong> {formatDate(stats.newest_activity)}</p>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                
+                <Col md={6}>
+                  <Card className="h-100">
+                    <Card.Body>
+                      <h5>Storage Policy</h5>
+                      <p>Activities are automatically cleaned up when they are older than {stats.retention_days} days.</p>
+                      <p>Each user is limited to {stats.max_per_user} most recent activities.</p>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+              
+              <h5>User Activity Breakdown</h5>
+              {stats.user_statistics && stats.user_statistics.length > 0 ? (
+                <Table striped size="sm">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Activity Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.user_statistics.map((user, index) => (
+                      <tr key={index}>
+                        <td>{user.username}</td>
+                        <td>{user.activity_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              ) : (
+                <p>No user statistics available</p>
+              )}
+              
+              <div className="d-flex justify-content-end mt-3">
+                <Button 
+                  variant="warning" 
+                  onClick={() => {
+                    setShowStats(false);
+                    setShowCleanupModal(true);
+                  }}
+                >
+                  Manual Cleanup
+                </Button>
+              </div>
+            </>
+          )}
+        </Modal.Body>
+      </Modal>
+      
+      {/* Cleanup Confirmation Modal */}
+      <Modal show={showCleanupModal} onHide={() => setShowCleanupModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Activity Cleanup</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {cleanupResult ? (
+            <Alert variant={cleanupResult.status === 'success' ? 'success' : 'danger'}>
+              {cleanupResult.message}
+            </Alert>
+          ) : (
+            <>
+              <p>This will permanently delete old user activity records based on the retention policy:</p>
+              <ul>
+                <li>Records older than {stats?.retention_days || 90} days will be removed</li>
+                <li>Each user will be limited to their {stats?.max_per_user || 1000} most recent activities</li>
+              </ul>
+              <p className="text-danger">This action cannot be undone. Are you sure you want to proceed?</p>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          {cleanupResult ? (
+            <Button variant="secondary" onClick={() => setShowCleanupModal(false)}>Close</Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={() => setShowCleanupModal(false)} disabled={cleanupLoading}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={handleCleanup} disabled={cleanupLoading}>
+                {cleanupLoading ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Cleaning up...
+                  </>
+                ) : 'Perform Cleanup'}
+              </Button>
+            </>
+          )}
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

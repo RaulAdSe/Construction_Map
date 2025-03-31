@@ -99,4 +99,24 @@ export const getUserActivity = async ({ userId, username, action, userType, star
 export const recordUserActivity = async (activityData) => {
   const response = await getAuthAxios().post('/api/v1/monitoring/user-activity', activityData);
   return response.data;
+};
+
+export const getUserActivityStats = async () => {
+  try {
+    const response = await getAuthAxios().get(`${API_URL}/monitoring/user-activity/stats`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user activity statistics:', error);
+    throw error;
+  }
+};
+
+export const triggerUserActivityCleanup = async () => {
+  try {
+    const response = await getAuthAxios().post(`${API_URL}/monitoring/user-activity/cleanup`);
+    return response.data;
+  } catch (error) {
+    console.error('Error triggering user activity cleanup:', error);
+    throw error;
+  }
 }; 
