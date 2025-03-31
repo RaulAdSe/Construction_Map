@@ -4,8 +4,12 @@ import EventMarker from './EventMarker';
 
 const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick, allMaps = [], projectId, onVisibleMapsChanged }) => {
   const mapContainerRef = useRef(null);
+  const mapContentRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
+  const [viewportScale, setViewportScale] = useState(1);
   
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
@@ -28,6 +32,64 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       });
     }
   }, [implantationMap]);
+  
+  // Calculate viewport scaling and content positioning
+  const updateViewportScaling = () => {
+    if (!mapContainerRef.current || !mapContentRef.current) return;
+    
+    const container = mapContainerRef.current;
+    const content = mapContentRef.current;
+    
+    // Get container dimensions
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    
+    // Get content dimensions
+    const contentRect = content.getBoundingClientRect();
+    let contentWidth = contentRect.width;
+    let contentHeight = contentRect.height;
+    
+    // If content dimensions are zero (not yet rendered), use defaults
+    if (contentWidth <= 0) contentWidth = 1200;
+    if (contentHeight <= 0) contentHeight = 900;
+    
+    // Calculate scale factors for width and height
+    const scaleX = containerWidth / contentWidth;
+    const scaleY = containerHeight / contentHeight;
+    
+    // Choose the smaller scale to ensure the content fits entirely
+    // within the container while maintaining aspect ratio
+    const newScale = Math.min(scaleX, scaleY) * 0.95; // 0.95 to leave slight margins
+    
+    setContainerSize({ width: containerWidth, height: containerHeight });
+    setContentSize({ width: contentWidth, height: contentHeight });
+    setViewportScale(newScale);
+    
+    console.log(`Container: ${containerWidth}×${containerHeight}, Content: ${contentWidth}×${contentHeight}, Scale: ${newScale.toFixed(3)}`);
+  };
+  
+  // Initialize and update viewport scaling on mount and resize
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    
+    // Initial calculation
+    updateViewportScaling();
+    
+    // Set up resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      updateViewportScaling();
+    });
+    
+    resizeObserver.observe(mapContainerRef.current);
+    
+    // Clean up
+    return () => {
+      if (mapContainerRef.current) {
+        resizeObserver.unobserve(mapContainerRef.current);
+      }
+    };
+  }, [imageLoaded]); // Recalculate when image loads
   
   // Track dependency on map types to refresh when they change
   useEffect(() => {
@@ -91,19 +153,27 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     }
   }, [visibleMaps, implantationMap, localStorageKey]);
   
+  // Handle click events for adding new events
   useEffect(() => {
     if (isSelectingLocation && mapContainerRef.current) {
       const container = mapContainerRef.current;
       
       const handleClick = (e) => {
-        // Get click coordinates relative to the map container
-        const rect = container.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // Get the content element's bounding rect
+        const contentRect = mapContentRef.current.getBoundingClientRect();
         
-        // Calculate percentage coordinates
-        const xPercent = (x / rect.width) * 100;
-        const yPercent = (y / rect.height) * 100;
+        // Get click coordinates relative to the container
+        const containerRect = container.getBoundingClientRect();
+        const containerX = e.clientX - containerRect.left;
+        const containerY = e.clientY - containerRect.top;
+        
+        // Convert container coordinates to content coordinates
+        const contentX = (containerX - (containerRect.width - contentRect.width * viewportScale) / 2) / viewportScale;
+        const contentY = (containerY - (containerRect.height - contentRect.height * viewportScale) / 2) / viewportScale;
+        
+        // Calculate percentage coordinates relative to the content
+        const xPercent = (contentX / contentRect.width) * 100;
+        const yPercent = (contentY / contentRect.height) * 100;
         
         // Create modified map object with the current visibleMaps
         const mapWithVisibleLayers = {
@@ -122,11 +192,14 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         container.removeEventListener('click', handleClick);
       };
     }
-  }, [isSelectingLocation, map, onMapClick, visibleMaps]);
+  }, [isSelectingLocation, map, onMapClick, visibleMaps, viewportScale]);
   
-  const handleImageLoad = () => {
+  const handleImageLoad = (e) => {
     setImageLoaded(true);
     console.log("Map image loaded, events should now be visible");
+    
+    // Trigger viewport scaling calculation after image is loaded
+    setTimeout(updateViewportScaling, 100);
   };
   
   const handleImageError = () => {
@@ -223,7 +296,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       return (
         <div key={currentMap.id} style={layerStyle} className="pdf-container">
           <iframe 
-            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit`} 
+            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
             title={currentMap.name}
             style={{ 
               width: '100%', 
@@ -232,14 +305,16 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               backgroundColor: 'transparent'
             }}
             frameBorder="0"
-            onLoad={() => handleImageLoad()}
+            onLoad={(e) => handleImageLoad(e)}
             onError={() => handleImageError()}
+            className="consistent-pdf-view"
           />
         </div>
       );
     } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(fileExt)) {
+      // For images, contain them in their container with consistent scaling
       return (
-        <div key={currentMap.id} style={layerStyle}>
+        <div key={currentMap.id} style={layerStyle} className="map-image-container">
           <img 
             src={url} 
             alt={currentMap.name} 
@@ -248,8 +323,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               height: '100%', 
               objectFit: 'contain'
             }}
-            onLoad={() => handleImageLoad()}
+            onLoad={(e) => handleImageLoad(e)}
             onError={() => handleImageError()}
+            className="consistent-map-image"
           />
         </div>
       );
@@ -258,10 +334,10 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         <div key={currentMap.id} style={layerStyle}>
           <iframe 
             src={url} 
-            className="map-iframe-container"
+            className="map-iframe-container consistent-iframe-view"
             title={currentMap.name}
             style={{ width: '100%', height: '100%', border: 'none' }}
-            onLoad={() => handleImageLoad()}
+            onLoad={(e) => handleImageLoad(e)}
             onError={() => handleImageError()}
           />
         </div>
@@ -278,6 +354,19 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     // Get all maps that should be visible
     const overlayMapObjects = overlayMaps.filter(m => visibleMaps.includes(m.id));
     
+    // Calculate the content container style with centered positioning
+    const contentStyle = {
+      position: 'absolute',
+      width: contentSize.width,
+      height: contentSize.height,
+      transform: `scale(${viewportScale})`,
+      transformOrigin: 'center center',
+      top: '50%',
+      left: '50%',
+      marginLeft: -(contentSize.width / 2),
+      marginTop: -(contentSize.height / 2)
+    };
+    
     return (
       <>
         {!imageLoaded && (
@@ -287,12 +376,28 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
           </div>
         )}
         
-        <div className="map-layers-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div 
+          ref={mapContentRef}
+          className="map-content-container" 
+          style={contentStyle}
+        >
           {/* Always render main map first */}
           {renderMapLayer(implantationMap, 10)}
           
           {/* Then render overlay maps */}
           {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
+          
+          {/* Render event markers within the content container */}
+          <div className="event-markers-container">
+            {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
+              <EventMarker 
+                key={event.id} 
+                event={event} 
+                onClick={(e) => handleEventClick(event, e)}
+                scale={1} // No need to adjust scale as we're in the content coordinate system
+              />
+            ))}
+          </div>
         </div>
       </>
     );
@@ -317,23 +422,13 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     console.log("Visible events:", visibleEvents.length);
   }, []); // Empty dependency array means this runs only on mount
   
-  // Modify event markers container to make it more reliable
-  const eventMarkersStyle = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: 2000, // Ensure it's above all map layers
-    pointerEvents: 'none' // Let clicks pass through to the map
-  };
-  
   return (
     <div className="map-detail-container">
       <div 
         ref={mapContainerRef}
-        className="map-container" 
+        className="map-container content-fit-view" 
         data-map-id={map?.id}
+        data-scale={viewportScale.toFixed(3)}
       >
         {renderMapContent()}
         
@@ -342,17 +437,6 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
             Failed to load map content. Please check the file and try again.
           </Alert>
         )}
-        
-        {/* Render event markers - always positioned at highest z-index */}
-        <div className="event-markers-container" style={eventMarkersStyle}>
-          {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
-            <EventMarker 
-              key={event.id} 
-              event={event} 
-              onClick={(e) => handleEventClick(event, e)}
-            />
-          ))}
-        </div>
         
         {isSelectingLocation && (
           <div className="selecting-location-overlay">
