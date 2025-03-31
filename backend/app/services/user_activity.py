@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import logging
+import os
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 
@@ -11,16 +12,21 @@ from app.core.config import settings
 # Set up logging
 activity_logger = logging.getLogger("user_activity")
 activity_logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler("user_activity.log")
+
+# Create logs directory if it doesn't exist
+os.makedirs(settings.monitoring.LOG_PATH, exist_ok=True)
+
+# Create a file handler
+log_path = os.path.join(settings.monitoring.LOG_PATH, "user_activity.log")
+file_handler = logging.FileHandler(log_path)
 file_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 activity_logger.addHandler(file_handler)
 
-# Maximum number of days to retain user activity logs
-# After this period, old logs will be removed during cleanup
-ACTIVITY_RETENTION_DAYS = 90  # 3 months retention by default
-MAX_ACTIVITIES_PER_USER = 1000  # Maximum activities to keep per user
+# Get retention settings from configuration
+ACTIVITY_RETENTION_DAYS = settings.monitoring.ACTIVITY_RETENTION_DAYS
+MAX_ACTIVITIES_PER_USER = settings.monitoring.MAX_ACTIVITIES_PER_USER
 
 
 def create_user_activity(
