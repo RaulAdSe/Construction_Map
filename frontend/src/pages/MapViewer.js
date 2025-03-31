@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-router-dom';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
 import MapList from '../components/MapList';
 import MapDetail from '../components/MapDetail';
 import MapsManager from '../components/MapsManager';
@@ -605,19 +605,23 @@ const MapViewer = ({ onLogout }) => {
             )}
           </Tab>
           
-          <Tab eventKey="events" title="Events">
-            <div className="mb-3 d-flex justify-content-between">
-              <h3>Project Events</h3>
-            </div>
-            
-            <EventsTable 
-              events={events} 
-              onViewEvent={handleViewEvent}
-              onEditEvent={handleEditEvent}
-              onEventUpdated={handleEventUpdated}
-              userRole={effectiveRole}
-              isAdmin={isUserAdmin(effectiveRole)}
-            />
+          <Tab eventKey="events" title={isUserAdmin(effectiveRole) ? "Events" : null}>
+            {isUserAdmin(effectiveRole) && (
+              <>
+                <div className="mb-3 d-flex justify-content-between">
+                  <h3>Project Events</h3>
+                </div>
+                
+                <EventsTable 
+                  events={events} 
+                  onViewEvent={handleViewEvent}
+                  onEditEvent={handleEditEvent}
+                  onEventUpdated={handleEventUpdated}
+                  userRole={effectiveRole}
+                  isAdmin={isUserAdmin(effectiveRole)}
+                />
+              </>
+            )}
           </Tab>
           
           <Tab eventKey="contacts" title="Contacts">
