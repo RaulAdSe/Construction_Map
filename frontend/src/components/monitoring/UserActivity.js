@@ -77,8 +77,9 @@ const UserActivity = () => {
     const interval = setInterval(fetchActivities, 30000);
     
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  // We're intentionally not including fetchActivities and fetchStats as dependencies
+  // to prevent unnecessary refetching when filters change
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;

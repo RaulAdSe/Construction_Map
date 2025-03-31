@@ -52,11 +52,7 @@ def create_user_activity(
     # Log to file as well
     activity_logger.info(f"User activity: {username} ({user_type}) - {action}")
     
-    # Check if we need to clean up old records
-    # Only trigger cleanup occasionally (1% chance) to avoid overhead on every request
-    import random
-    if random.random() < 0.01:  # 1% chance
-        cleanup_old_activities(db)
+    # No more random cleanup - we'll let the scheduled tasks or manual cleanup handle this
     
     return db_activity
 
