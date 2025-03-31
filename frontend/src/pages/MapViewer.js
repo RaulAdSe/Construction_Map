@@ -435,14 +435,12 @@ const MapViewer = ({ onLogout }) => {
                 </Nav.Link>
               </Nav.Item>
             </Nav>
-            {userRole === "ADMIN" && (
-              <div className="me-3">
-                <RoleSwitcher 
-                  currentRole={effectiveRole}
-                  onRoleChange={handleRoleChange}
-                />
-              </div>
-            )}
+            <div className="me-3">
+              <RoleSwitcher 
+                currentRole={effectiveRole}
+                onRoleChange={handleRoleChange}
+              />
+            </div>
             <Button variant="outline-light" onClick={onLogout}>Logout</Button>
           </Navbar.Collapse>
         </Container>

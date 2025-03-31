@@ -8,7 +8,7 @@ import { isUserAdmin } from '../utils/permissions';
  */
 const RoleSwitcher = ({ 
   currentRole,
-  onRoleChange 
+  onRoleChange
 }) => {
   const [viewAs, setViewAs] = useState(currentRole || 'ADMIN');
   
@@ -19,8 +19,20 @@ const RoleSwitcher = ({
     }
   }, [currentRole]);
   
-  // Only render if user is an admin (using the centralized utility)
-  if (!isUserAdmin()) {
+  // Get the actual admin status from localStorage, not the effective role
+  // This ensures the switcher always appears for true admins even when in MEMBER view
+  const isActualAdmin = () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      return storedUser && storedUser.is_admin === true;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
+  
+  // Only render if user is actually an admin
+  if (!isActualAdmin()) {
     return null;
   }
   
