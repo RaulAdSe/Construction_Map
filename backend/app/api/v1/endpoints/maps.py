@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.map import Map, MapCreate, MapUpdate
 from app.services import map as map_service
 from app.services import project as project_service
+from app.api.v1.endpoints.monitoring import log_user_activity
 
 router = APIRouter()
 
@@ -63,6 +64,7 @@ def get_map(
 
 @router.post("/", response_model=Map)
 async def create_map(
+    request: Request,
     project_id: int = Form(...),
     map_type: str = Form(...),
     name: str = Form(...),
@@ -97,6 +99,22 @@ async def create_map(
             file, 
             transform_data
         )
+        
+        # Log user activity
+        log_user_activity(
+            user_id=current_user.id,
+            username=current_user.username,
+            action="map_upload",
+            ip_address=request.client.host if request.client else "Unknown",
+            user_type="admin" if current_user.is_admin else "member",
+            details={
+                "project_id": project_id,
+                "map_id": map_obj.id,
+                "map_name": map_obj.name,
+                "map_type": map_obj.map_type
+            }
+        )
+        
         return map_obj
     except HTTPException as e:
         raise e
@@ -111,6 +129,7 @@ async def create_map(
 def update_map(
     map_id: int,
     map_update: MapUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -136,12 +155,28 @@ def update_map(
         map_type=map_update.map_type
     )
     
+    # Log user activity
+    log_user_activity(
+        user_id=current_user.id,
+        username=current_user.username,
+        action="map_update",
+        ip_address=request.client.host if request.client else "Unknown",
+        user_type="admin" if current_user.is_admin else "member",
+        details={
+            "project_id": updated_map.project_id,
+            "map_id": updated_map.id,
+            "map_name": updated_map.name,
+            "map_type": updated_map.map_type
+        }
+    )
+    
     return updated_map
 
 
 @router.delete("/{map_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_map(
     map_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -157,6 +192,21 @@ def delete_map(
     project = project_service.get_project(db, map_obj.project_id)
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Log user activity before deleting the map
+    log_user_activity(
+        user_id=current_user.id,
+        username=current_user.username,
+        action="map_delete",
+        ip_address=request.client.host if request.client else "Unknown",
+        user_type="admin" if current_user.is_admin else "member",
+        details={
+            "project_id": map_obj.project_id,
+            "map_id": map_obj.id,
+            "map_name": map_obj.name,
+            "map_type": map_obj.map_type
+        }
+    )
     
     # Delete map
     success = map_service.delete_map(db, map_id)

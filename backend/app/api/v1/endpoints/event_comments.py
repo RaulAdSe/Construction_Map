@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
@@ -8,6 +8,7 @@ from app.schemas.event_comment import EventComment, EventCommentCreate, EventCom
 from app.services import event_comment as comment_service
 from app.services import event as event_service
 from app.services import project as project_service
+from app.api.v1.endpoints.monitoring import log_user_activity
 
 router = APIRouter()
 
@@ -59,10 +60,11 @@ def get_event_comments(
 @router.post("/{event_id}/comments", response_model=EventComment)
 async def create_event_comment(
     event_id: int,
-    content: str = Form(...),
-    image: Optional[UploadFile] = File(None),
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    content: str = Form(...),
+    image: Optional[UploadFile] = File(None)
 ):
     """
     Create a new comment for an event.
@@ -86,6 +88,23 @@ async def create_event_comment(
             content=content,
             image=image
         )
+        
+        # Log user activity
+        log_user_activity(
+            user_id=current_user.id,
+            username=current_user.username,
+            action="event_comment_create",
+            ip_address=request.client.host if request.client else "Unknown",
+            user_type="admin" if current_user.is_admin else "member",
+            details={
+                "event_id": event_id,
+                "comment_id": comment.id,
+                "project_id": event.project_id,
+                "has_image": image is not None,
+                "event_title": event.title
+            }
+        )
+        
         return comment
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,6 +115,7 @@ def update_event_comment(
     event_id: int,
     comment_id: int,
     comment_update: EventCommentUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -111,6 +131,9 @@ def update_event_comment(
     if comment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed to update this comment")
     
+    # Get event for activity log
+    event = event_service.get_event(db, event_id)
+    
     # Update comment
     updated_comment = comment_service.update_comment(
         db=db,
@@ -121,6 +144,21 @@ def update_event_comment(
     if not updated_comment:
         raise HTTPException(status_code=500, detail="Failed to update comment")
     
+    # Log user activity
+    log_user_activity(
+        user_id=current_user.id,
+        username=current_user.username,
+        action="event_comment_update",
+        ip_address=request.client.host if request.client else "Unknown",
+        user_type="admin" if current_user.is_admin else "member",
+        details={
+            "event_id": event_id,
+            "comment_id": comment_id,
+            "project_id": event.project_id,
+            "event_title": event.title
+        }
+    )
+    
     return updated_comment
 
 
@@ -128,6 +166,7 @@ def update_event_comment(
 def delete_event_comment(
     event_id: int,
     comment_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -140,8 +179,27 @@ def delete_event_comment(
         raise HTTPException(status_code=404, detail="Comment not found")
     
     # Check if user owns the comment or is an admin
-    if comment.user_id != current_user.id and current_user.role != "admin":
+    if comment.user_id != current_user.id and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not allowed to delete this comment")
+    
+    # Get event for activity log
+    event = event_service.get_event(db, event_id)
+    
+    # Log user activity before deletion
+    log_user_activity(
+        user_id=current_user.id,
+        username=current_user.username,
+        action="event_comment_delete",
+        ip_address=request.client.host if request.client else "Unknown",
+        user_type="admin" if current_user.is_admin else "member",
+        details={
+            "event_id": event_id,
+            "comment_id": comment_id,
+            "project_id": event.project_id,
+            "event_title": event.title,
+            "is_own_comment": comment.user_id == current_user.id
+        }
+    )
     
     # Delete comment
     success = comment_service.delete_comment(db, comment_id)

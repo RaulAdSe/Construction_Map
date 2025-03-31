@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from app.api.v1.api import api_router
+# Import the db_monitoring module to activate SQLAlchemy event listeners
+import app.core.db_monitoring
 
 app = FastAPI(
     title="Construction Map API",
