@@ -578,12 +578,13 @@ const MapViewer = ({ onLogout }) => {
             </Row>
           </Tab>
           
+          {/* Only include admin tabs if user is admin */}
           {isUserAdmin(effectiveRole) && (
             <Tab eventKey="project-maps" title="Project Maps">
               <MapsManager 
                 projectId={project.id}
                 onMapUpdated={() => {
-                  // Force reload the maps data when a map is updated (e.g., set as main)
+                  // Force reload the maps data when a map is updated
                   const refreshData = async () => {
                     try {
                       // Fetch fresh map data
