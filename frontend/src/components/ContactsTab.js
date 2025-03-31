@@ -3,6 +3,7 @@ import { Alert, Button, Table, Modal, Form, Spinner, InputGroup, FormControl } f
 import { getAllUsers } from '../services/userService';
 import { projectService } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
+import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 
 const ContactsTab = ({ projectId, effectiveRole }) => {
   const [members, setMembers] = useState([]);
@@ -21,34 +22,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
   // Get current user ID from token
   useEffect(() => {
-    // Initialize to false
-    setIsCurrentUserAdmin(false);
+    // Initialize admin state by directly using the permissions utility
+    setIsCurrentUserAdmin(isUserAdmin(effectiveRole));
     
     const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        console.log('User data from localStorage:', user);
-        if (user.is_admin === true) {
-          setIsCurrentUserAdmin(true);
-          console.log('Current user is an admin');
-        } else {
-          setIsCurrentUserAdmin(false);
-          console.log('Current user is NOT an admin:', user);
-        }
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
-    } else {
-      console.log('No user data in localStorage');
-    }
-    
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        console.log('Token decoded:', decoded);
         if (decoded.user_id) {
           setCurrentUserId(parseInt(decoded.user_id));
         } else if (decoded.sub) {
@@ -58,34 +38,17 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       } catch (error) {
         console.error('Error decoding token:', error);
       }
-    } else {
-      console.log('No token in localStorage');
     }
-
-    // Also check if the effectiveRole prop indicates the user is an admin
-    // This is the fallback method, prefer the direct is_admin check above
-    if (effectiveRole === 'ADMIN') {
-      setIsCurrentUserAdmin(true);
-      console.log('Current user is admin based on effectiveRole prop');
-    } else {
-      // If the effectiveRole is not ADMIN, ensure isCurrentUserAdmin is false
-      console.log('Current user is NOT admin based on effectiveRole prop:', effectiveRole);
-    }
-    
-    // Debug the final state
-    console.log('Final admin status:', isCurrentUserAdmin);
   }, [effectiveRole]);
 
   // Start editing a field
   const startEditField = (userId, currentField) => {
-    // Only allow admins to edit fields
-    if (!isCurrentUserAdmin) {
-      console.log('Edit field attempted by non-admin user');
+    // Use canPerformAdminAction to check permissions
+    if (!canPerformAdminAction('edit field', effectiveRole)) {
       setError('You do not have permission to edit fields. Only administrators can make changes.');
       return;
     }
     
-    console.log(`Starting edit for user ${userId}, current field: "${currentField}"`);
     setEditField({ userId, value: currentField || '' });
   };
 
@@ -98,8 +61,8 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   const handleUpdateField = async (userId) => {
     if (!userId) return;
     
-    // Check if the current user is an admin before allowing updates
-    if (!isCurrentUserAdmin) {
+    // Use canPerformAdminAction to check permissions
+    if (!canPerformAdminAction('update field', effectiveRole)) {
       setError('You do not have permission to update user fields. Only administrators can make changes.');
       cancelEditField();
       return;
@@ -200,7 +163,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
   // Fetch all users when add modal is opened
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!showAddUserModal || !isCurrentUserAdmin) return;
+      if (!showAddUserModal || !isUserAdmin(effectiveRole)) return;
       
       try {
         const users = await getAllUsers();
@@ -212,7 +175,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     };
 
     fetchUsers();
-  }, [showAddUserModal, isCurrentUserAdmin]);
+  }, [showAddUserModal, isUserAdmin(effectiveRole)]);
 
   // Handle adding a user to the project
   const handleAddUser = async () => {
@@ -276,13 +239,13 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
     return <div className="text-center p-4"><Spinner animation="border" /></div>;
   }
 
-  console.log('Rendering ContactsTab with isCurrentUserAdmin:', isCurrentUserAdmin, 'and effectiveRole:', effectiveRole);
+  console.log('Rendering ContactsTab with isCurrentUserAdmin:', isUserAdmin(effectiveRole), 'and effectiveRole:', effectiveRole);
 
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4>Project Contacts</h4>
-        {isCurrentUserAdmin && (
+        {isUserAdmin(effectiveRole) && (
           <Button variant="success" onClick={() => setShowAddUserModal(true)}>
             Add User to Project
           </Button>
@@ -291,7 +254,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {!isCurrentUserAdmin && (
+      {!isUserAdmin(effectiveRole) && (
         <Alert variant="info">
           You are viewing contacts in read-only mode. Only administrators can make changes.
         </Alert>
@@ -305,7 +268,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
       ) : members.length === 0 ? (
         <Alert variant="info">
           No contacts found for this project.
-          {isCurrentUserAdmin && ' Click "Add User to Project" to add team members.'}
+          {isUserAdmin(effectiveRole) && ' Click "Add User to Project" to add team members.'}
         </Alert>
       ) : (
         <Table striped bordered hover responsive>
@@ -315,7 +278,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
               <th>Field</th>
               <th>Role</th>
               <th>Status</th>
-              {isCurrentUserAdmin && <th>Actions</th>}
+              {isUserAdmin(effectiveRole) && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -340,19 +303,12 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                   ) : (
                     <div className="d-flex justify-content-between align-items-center">
                       <span>{member.field || 'Not specified'}</span>
-                      {isCurrentUserAdmin && (
+                      {isUserAdmin(effectiveRole) && (
                         <Button 
                           variant="outline-primary" 
                           size="sm" 
                           className="ms-2"
-                          onClick={() => {
-                            console.log('Edit field button clicked', {
-                              memberId: member.id,
-                              memberField: member.field,
-                              isAdmin: isCurrentUserAdmin
-                            });
-                            startEditField(member.id, member.field);
-                          }}
+                          onClick={() => startEditField(member.id, member.field)}
                         >
                           Edit
                         </Button>
@@ -372,7 +328,7 @@ const ContactsTab = ({ projectId, effectiveRole }) => {
                     {member.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                {isCurrentUserAdmin && (
+                {isUserAdmin(effectiveRole) && (
                   <td>
                     {(!member.is_admin || member.id === currentUserId) ? (
                       <Button 

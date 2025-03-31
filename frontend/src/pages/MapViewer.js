@@ -15,6 +15,7 @@ import RoleSwitcher from '../components/RoleSwitcher';
 import ContactsTab from '../components/ContactsTab';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
+import { isUserAdmin } from '../utils/permissions';
 import '../assets/styles/MapViewer.css';
 
 const MapViewer = ({ onLogout }) => {
@@ -439,7 +440,6 @@ const MapViewer = ({ onLogout }) => {
                 <RoleSwitcher 
                   currentRole={effectiveRole}
                   onRoleChange={handleRoleChange}
-                  isAdminUser={userRole === "ADMIN"}
                 />
               </div>
             )}
@@ -521,8 +521,8 @@ const MapViewer = ({ onLogout }) => {
             </Row>
           </Tab>
           
-          <Tab eventKey="project-maps" title={effectiveRole === "ADMIN" ? "Project Maps" : null}>
-            {effectiveRole === "ADMIN" && (
+          <Tab eventKey="project-maps" title={isUserAdmin(effectiveRole) ? "Project Maps" : null}>
+            {isUserAdmin(effectiveRole) && (
               <MapsManager 
                 projectId={project.id}
                 onMapUpdated={() => {

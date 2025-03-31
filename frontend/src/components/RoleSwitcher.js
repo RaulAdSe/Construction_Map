@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, Badge } from 'react-bootstrap';
+import { Button, Badge } from 'react-bootstrap';
+import { isUserAdmin } from '../utils/permissions';
 
 /**
  * Component to allow admin users to temporarily switch their view between ADMIN and MEMBER
@@ -7,8 +8,7 @@ import { Form, Button, Badge } from 'react-bootstrap';
  */
 const RoleSwitcher = ({ 
   currentRole,
-  onRoleChange,
-  isAdminUser = false 
+  onRoleChange 
 }) => {
   const [viewAs, setViewAs] = useState(currentRole || 'ADMIN');
   
@@ -19,8 +19,8 @@ const RoleSwitcher = ({
     }
   }, [currentRole]);
   
-  // Only render if user is an admin
-  if (!isAdminUser) {
+  // Only render if user is an admin (using the centralized utility)
+  if (!isUserAdmin()) {
     return null;
   }
   
