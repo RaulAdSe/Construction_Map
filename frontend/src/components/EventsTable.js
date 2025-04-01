@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import api from '../api';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
+import MentionInput from './MentionInput';
+import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effectiveIsAdmin }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
@@ -338,12 +340,13 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
             <Form onSubmit={handleCommentSubmit}>
               <Form.Group className="mb-3">
                 <Form.Label>Add a comment</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
+                <MentionInput
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write your comment here..."
+                  onChange={setNewComment}
+                  placeholder="Write your comment here... (use @ to mention users)"
+                  rows={3}
+                  projectId={selectedEventId ? filteredEvents.find(e => e.id === selectedEventId)?.project_id : null}
+                  id="event-table-comment-input"
                 />
               </Form.Group>
               
@@ -396,7 +399,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                         <strong>{comment.user_name || `User ID: ${comment.user_id}`}</strong>
                         <small className="text-muted">{format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}</small>
                       </div>
-                      <p className="mt-2 mb-2">{comment.content}</p>
+                      <p className="mt-2 mb-2">{parseAndHighlightMentions(comment.content)}</p>
                       {comment.image_url && (
                         <div className="comment-image mt-2">
                           <a 

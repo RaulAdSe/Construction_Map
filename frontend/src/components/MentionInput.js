@@ -18,6 +18,7 @@ const MentionInput = ({
   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
   const inputRef = useRef(null);
   const displayRef = useRef(null);
+  const containerRef = useRef(null);
 
   // Check for @ character while typing
   const handleInputChange = (e) => {
@@ -30,48 +31,71 @@ const MentionInput = ({
       // Check if @ is at the start or has a space before it
       const charBeforeAt = lastAtIndex > 0 ? text[lastAtIndex - 1] : ' ';
       if (charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0) {
-        // Calculate cursor position for suggestions
-        calculateMentionPosition();
-        setShowMentions(true);
+        // Only show suggestions if there's not a complete mention already
+        const textAfterAt = text.substring(lastAtIndex + 1);
+        const spaceAfterMention = textAfterAt.indexOf(' ');
+        const isCompleteMention = spaceAfterMention !== -1 && textAfterAt.substring(0, spaceAfterMention).length > 0;
+        
+        if (!isCompleteMention) {
+          // Calculate cursor position for suggestions
+          calculateMentionPosition();
+          setShowMentions(true);
+          return;
+        }
       }
     }
+    
+    // If we get here, no active mention is being typed
+    setShowMentions(false);
   };
 
   // Calculate position for the mention suggestions dropdown
   const calculateMentionPosition = () => {
     if (!inputRef.current) return;
     
-    const { selectionStart } = inputRef.current;
+    const textarea = inputRef.current;
+    const { selectionStart } = textarea;
     const textBeforeCursor = value.substring(0, selectionStart);
     const lines = textBeforeCursor.split('\n');
     const currentLineIndex = lines.length - 1;
-    const currentLineLength = lines[currentLineIndex].length;
     
-    // Create a temporary span to measure text width
-    const tempSpan = document.createElement('span');
-    tempSpan.style.font = getComputedStyle(inputRef.current).font;
-    tempSpan.style.position = 'absolute';
-    tempSpan.style.visibility = 'hidden';
-    tempSpan.textContent = lines[currentLineIndex];
-    document.body.appendChild(tempSpan);
+    // Create a hidden div with the same styling as the textarea
+    const div = document.createElement('div');
+    div.style.position = 'absolute';
+    div.style.top = '0';
+    div.style.left = '0';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.overflow = 'auto';
+    div.style.visibility = 'hidden';
+    div.style.width = `${textarea.clientWidth}px`;
+    div.style.padding = window.getComputedStyle(textarea).padding;
+    div.style.font = window.getComputedStyle(textarea).font;
+    div.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
     
-    const charWidth = tempSpan.getBoundingClientRect().width / Math.max(1, currentLineLength);
-    document.body.removeChild(tempSpan);
+    // Create a span for the text before cursor on the current line
+    const currentLine = document.createElement('span');
+    currentLine.textContent = lines[currentLineIndex];
+    div.appendChild(currentLine);
     
-    // Get input element position and dimensions
-    const inputRect = inputRef.current.getBoundingClientRect();
+    // Append to body, measure, then remove
+    document.body.appendChild(div);
+    const cursorPosition = currentLine.getBoundingClientRect();
+    document.body.removeChild(div);
     
-    // Calculate line height based on the input
-    const lineHeight = parseInt(getComputedStyle(inputRef.current).lineHeight) || 20;
+    // Get textarea position
+    const textareaPosition = textarea.getBoundingClientRect();
     
-    // Calculate position
-    const top = inputRect.top + lineHeight * currentLineIndex + lineHeight + 5;
-    let left = inputRect.left + (currentLineLength * charWidth);
+    // Calculate line height
+    const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || 18;
     
-    // Ensure suggestion box is visible within viewport
-    const viewportWidth = window.innerWidth;
-    if (left + 200 > viewportWidth) { // 200px is assumed width of suggestion box
-      left = viewportWidth - 220; // 20px margin from edge
+    // Calculate position (add a small offset)
+    const top = textareaPosition.top + (lineHeight * currentLineIndex) + lineHeight + window.scrollY;
+    let left = textareaPosition.left + cursorPosition.width + window.scrollX;
+    
+    // Ensure the suggestion box doesn't go out of viewport
+    const maxLeft = window.innerWidth - 260; // 250px width + 10px margin
+    if (left > maxLeft) {
+      left = maxLeft;
     }
     
     setMentionPosition({ top, left });
@@ -94,15 +118,26 @@ const MentionInput = ({
     
     // Focus back on input
     inputRef.current.focus();
+    
+    // Hide suggestions
+    setShowMentions(false);
+  };
+  
+  // Handle input keydown events
+  const handleKeyDown = (e) => {
+    // ESC key to dismiss mentions suggestions
+    if (e.key === 'Escape' && showMentions) {
+      e.preventDefault();
+      setShowMentions(false);
+    }
   };
 
   // Close mentions suggestion when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        inputRef.current && 
-        !inputRef.current.contains(event.target) &&
-        (!displayRef.current || !displayRef.current.contains(event.target))
+        containerRef.current && 
+        !containerRef.current.contains(event.target)
       ) {
         setShowMentions(false);
       }
@@ -132,7 +167,7 @@ const MentionInput = ({
 
   // Render editable input with mentions support
   return (
-    <div className="position-relative">
+    <div className="position-relative" ref={containerRef}>
       {label && <Form.Label htmlFor={id}>{label}</Form.Label>}
       <Form.Control
         ref={inputRef}
@@ -140,18 +175,21 @@ const MentionInput = ({
         as="textarea"
         value={value}
         onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={rows}
         className={className}
       />
-      <MentionSuggestions 
-        text={value}
-        position={mentionPosition}
-        onSelectUser={handleUserSelect}
-        projectId={projectId}
-        isVisible={showMentions}
-        setIsVisible={setShowMentions}
-      />
+      {showMentions && (
+        <MentionSuggestions 
+          text={value}
+          position={mentionPosition}
+          onSelectUser={handleUserSelect}
+          projectId={projectId}
+          isVisible={showMentions}
+          setIsVisible={setShowMentions}
+        />
+      )}
     </div>
   );
 };

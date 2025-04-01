@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ListGroup } from 'react-bootstrap';
+import { ListGroup, Spinner } from 'react-bootstrap';
 import { projectService } from '../services/api';
 
 const MentionSuggestions = ({ 
@@ -14,6 +14,7 @@ const MentionSuggestions = ({
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
+  const [error, setError] = useState(null);
 
   // Fetch project users when component mounts
   useEffect(() => {
@@ -22,6 +23,7 @@ const MentionSuggestions = ({
       
       try {
         setLoading(true);
+        setError(null);
         const response = await projectService.getProjectMembers(projectId);
         setUsers(response.data);
       } catch (error) {
@@ -30,14 +32,18 @@ const MentionSuggestions = ({
         if (error.response && error.response.status === 404) {
           // Project might not exist or user doesn't have access
           setUsers([]);
+        } else {
+          setError('Could not load users');
         }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProjectUsers();
-  }, [projectId]);
+    if (isVisible) {
+      fetchProjectUsers();
+    }
+  }, [projectId, isVisible]);
 
   // Extract query text after @ symbol
   useEffect(() => {
@@ -61,20 +67,28 @@ const MentionSuggestions = ({
     if (!isVisible) return;
     
     const filtered = users.filter(user => 
-      user.username.toLowerCase().includes(mentionQuery.toLowerCase())
+      user.username.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+      (user.name && user.name.toLowerCase().includes(mentionQuery.toLowerCase()))
     );
     
     setFilteredUsers(filtered.slice(0, 5)); // Limit to 5 suggestions
   }, [mentionQuery, users, isVisible]);
 
-  // Hide suggestions when no matches
+  // Hide suggestions when no matches and not loading
   useEffect(() => {
-    if (filteredUsers.length === 0 && !loading && isVisible) {
-      setIsVisible(false);
+    if (filteredUsers.length === 0 && !loading && isVisible && !error && mentionQuery.length > 0) {
+      // Don't hide immediately for better UX - wait a bit to see if user keeps typing
+      const timer = setTimeout(() => {
+        if (filteredUsers.length === 0 && mentionQuery.length > 0) {
+          setIsVisible(false);
+        }
+      }, 1500);
+      
+      return () => clearTimeout(timer);
     }
-  }, [filteredUsers, loading, isVisible, setIsVisible]);
+  }, [filteredUsers, loading, isVisible, setIsVisible, error, mentionQuery]);
 
-  if (!isVisible || filteredUsers.length === 0) return null;
+  if (!isVisible) return null;
 
   return (
     <div 
@@ -84,13 +98,26 @@ const MentionSuggestions = ({
         left: `${position.left}px`,
         top: `${position.top}px`,
         zIndex: 1000,
-        width: '200px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        width: '250px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+        borderRadius: '4px',
+        backgroundColor: '#fff'
       }}
     >
       <ListGroup>
         {loading ? (
-          <ListGroup.Item>Loading...</ListGroup.Item>
+          <ListGroup.Item className="d-flex justify-content-center align-items-center py-3">
+            <Spinner animation="border" size="sm" className="me-2" />
+            <span>Loading users...</span>
+          </ListGroup.Item>
+        ) : error ? (
+          <ListGroup.Item className="text-danger">{error}</ListGroup.Item>
+        ) : filteredUsers.length === 0 ? (
+          <ListGroup.Item className="text-muted">
+            {mentionQuery.length > 0 
+              ? `No users matching '${mentionQuery}'` 
+              : 'Start typing to search for users'}
+          </ListGroup.Item>
         ) : (
           filteredUsers.map(user => (
             <ListGroup.Item 
@@ -100,17 +127,21 @@ const MentionSuggestions = ({
                 onSelectUser(user.username);
                 setIsVisible(false);
               }}
-              className="d-flex align-items-center"
+              className="d-flex align-items-center py-2"
+              style={{ cursor: 'pointer' }}
             >
               <div 
-                className="bg-secondary text-white rounded-circle me-2 d-flex align-items-center justify-content-center"
-                style={{ width: 24, height: 24, fontSize: '0.8rem' }}
+                className="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                style={{ width: 28, height: 28, fontSize: '0.9rem' }}
               >
-                {user.username.charAt(0).toUpperCase()}
+                {user.username ? user.username.charAt(0).toUpperCase() : '?'}
               </div>
-              <span>{user.username}</span>
+              <div className="d-flex flex-column">
+                <span className="fw-bold">{user.username}</span>
+                {user.name && <small className="text-muted">{user.name}</small>}
+              </div>
               {user.is_admin && (
-                <small className="ms-1 text-muted">(admin)</small>
+                <span className="badge bg-secondary ms-auto">admin</span>
               )}
             </ListGroup.Item>
           ))

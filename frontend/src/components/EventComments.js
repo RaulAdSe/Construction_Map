@@ -5,7 +5,7 @@ import api from '../api';
 import MentionInput from './MentionInput';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
-const EventComments = ({ eventId }) => {
+const EventComments = ({ eventId, projectId }) => {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -109,7 +109,7 @@ const EventComments = ({ eventId }) => {
                 onChange={setContent}
                 placeholder="Write your comment here... (use @ to mention users)"
                 rows={3}
-                projectId={eventId} // Using eventId to fetch users from the same project
+                projectId={projectId}
                 id="comment-input"
               />
             </Form.Group>

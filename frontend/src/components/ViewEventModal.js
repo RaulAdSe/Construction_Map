@@ -317,7 +317,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
             eventKey="comments" 
             title={`Comments ${event.comment_count ? `(${event.comment_count})` : ''}`}
           >
-            <EventComments eventId={event.id} />
+            <EventComments eventId={event.id} projectId={projectId} />
           </Tab>
         </Tabs>
       </Modal.Body>
