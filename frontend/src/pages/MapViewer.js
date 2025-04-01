@@ -50,6 +50,9 @@ const MapViewer = ({ onLogout }) => {
   // Add a state variable for the comment to highlight
   const [highlightCommentId, setHighlightCommentId] = useState(null);
   
+  // Add a state to track if user has manually closed the modal
+  const [userClosedModal, setUserClosedModal] = useState(false);
+  
   // Fetch current user info from token and get their admin status
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -441,6 +444,9 @@ const MapViewer = ({ onLogout }) => {
   // Extract highlight info from location state or query parameters
   useEffect(() => {
     const checkForHighlightedEvent = async () => {
+      // Skip if the user has manually closed the modal
+      if (userClosedModal) return;
+      
       // Check if we have highlight info in location state (from programmatic navigation)
       const highlightEventId = location.state?.highlightEventId;
       const highlightCommentId = location.state?.highlightCommentId;
@@ -522,7 +528,7 @@ const MapViewer = ({ onLogout }) => {
     if (events.length > 0 && !loading) {
       checkForHighlightedEvent();
     }
-  }, [events, maps, location.state, loading]);
+  }, [events, maps, location.state, loading, userClosedModal]);
   
   // Define a clean handler for closing the event modal
   const handleCloseViewEventModal = () => {
@@ -530,6 +536,9 @@ const MapViewer = ({ onLogout }) => {
     setShowViewEventModal(false);
     setHighlightCommentId(null);
     setSelectedEvent(null);
+    
+    // Set user closed flag to prevent reopening
+    setUserClosedModal(true);
     
     // If we were navigated here from a notification, clear location state
     try {
@@ -562,6 +571,7 @@ const MapViewer = ({ onLogout }) => {
           setShowViewEventModal(false);
           setHighlightCommentId(null);
           setSelectedEvent(null);
+          setUserClosedModal(true);
           setShowEditEventModal(false);
           setShowAddMapModal(false);
           setShowAddEventModal(false);
@@ -584,6 +594,11 @@ const MapViewer = ({ onLogout }) => {
       clearTimeout(escapeTimer);
     };
   }, []);
+  
+  // Reset the userClosedModal flag when project changes
+  useEffect(() => {
+    setUserClosedModal(false);
+  }, [projectId]);
   
   if (loading) {
     return (
