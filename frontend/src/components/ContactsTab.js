@@ -4,6 +4,7 @@ import { getAllUsers } from '../services/userService';
 import { projectService } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
+import translate from '../utils/translate';
 
 const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
   const [members, setMembers] = useState([]);
@@ -45,7 +46,7 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
   const startEditField = (userId, currentField) => {
     // Block all editing for non-admin users with strict checking
     if (effectiveIsAdmin !== true) {
-      setError('You do not have permission to edit fields. Only administrators can make changes.');
+      setError(translate('You do not have permission to edit fields. Only administrators can make changes.'));
       console.warn('Non-admin user attempted to edit a field');
       return;
     }
@@ -64,41 +65,35 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
     
     // Block all updates for non-admin users with strict checking
     if (effectiveIsAdmin !== true) {
-      setError('You do not have permission to update user fields. Only administrators can make changes.');
+      setError(translate('You do not have permission to update user fields. Only administrators can make changes.'));
       console.warn('Non-admin user attempted to update a field');
       cancelEditField();
       return;
     }
     
+    if (!editField.value) {
+      return;
+    }
+    
+    setUpdatingField(true);
+    
     try {
-      const fieldValue = editField.value.trim();
-      console.log(`Submitting field update for user ${userId}: "${fieldValue}"`);
+      // Make API call to update user's field
+      await projectService.updateUserField(projectId, userId, editField.value);
       
-      setUpdatingField(true);
-      
-      // Make API call to update the field
-      const response = await projectService.updateMemberField(projectId, userId, fieldValue);
-      console.log('Field update response:', response);
-      
-      // Update the members list with the new field value
+      // Update local state
       setMembers(members.map(member => 
         member.id === userId 
-          ? { ...member, field: fieldValue } 
+          ? { ...member, field: editField.value } 
           : member
       ));
       
-      // Reset the edit state
+      // Reset edit state
       setEditField({ userId: null, value: '' });
       setError('');
-    } catch (err) {
-      console.error('Error updating user field:', err);
-      
-      // Show more detailed error message if available
-      if (err.response && err.response.data && err.response.data.detail) {
-        setError(`Error: ${err.response.data.detail}`);
-      } else {
-        setError('Failed to update user field. Please try again.');
-      }
+    } catch (error) {
+      console.error('Error updating user field:', error);
+      setError(translate('Failed to update field. Please try again.'));
     } finally {
       setUpdatingField(false);
     }
@@ -151,7 +146,7 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
       setError('');
     } catch (err) {
       console.error('Error fetching project members:', err);
-      setError('Failed to load project members. Please try again.');
+      setError(translate('Failed to load project members. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -172,7 +167,7 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
         setAllUsers(users);
       } catch (err) {
         console.error('Error fetching users:', err);
-        setError('Failed to load users. Please try again.');
+        setError(translate('Failed to load users. Please try again.'));
       }
     };
 
@@ -182,7 +177,7 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
   // Handle adding a user to the project
   const handleAddUser = async () => {
     if (!selectedUserId) {
-      setError('Please select a user to add');
+      setError(translate('Please select a user to add'));
       return;
     }
 
@@ -196,7 +191,7 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
       setSelectedUserId('');
     } catch (err) {
       console.error('Error adding user to project:', err);
-      setError('Failed to add user to the project. Please try again.');
+      setError(translate('Failed to add user to the project. Please try again.'));
     } finally {
       setAddingUser(false);
     }
@@ -225,7 +220,7 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
       if (err.response && err.response.data && err.response.data.detail) {
         setError(err.response.data.detail);
       } else {
-        setError('Failed to remove user from the project. Please try again.');
+        setError(translate('Failed to remove user from the project. Please try again.'));
       }
       
       setShowConfirmModal(false);
@@ -246,10 +241,10 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4>Project Contacts</h4>
+        <h4>{translate('Project Contacts')}</h4>
         {effectiveIsAdmin === true && (
           <Button variant="success" onClick={() => setShowAddUserModal(true)}>
-            Add User to Project
+            {translate('Add User to Project')}
           </Button>
         )}
       </div>
@@ -258,29 +253,29 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
 
       {effectiveIsAdmin !== true && (
         <Alert variant="info">
-          You are viewing contacts in read-only mode. Only administrators can make changes.
+          {translate('You are viewing contacts in read-only mode. Only administrators can make changes.')}
         </Alert>
       )}
 
       {loading ? (
         <div className="text-center">
           <Spinner animation="border" />
-          <p className="mt-2">Loading project contacts...</p>
+          <p className="mt-2">{translate('Loading project contacts...')}</p>
         </div>
       ) : members.length === 0 ? (
         <Alert variant="info">
-          No contacts found for this project.
-          {effectiveIsAdmin === true && ' Click "Add User to Project" to add team members.'}
+          {translate('No contacts found')}
+          {effectiveIsAdmin === true && translate(' Click "Add User to Project" to add team members.')}
         </Alert>
       ) : (
         <Table striped bordered hover responsive>
           <thead>
             <tr>
-              <th>Username</th>
-              <th>Field</th>
-              <th>Role</th>
-              <th>Status</th>
-              {effectiveIsAdmin === true && <th>Actions</th>}
+              <th>{translate('Username')}</th>
+              <th>{translate('Field')}</th>
+              <th>{translate('Role')}</th>
+              <th>{translate('Status')}</th>
+              {effectiveIsAdmin === true && <th>{translate('Actions')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -332,12 +327,12 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
                   <Badge 
                     bg={member.is_admin ? "primary" : "secondary"}
                   >
-                    {member.is_admin ? "Admin" : "Member"}
+                    {member.is_admin ? translate('Admin') : translate('Member')}
                   </Badge>
                 </td>
                 <td>
                   <span className={`badge ${member.is_active ? 'bg-success' : 'bg-danger'}`}>
-                    {member.is_active ? 'Active' : 'Inactive'}
+                    {member.is_active ? translate('Active') : translate('Inactive')}
                   </span>
                 </td>
                 {effectiveIsAdmin === true && (
@@ -351,7 +346,7 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
                         <i className="bi bi-trash"></i>
                       </Button>
                     ) : (
-                      <span className="text-muted">Cannot remove other admins</span>
+                      <span className="text-muted">{translate('Cannot remove other admins')}</span>
                     )}
                   </td>
                 )}
@@ -368,24 +363,24 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Add User to Project</Modal.Title>
+          <Modal.Title>{translate('Add User to Project')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {error && <Alert variant="danger">{error}</Alert>}
           
           {availableUsers.length === 0 ? (
             <Alert variant="info">
-              No available users to add. All users are already in this project.
+              {translate('No available users to add. All users are already in this project.')}
             </Alert>
           ) : (
             <Form>
               <Form.Group className="mb-3">
-                <Form.Label>Select User</Form.Label>
+                <Form.Label>{translate('Select User')}</Form.Label>
                 <Form.Select 
                   value={selectedUserId} 
                   onChange={(e) => setSelectedUserId(e.target.value)}
                 >
-                  <option value="">-- Select a user --</option>
+                  <option value="">{translate('-- Select a user --')}</option>
                   {availableUsers.map(user => (
                     <option key={user.id} value={user.id}>
                       {user.username} ({user.email})
@@ -398,14 +393,14 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowAddUserModal(false)}>
-            Cancel
+            {translate('Cancel')}
           </Button>
           <Button 
             variant="primary" 
             onClick={handleAddUser}
             disabled={!selectedUserId || addingUser}
           >
-            {addingUser ? 'Adding...' : 'Add User'}
+            {addingUser ? translate('Adding...') : translate('Add User')}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -417,17 +412,17 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Removal</Modal.Title>
+          <Modal.Title>{translate('Confirm Removal')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to remove <strong>{userToRemove?.username}</strong> from this project?
+          {translate('Are you sure you want to remove')} <strong>{userToRemove?.username}</strong> {translate('from this project?')}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
-            Cancel
+            {translate('Cancel')}
           </Button>
           <Button variant="danger" onClick={handleRemoveUser}>
-            Remove
+            {translate('Remove')}
           </Button>
         </Modal.Footer>
       </Modal>

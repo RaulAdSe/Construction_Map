@@ -1,11 +1,12 @@
 import React from 'react';
 import { ListGroup } from 'react-bootstrap';
+import translate from '../utils/translate';
 
 const MapList = ({ maps, selectedMap, onMapSelect }) => {
   if (!maps || maps.length === 0) {
     return (
       <div className="p-3 bg-light rounded">
-        <p className="text-center">No maps available.</p>
+        <p className="text-center">{translate('No maps available.')}</p>
       </div>
     );
   }

@@ -14,10 +14,13 @@ import Notification from '../components/Notification';
 import NotificationBell from '../components/NotificationBell';
 import RoleSwitcher from '../components/RoleSwitcher';
 import ContactsTab from '../components/ContactsTab';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
 import { isUserAdmin } from '../utils/permissions';
 import '../assets/styles/MapViewer.css';
+import translate from '../utils/translate';
+
 
 const DEBUG = false;
 
@@ -86,7 +89,7 @@ const MapViewer = ({ onLogout }) => {
   // Handle role change from the RoleSwitcher
   const handleRoleChange = (newIsAdmin) => {
     setEffectiveIsAdmin(newIsAdmin);
-    showNotification(`Viewing as ${newIsAdmin ? 'Admin' : 'Member'}`, 'info');
+    showNotification(`${translate('Viewing as')} ${newIsAdmin ? translate('Admin') : translate('Member')}`, 'info');
     
     // If switching to member view and current tab is admin-only, switch to map view
     if (!newIsAdmin && (activeTab === 'project-maps' || activeTab === 'events')) {
@@ -276,7 +279,7 @@ const MapViewer = ({ onLogout }) => {
       }
     } catch (error) {
       console.error('Error loading project data:', error);
-      showNotification('Error loading project data. Please try again.', 'error');
+      showNotification(translate('Error loading project data. Please try again.'), 'error');
     } finally {
       setLoading(false);
     }
@@ -289,10 +292,10 @@ const MapViewer = ({ onLogout }) => {
         // Only fetch maps, not the entire project data
         const mapsData = await fetchMaps(parseInt(projectId, 10));
         setMaps(mapsData);
-        showNotification('Maps updated successfully!', 'success');
+        showNotification(translate('Maps updated successfully!'), 'success');
       } catch (error) {
         console.error('Error refreshing maps:', error);
-        showNotification('Error refreshing maps data.', 'error');
+        showNotification(translate('Error refreshing maps data.'), 'error');
       }
     }
   };
@@ -308,7 +311,7 @@ const MapViewer = ({ onLogout }) => {
   
   const handleAddMap = () => {
     if (!project) {
-      showNotification('No project selected.', 'error');
+      showNotification(translate('No project selected.'), 'error');
       return;
     }
     setShowAddMapModal(true);
@@ -329,12 +332,12 @@ const MapViewer = ({ onLogout }) => {
         setSelectedMap(newMap);
       }
       
-      showNotification('Map updated successfully!');
+      showNotification(translate('Map updated successfully!'));
     } else {
       // Add new map
       setMaps([...maps, newMap]);
       setSelectedMap(newMap);
-      showNotification('Map added successfully!');
+      showNotification(translate('Map added successfully!'));
     }
     
     setShowAddMapModal(false);
@@ -353,12 +356,12 @@ const MapViewer = ({ onLogout }) => {
       setSelectedMap(updatedMaps.length > 0 ? updatedMaps[0] : null);
     }
     
-    showNotification('Map deleted successfully!');
+    showNotification(translate('Map deleted successfully!'));
   };
   
   const handleAddEvent = () => {
     if (!selectedMap) {
-      showNotification('Please select a map first before adding an event.', 'warning');
+      showNotification(translate('Please select a map first before adding an event.'), 'warning');
       // Maybe direct them to map selection
       setActiveTab('project-maps');
       return;
@@ -368,14 +371,14 @@ const MapViewer = ({ onLogout }) => {
     setMapForEvent(selectedMap);
     
     // Notify user to click on the map
-    showNotification('Click on the map to place your event.', 'info');
+    showNotification(translate('Click on the map to place your event.'), 'info');
   };
   
   const handleMapSelected = (mapId) => {
     const map = maps.find(m => m.id === mapId);
     setMapForEvent(map);
     setShowMapSelectionModal(false);
-    showNotification('Click on the map to place your event.', 'info');
+    showNotification(translate('Click on the map to place your event.'), 'info');
   };
   
   const handleMapClick = (map, x, y) => {
@@ -396,7 +399,7 @@ const MapViewer = ({ onLogout }) => {
     
     setEvents([...events, eventWithMapName]);
     setMapForEvent(null);
-    showNotification('Event added successfully!');
+    showNotification(translate('Event added successfully!'));
     setShowAddEventModal(false);
   };
   
@@ -447,7 +450,7 @@ const MapViewer = ({ onLogout }) => {
     setEvents(updatedEventsCopy);
     
     // Show notification about the update
-    showNotification('Event updated successfully!');
+    showNotification(translate('Event updated successfully!'));
     
     // If we updated the currently selected event, also update it directly
     // This ensures the ViewEventModal shows the updated values immediately
@@ -735,7 +738,7 @@ const MapViewer = ({ onLogout }) => {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
         <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
+          <span className="visually-hidden">{translate('Loading...')}</span>
         </Spinner>
       </div>
     );
@@ -745,9 +748,9 @@ const MapViewer = ({ onLogout }) => {
     return (
       <Container className="mt-5">
         <Alert variant="danger">
-          Project not found or you don't have access.
+          {translate('Project not found or you don\'t have access.')}
           <Button variant="link" onClick={handleBackToProjects}>
-            Back to Projects
+            {translate('Back to Projects')}
           </Button>
         </Alert>
       </Container>
@@ -759,19 +762,19 @@ const MapViewer = ({ onLogout }) => {
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container>
           <Navbar.Brand onClick={handleBackToProjects} style={{ cursor: 'pointer' }}>
-            Construction Map Viewer
+            {translate('Construction Map Viewer')}
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Nav className="me-auto">
               <Nav.Item>
                 <Nav.Link onClick={handleBackToProjects}>
-                  &laquo; Back to Projects
+                  &laquo; {translate('Back to Projects')}
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link active>
-                  Project: {project.name}
+                  {translate('Project')}: {project.name}
                 </Nav.Link>
               </Nav.Item>
             </Nav>
@@ -786,7 +789,8 @@ const MapViewer = ({ onLogout }) => {
               />
               
               <NotificationBell />
-              <Button variant="outline-light" onClick={onLogout} className="ms-2">Logout</Button>
+              <LanguageSwitcher />
+              <Button variant="outline-light" onClick={onLogout} className="ms-2">{translate('Logout')}</Button>
             </div>
           </Navbar.Collapse>
         </Container>
@@ -804,36 +808,36 @@ const MapViewer = ({ onLogout }) => {
             // Define all potential tabs
             const tabs = [
               // Map View tab - available to all users
-              <Tab key="map-view" eventKey="map-view" title="Map View">
+              <Tab key="map-view" eventKey="map-view" title={translate('Map View')}>
                 <Row>
                   <Col md={3}>
                     <div className="sidebar-panel">
-                      <h5 className="mb-3">Map Controls</h5>
+                      <h5 className="mb-3">{translate('Map Controls')}</h5>
                       
                       <div className="d-grid gap-2 mb-4">
                         <Button
                           variant="success"
                           onClick={handleAddEvent}
                         >
-                          <i className="bi bi-pin-map me-2"></i>Add Event
+                          <i className="bi bi-pin-map me-2"></i>{translate('Add Event')}
                         </Button>
                       </div>
                       
                       <hr />
                       
                       <div className="map-info-section">
-                        <h6>Current View</h6>
+                        <h6>{translate('Current View')}</h6>
                         {selectedMap && (
                           <div className="current-map-info mb-3">
                             <p className="mb-1">
-                              <strong>Main Map:</strong> {selectedMap.name}
+                              <strong>{translate('Main Map')}:</strong> {selectedMap.name}
                               {selectedMap.map_type === 'implantation' && (
-                                <span className="badge bg-success ms-2">Primary</span>
+                                <span className="badge bg-success ms-2">{translate('Primary')}</span>
                               )}
                             </p>
-                            <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
+                            <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
                             <p className="mb-0">
-                              <strong>Events:</strong> {visibleEvents.length}
+                              <strong>{translate('Events')}:</strong> {visibleEvents.length}
                             </p>
                           </div>
                         )}
@@ -842,7 +846,7 @@ const MapViewer = ({ onLogout }) => {
                       <hr />
                       
                       <div className="events-summary mb-3">
-                        <h6>Event Categories</h6>
+                        <h6>{translate('Event Categories')}</h6>
                         <ul className="list-unstyled">
                           {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
                             <li key={tag} className="mb-1">
@@ -861,8 +865,8 @@ const MapViewer = ({ onLogout }) => {
                       />
                     ) : (
                       <div className="text-center p-5 bg-light rounded">
-                        <h3>No map selected</h3>
-                        <p>Please select a map from the Project Maps tab or add a new one.</p>
+                        <h3>{translate('No map selected')}</h3>
+                        <p>{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
                       </div>
                     )}
                   </Col>
@@ -870,7 +874,7 @@ const MapViewer = ({ onLogout }) => {
               </Tab>,
               
               // Project Maps tab - admin only
-              <Tab key="project-maps" eventKey="project-maps" title="Project Maps">
+              <Tab key="project-maps" eventKey="project-maps" title={translate('Project Maps')}>
                 <MapsManager 
                   projectId={project.id}
                   onMapUpdated={() => {
@@ -885,11 +889,11 @@ const MapViewer = ({ onLogout }) => {
                         const mainMap = mapsData.find(map => map.map_type === 'implantation');
                         if (mainMap) {
                           setSelectedMap(mainMap);
-                          showNotification('Map updated successfully! Main map has been changed.', 'success');
+                          showNotification(translate('Map updated successfully! Main map has been changed.'), 'success');
                         }
                       } catch (error) {
                         console.error('Error refreshing maps after update:', error);
-                        showNotification('Error updating maps. Please refresh the page.', 'error');
+                        showNotification(translate('Error updating maps. Please refresh the page.'), 'error');
                       }
                     };
                     
@@ -899,9 +903,9 @@ const MapViewer = ({ onLogout }) => {
               </Tab>,
               
               // Events tab - admin only
-              <Tab key="events" eventKey="events" title="Events">
+              <Tab key="events" eventKey="events" title={translate('Events')}>
                 <div className="mb-3 d-flex justify-content-between">
-                  <h3>Project Events</h3>
+                  <h3>{translate('Project Events')}</h3>
                 </div>
                 
                 <EventsTable 
@@ -914,7 +918,7 @@ const MapViewer = ({ onLogout }) => {
               </Tab>,
               
               // Contacts tab - available to all users
-              <Tab key="contacts" eventKey="contacts" title="Contacts">
+              <Tab key="contacts" eventKey="contacts" title={translate('Contacts')}>
                 <ContactsTab 
                   projectId={parseInt(projectId)} 
                   effectiveIsAdmin={effectiveIsAdmin}

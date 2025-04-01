@@ -4,15 +4,43 @@ import LoginPage from './pages/LoginPage';
 import MapViewer from './pages/MapViewer';
 import ProjectList from './pages/ProjectList';
 import './assets/styles/App.css';
+import { TranslationProvider } from './components/common/TranslationProvider';
+import { setLanguage } from './utils/translate';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Add a state variable to force re-render on language changes
+  const [languageKey, setLanguageKey] = useState(0);
+  
+  useEffect(() => {
+    // Listen for forced language updates
+    const handleForceUpdate = () => {
+      setLanguageKey(prev => prev + 1);
+    };
+    window.addEventListener('forceLanguageUpdate', handleForceUpdate);
+    
+    return () => {
+      window.removeEventListener('forceLanguageUpdate', handleForceUpdate);
+    };
+  }, []);
   
   useEffect(() => {
     // Check if user has a valid token
     const token = localStorage.getItem('token');
     if (token) {
       setIsAuthenticated(true);
+      
+      // Load user's language preference
+      try {
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        if (userData.language_preference) {
+          // Set language based on user preference
+          setLanguage(userData.language_preference);
+          console.log('Loaded user language preference:', userData.language_preference);
+        }
+      } catch (error) {
+        console.error('Error loading user language preference:', error);
+      }
     }
   }, []);
   
@@ -26,23 +54,25 @@ function App() {
   };
   
   return (
-    <Router>
-      <Routes>
-        <Route 
-          path="/" 
-          element={isAuthenticated ? <Navigate to="/projects" /> : <LoginPage onLogin={handleLogin} />} 
-        />
-        <Route 
-          path="/projects" 
-          element={isAuthenticated ? <ProjectList onLogout={handleLogout} /> : <Navigate to="/" />} 
-        />
-        <Route 
-          path="/project/:projectId" 
-          element={isAuthenticated ? <MapViewer onLogout={handleLogout} /> : <Navigate to="/" />} 
-        />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Router>
+    <TranslationProvider>
+      <Router>
+        <Routes key={`routes-${languageKey}`}>
+          <Route 
+            path="/" 
+            element={isAuthenticated ? <Navigate to="/projects" /> : <LoginPage onLogin={handleLogin} />} 
+          />
+          <Route 
+            path="/projects" 
+            element={isAuthenticated ? <ProjectList onLogout={handleLogout} /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/project/:projectId" 
+            element={isAuthenticated ? <MapViewer onLogout={handleLogout} /> : <Navigate to="/" />} 
+          />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </TranslationProvider>
   );
 }
 

@@ -6,6 +6,7 @@ import axios from 'axios';
 import { projectService } from '../services/api';
 import { API_URL } from '../config';
 import apiClient from '../services/api';
+import translate from '../utils/translate';
 
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = {} }) => {
   const [title, setTitle] = useState('');
@@ -104,12 +105,12 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     e.preventDefault();
     
     if (!title) {
-      setError('Please enter a title for the event');
+      setError(translate('Please enter a title for the event'));
       return;
     }
     
     if (!mapId) {
-      setError('No map selected');
+      setError(translate('No map selected'));
       return;
     }
     
@@ -145,7 +146,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
       resetForm();
     } catch (error) {
       console.error('Error adding event:', error);
-      setError('Failed to add event. Please try again.');
+      setError(translate('Failed to add event. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -184,27 +185,27 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
       contentClassName="modal-content"
     >
       <Modal.Header closeButton>
-        <Modal.Title>Add New Event</Modal.Title>
+        <Modal.Title>{translate('Add New Event')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label>Event Title</Form.Label>
+            <Form.Label>{translate('Event Title')}</Form.Label>
             <Form.Control
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter event title"
+              placeholder={translate('Enter event title')}
               required
             />
           </Form.Group>
           
           <Form.Group className="mb-3">
-            <Form.Label>Description</Form.Label>
+            <Form.Label>{translate('Description')}</Form.Label>
             <MentionInput
               value={description}
               onChange={setDescription}
-              placeholder="Enter event description (use @ to mention users)"
+              placeholder={translate('Enter event description (use @ to mention users)')}
               rows={3}
               projectId={projectId}
               id="event-description"
@@ -214,123 +215,117 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Status</Form.Label>
+                <Form.Label>{translate('Status')}</Form.Label>
                 <Form.Select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                 >
-                  <option value="open">Open</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
+                  <option value="open">{translate('Open')}</option>
+                  <option value="in-progress">{translate('In Progress')}</option>
+                  <option value="resolved">{translate('Resolved')}</option>
+                  <option value="closed">{translate('Closed')}</option>
                 </Form.Select>
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Type</Form.Label>
+                <Form.Label>{translate('Type')}</Form.Label>
                 <Form.Select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >
-                  <option value="periodic check">Periodic Check</option>
-                  <option value="incidence">Incidence</option>
+                  <option value="periodic check">{translate('Periodic Check')}</option>
+                  <option value="incidence">{translate('Incidence')}</option>
                 </Form.Select>
                 <Form.Text className="text-muted">
-                  Type defines the purpose and appearance of the event marker
+                  {translate('Type defines the purpose and appearance of the event marker')}
                 </Form.Text>
               </Form.Group>
             </Col>
           </Row>
           
           <Form.Group className="mb-3">
-            <Form.Label>Tags</Form.Label>
+            <Form.Label>{translate('Tags')}</Form.Label>
             <div className="selected-tags mb-2">
               {selectedTags.map(tag => (
                 <Badge 
                   key={tag} 
                   bg="primary" 
-                  className="me-1 mb-1"
-                  style={{ cursor: 'pointer' }}
+                  className="me-1 mb-1 tag-badge"
                   onClick={() => removeTag(tag)}
                 >
-                  {tag} &times;
+                  {tag} <span className="ms-1">&times;</span>
                 </Badge>
               ))}
             </div>
-            <div className="tag-input-container" style={{ position: 'relative' }}>
+            <div className="tag-input-container">
               <Form.Control
                 type="text"
                 value={tagInput}
                 onChange={handleTagInputChange}
                 onKeyPress={handleTagKeyPress}
-                placeholder="Add tags (press Enter or comma to add)"
+                placeholder={translate('Add tag...')}
                 autoComplete="off"
               />
               {showTagSuggestions && (
-                <ListGroup style={{ 
-                  position: 'absolute', 
-                  width: '100%', 
-                  zIndex: 1000,
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-                  border: '1px solid #ced4da',
-                  marginTop: '2px',
-                  backgroundColor: '#fff'
-                }}>
+                <div className="tag-suggestions">
                   {tagSuggestions.length > 0 ? (
-                    tagSuggestions.map(tag => (
-                      <ListGroup.Item 
-                        key={tag} 
-                        action 
-                        onClick={() => addTag(tag)}
-                        className="py-2 suggestion-item"
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <span className="suggestion-text">{tag}</span>
-                      </ListGroup.Item>
-                    ))
+                    <ListGroup>
+                      {tagSuggestions.map(tag => (
+                        <ListGroup.Item 
+                          key={tag}
+                          action
+                          onClick={() => addTag(tag)}
+                        >
+                          {tag}
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
                   ) : (
-                    <ListGroup.Item className="py-2 text-muted">
-                      No matching tags found
-                    </ListGroup.Item>
+                    <div className="no-suggestions">
+                      {translate('Press Enter to add this new tag')}
+                    </div>
                   )}
-                </ListGroup>
+                </div>
               )}
             </div>
-            <Form.Text className="text-muted">
-              Type to see suggestions from existing tags or create your own
-            </Form.Text>
           </Form.Group>
           
           <Form.Group className="mb-3">
-            <Form.Label>Event Location</Form.Label>
-            <p className="mb-1">
-              <strong>Map:</strong> {mainMap?.name || `ID: ${mapId}`}
-            </p>
-            <p className="mb-0">
-              <strong>Position:</strong> X: {position.x.toFixed(2)}%, Y: {position.y.toFixed(2)}%
-            </p>
-          </Form.Group>
-          
-          <Form.Group className="mb-3">
-            <Form.Label>Attach Image (optional)</Form.Label>
+            <Form.Label>{translate('Upload Image')}</Form.Label>
             <Form.Control
               type="file"
-              accept="image/*"
               onChange={handleFileChange}
             />
           </Form.Group>
           
           {error && <Alert variant="danger">{error}</Alert>}
           
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <Button variant="secondary" onClick={handleClose}>
-              Cancel
+          <div className="d-flex justify-content-end gap-2">
+            <Button 
+              variant="secondary" 
+              onClick={handleClose}
+            >
+              {translate('Cancel')}
             </Button>
-            <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Adding...' : 'Add Event'}
+            <Button 
+              variant="primary" 
+              type="submit" 
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Spinner
+                    as="span"
+                    animation="border"
+                    size="sm"
+                    role="status"
+                    aria-hidden="true"
+                    className="me-2"
+                  />
+                  {translate('Saving...')}
+                </>
+              ) : translate('Add')}
             </Button>
           </div>
         </Form>

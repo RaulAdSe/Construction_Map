@@ -6,6 +6,7 @@ import api from '../api';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 import MentionInput from './MentionInput';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
+import translate from '../utils/translate';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effectiveIsAdmin }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
@@ -28,7 +29,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   if (!filteredEvents || filteredEvents.length === 0) {
     return (
       <div className="p-3 bg-light rounded text-center">
-        <p>No events available for this project.</p>
+        <p>{translate('No events found')}</p>
       </div>
     );
   }
@@ -46,11 +47,11 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const getTypeBadge = (state) => {
     switch (state) {
       case 'incidence':
-        return <Badge bg="danger">Incidence</Badge>;
+        return <Badge bg="danger">{translate('Incidence')}</Badge>;
       case 'periodic check':
-        return <Badge bg="info">Periodic Check</Badge>;
+        return <Badge bg="info">{translate('Periodic Check')}</Badge>;
       default:
-        return <Badge bg="secondary">{state || 'Unknown'}</Badge>;
+        return <Badge bg="secondary">{state ? translate(state) : translate('Unknown')}</Badge>;
     }
   };
 
@@ -58,22 +59,22 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const getStatusBadge = (status) => {
     switch (status) {
       case 'open':
-        return <Badge bg="danger">Open</Badge>;
+        return <Badge bg="danger">{translate('Open')}</Badge>;
       case 'in-progress':
-        return <Badge bg="warning">In Progress</Badge>;
+        return <Badge bg="warning">{translate('In Progress')}</Badge>;
       case 'resolved':
-        return <Badge bg="success">Resolved</Badge>;
+        return <Badge bg="success">{translate('Resolved')}</Badge>;
       case 'closed':
-        return <Badge bg="secondary">Closed</Badge>;
+        return <Badge bg="secondary">{translate('Closed')}</Badge>;
       default:
-        return <Badge bg="secondary">{status || 'Unknown'}</Badge>;
+        return <Badge bg="secondary">{status ? translate(status) : translate('Unknown')}</Badge>;
     }
   };
   
   const handleStatusChange = async (eventId, newStatus) => {
     // Check if user is trying to close the event but isn't an admin
     if (newStatus === 'closed' && !canPerformAdminAction('close event', effectiveIsAdmin)) {
-      alert('Only admin users can close events.');
+      alert(translate('Only admin users can close events.'));
       return;
     }
     
@@ -87,9 +88,9 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
     } catch (error) {
       console.error('Failed to update status:', error);
       if (error.response && error.response.status === 403) {
-        alert('Permission denied: Only admin users can close events.');
+        alert(translate('Permission denied: Only admin users can close events.'));
       } else if (error.message === 'Only admin users can close events') {
-        alert('Permission denied: Only admin users can close events.');
+        alert(translate('Permission denied: Only admin users can close events.'));
       }
     } finally {
       setUpdatingEvent(null);
@@ -131,7 +132,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
       setCommentError('');
     } catch (err) {
       console.error('Error fetching comments:', err);
-      setCommentError('Failed to load comments');
+      setCommentError(translate('Failed to load comments'));
     } finally {
       setLoadingComments(false);
     }
@@ -140,7 +141,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) {
-      setCommentError('Comment cannot be empty');
+      setCommentError(translate('Comment cannot be empty'));
       return;
     }
 
@@ -178,7 +179,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
       }
     } catch (err) {
       console.error('Error submitting comment:', err);
-      setCommentError('Failed to submit comment');
+      setCommentError(translate('Failed to submit comment'));
     } finally {
       setSubmittingComment(false);
     }
@@ -193,7 +194,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
     }
 
     if (!file.type.match('image.*')) {
-      setCommentError('Please select an image file');
+      setCommentError(translate('Please select an image file'));
       return;
     }
 
@@ -208,20 +209,20 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
     <div className="events-table-container">
       {Object.keys(eventsByMap).map(mapId => (
         <div key={mapId} className="mb-4">
-          <h5 className="mb-3">Map: {filteredEvents.find(e => e.map_id === parseInt(mapId))?.map_name || `ID: ${mapId}`}</h5>
+          <h5 className="mb-3">{translate('Map')}: {filteredEvents.find(e => e.map_id === parseInt(mapId))?.map_name || `ID: ${mapId}`}</h5>
           <Table striped bordered hover responsive>
             <thead>
               <tr>
-                <th>#</th>
-                <th>Title</th>
-                <th>Description</th>
-                <th>Status</th>
-                <th>Type</th>
-                <th>Tags</th>
-                <th>Created By</th>
-                <th>Created At</th>
-                <th>Comments</th>
-                <th>Actions</th>
+                <th>{translate('#')}</th>
+                <th>{translate('Title')}</th>
+                <th>{translate('Description')}</th>
+                <th>{translate('Status')}</th>
+                <th>{translate('Type')}</th>
+                <th>{translate('Tags')}</th>
+                <th>{translate('Created By')}</th>
+                <th>{translate('Created At')}</th>
+                <th>{translate('Comments')}</th>
+                <th>{translate('Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -239,7 +240,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                   <td>
                     <OverlayTrigger
                       placement="top"
-                      overlay={<Tooltip>Click to change status</Tooltip>}
+                      overlay={<Tooltip>{translate('Click to change status')}</Tooltip>}
                     >
                       <div>
                         <Form.Select 
@@ -249,10 +250,10 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                           disabled={updatingEvent === event.id}
                           style={{ marginBottom: '4px' }}
                         >
-                          <option value="open">Open</option>
-                          <option value="in-progress">In Progress</option>
-                          <option value="resolved">Resolved</option>
-                          {canEdit && <option value="closed">Closed</option>}
+                          <option value="open">{translate('Open')}</option>
+                          <option value="in-progress">{translate('In Progress')}</option>
+                          <option value="resolved">{translate('Resolved')}</option>
+                          {canEdit && <option value="closed">{translate('Closed')}</option>}
                         </Form.Select>
                         {getStatusBadge(event.status)}
                       </div>
@@ -261,7 +262,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                   <td>
                     <OverlayTrigger
                       placement="top"
-                      overlay={<Tooltip>Click to change type</Tooltip>}
+                      overlay={<Tooltip>{translate('Click to change type')}</Tooltip>}
                     >
                       <div>
                         <Form.Select 
@@ -271,8 +272,8 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                           disabled={updatingEvent === event.id}
                           style={{ marginBottom: '4px' }}
                         >
-                          <option value="periodic check">Periodic Check</option>
-                          <option value="incidence">Incidence</option>
+                          <option value="periodic check">{translate('Periodic Check')}</option>
+                          <option value="incidence">{translate('Incidence')}</option>
                         </Form.Select>
                         {getTypeBadge(event.state)}
                       </div>
@@ -288,10 +289,10 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                         ))}
                       </div>
                     ) : (
-                      <span className="text-muted">No tags</span>
+                      <span className="text-muted">{translate('No tags')}</span>
                     )}
                   </td>
-                  <td>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</td>
+                  <td>{event.created_by_user_name || `${translate('User ID')}: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>
                   <td>
                     <Button 
@@ -304,10 +305,10 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                           <Badge bg="info" pill className="me-1">
                             {event.comment_count}
                           </Badge>
-                          View
+                          {translate('View')}
                         </>
                       ) : (
-                        'Add'
+                        translate('add')
                       )}
                     </Button>
                   </td>
@@ -318,14 +319,14 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                       className="me-1"
                       onClick={() => onViewEvent(event)}
                     >
-                      View
+                      {translate('View')}
                     </Button>
                     <Button 
                       variant="outline-secondary" 
                       size="sm"
                       onClick={() => onEditEvent(event)}
                     >
-                      Edit
+                      {translate('Edit')}
                     </Button>
                   </td>
                 </tr>
@@ -343,7 +344,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Event Comments</Modal.Title>
+          <Modal.Title>{translate('Event Comments')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="comments-section">
@@ -353,11 +354,11 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
             
             <Form onSubmit={handleCommentSubmit}>
               <Form.Group className="mb-3">
-                <Form.Label>Add a comment</Form.Label>
+                <Form.Label>{translate('Add a comment')}</Form.Label>
                 <MentionInput
                   value={newComment}
                   onChange={setNewComment}
-                  placeholder="Write your comment here... (use @ to mention users)"
+                  placeholder={translate('Write your comment here... (use @ to mention users)')}
                   rows={3}
                   projectId={selectedEventId ? filteredEvents.find(e => e.id === selectedEventId)?.project_id : null}
                   id="event-table-comment-input"
@@ -365,7 +366,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
               </Form.Group>
               
               <Form.Group className="mb-3">
-                <Form.Label>Attach image (optional)</Form.Label>
+                <Form.Label>{translate('Attach image (optional)')}</Form.Label>
                 <Form.Control
                   type="file"
                   onChange={handleFileChange}
@@ -375,7 +376,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
               
               {imagePreview && (
                 <div className="mb-3">
-                  <p className="mb-1">Image preview:</p>
+                  <p className="mb-1">{translate('Image preview')}:</p>
                   <img 
                     src={imagePreview} 
                     alt="Preview" 
@@ -390,48 +391,44 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                 disabled={submittingComment}
                 className="mb-4"
               >
-                {submittingComment ? 'Submitting...' : 'Submit Comment'}
+                {submittingComment ? translate('Submitting...') : translate('Submit Comment')}
               </Button>
             </Form>
             
             <hr />
             
-            <h6>Comments</h6>
+            <h6>{translate('Comments')}</h6>
             
             {loadingComments ? (
               <div className="text-center p-3">
-                <Spinner animation="border" size="sm" /> Loading comments...
+                <Spinner animation="border" size="sm" /> {translate('Loading comments...')}
               </div>
             ) : (
               <div className="comment-list">
                 {comments.length === 0 ? (
-                  <p className="text-muted">No comments yet.</p>
+                  <p className="text-muted">{translate('No comments yet.')}</p>
                 ) : (
                   comments.map(comment => (
                     <div key={comment.id} className="comment-item mb-3 p-3 border rounded">
                       <div className="d-flex justify-content-between">
-                        <strong>{comment.user_name || `User ID: ${comment.user_id}`}</strong>
-                        <small className="text-muted">{format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}</small>
+                        <strong>{comment.user_name || `User #${comment.user_id}`}</strong>
+                        <small className="text-muted">
+                          {format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}
+                        </small>
                       </div>
-                      <p className="mt-2 mb-2">{parseAndHighlightMentions(comment.content)}</p>
+                      <div dangerouslySetInnerHTML={{ 
+                        __html: parseAndHighlightMentions(comment.content)
+                      }} />
                       {comment.image_url && (
-                        <div className="comment-image mt-2">
-                          <a 
-                            href={`http://localhost:8000/comments/${comment.image_url.split('/').pop()}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                          >
-                            <Image 
-                              src={`http://localhost:8000/comments/${comment.image_url.split('/').pop()}`} 
-                              alt="Comment attachment" 
-                              thumbnail 
-                              className="comment-image-thumbnail"
-                              style={{ maxWidth: '100%', maxHeight: '300px' }}
-                            />
-                            <div className="mt-1">
-                              <small className="text-muted">Click to view full size</small>
-                            </div>
-                          </a>
+                        <div className="mt-2">
+                          <Image 
+                            src={comment.image_url} 
+                            alt="Comment attachment" 
+                            fluid 
+                            style={{ maxHeight: '200px' }}
+                            onClick={() => window.open(comment.image_url, '_blank')}
+                            className="cursor-pointer"
+                          />
                         </div>
                       )}
                     </div>
@@ -443,7 +440,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowCommentModal(false)}>
-            Close
+            {translate('Close')}
           </Button>
         </Modal.Footer>
       </Modal>

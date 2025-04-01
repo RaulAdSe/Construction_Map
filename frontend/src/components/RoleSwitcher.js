@@ -45,7 +45,7 @@ const RoleSwitcher = ({
   };
   
   return (
-    <div className="role-switcher d-flex align-items-center">
+    <div className="role-switcher d-flex align-items-center me-3">
       <small className="text-muted me-2">View as:</small>
       <Button 
         size="sm" 
