@@ -23,6 +23,14 @@ const translations = {
   'Deleting...': 'Eliminando...',
   'Confirm Delete': 'Confirmar Eliminación',
 
+  // Language related
+  'Switch to English': 'Cambiar a Inglés',
+  'Switch to Spanish': 'Cambiar a Español',
+  'Language': 'Idioma',
+  'Change Language': 'Cambiar Idioma',
+  'English': 'Inglés',
+  'Spanish': 'Español',
+
   // Login Page
   'Construction Map Viewer': 'Visor de Mapas de Construcción',
   'Username': 'Nombre de Usuario',

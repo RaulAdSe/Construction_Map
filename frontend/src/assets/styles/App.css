@@ -52,4 +52,27 @@
 /* Ensure the notification toast stays on top */
 .toast {
   z-index: 9999 !important;
+}
+
+/* Add styling for the language switcher */
+.language-switcher {
+  margin-left: 10px;
+  font-weight: bold;
+  min-width: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Style for language switcher on login page */
+.login-container .language-switcher {
+  color: #007bff;
+  background-color: transparent;
+  border-color: #007bff;
+  margin-left: 0;
+}
+
+.login-container .language-switcher:hover {
+  color: white;
+  background-color: #007bff;
 } 

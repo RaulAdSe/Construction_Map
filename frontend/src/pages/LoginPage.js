@@ -3,6 +3,8 @@ import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
 import '../assets/styles/LoginPage.css';
 import { login } from '../services/authService';
 import translate from '../utils/translate';
+import { getCurrentLanguage } from '../utils/translate';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -29,17 +31,23 @@ const LoginPage = ({ onLogin }) => {
         
         // Store user data in localStorage
         if (data.user) {
-          localStorage.setItem('user', JSON.stringify(data.user));
-          console.log('Stored user data:', data.user);
+          // Store current language preference with the user
+          const userData = {
+            ...data.user,
+            language_preference: getCurrentLanguage()
+          };
+          localStorage.setItem('user', JSON.stringify(userData));
+          console.log('Stored user data with language preference:', userData);
         } else {
           // If no user data, create basic user data based on username
           const user = {
             username: username,
             is_admin: username === 'admin', // Assume username 'admin' is an admin
-            id: username
+            id: username,
+            language_preference: getCurrentLanguage()
           };
           localStorage.setItem('user', JSON.stringify(user));
-          console.log('Created basic user data:', user);
+          console.log('Created basic user data with language preference:', user);
         }
         
         onLogin();
@@ -59,7 +67,10 @@ const LoginPage = ({ onLogin }) => {
       <Row className="justify-content-md-center">
         <Col md={6}>
           <div className="login-container">
-            <h2>{translate('Construction Map Viewer')}</h2>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h2>{translate('Construction Map Viewer')}</h2>
+              <LanguageSwitcher />
+            </div>
             <Form onSubmit={handleSubmit}>
               <Form.Group className="mb-3">
                 <Form.Label>{translate('Username')}</Form.Label>

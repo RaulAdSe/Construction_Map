@@ -14,6 +14,7 @@ import Notification from '../components/Notification';
 import NotificationBell from '../components/NotificationBell';
 import RoleSwitcher from '../components/RoleSwitcher';
 import ContactsTab from '../components/ContactsTab';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
 import { isUserAdmin } from '../utils/permissions';
@@ -788,6 +789,7 @@ const MapViewer = ({ onLogout }) => {
               />
               
               <NotificationBell />
+              <LanguageSwitcher />
               <Button variant="outline-light" onClick={onLogout} className="ms-2">{translate('Logout')}</Button>
             </div>
           </Navbar.Collapse>

@@ -5,6 +5,7 @@ import { fetchProjects, createProject, deleteProject } from '../services/mapServ
 import { isUserAdmin } from '../utils/permissions';
 import MonitoringDashboard from '../components/monitoring/MonitoringDashboard';
 import NotificationBell from '../components/NotificationBell';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import '../assets/styles/ProjectList.css';
 import translate from '../utils/translate';
 
@@ -174,6 +175,7 @@ const ProjectList = ({ onLogout }) => {
           <Navbar.Brand>{translate('Construction Map Viewer')}</Navbar.Brand>
           <div className="d-flex align-items-center">
             <NotificationBell />
+            <LanguageSwitcher />
             <Button variant="outline-light" onClick={onLogout} className="ms-3">{translate('Logout')}</Button>
           </div>
         </Container>
