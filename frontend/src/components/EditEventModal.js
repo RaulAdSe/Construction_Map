@@ -48,6 +48,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     const input = e.target.value;
     setTagInput(input);
     
+    // Always show suggestion area if input has content
     if (input.trim() === '') {
       setShowTagSuggestions(false);
       return;
@@ -57,10 +58,10 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     const matchingTags = allProjectTags
       .filter(tag => tag.toLowerCase().includes(input.toLowerCase()))
       .filter(tag => !selectedTags.includes(tag))
-      .slice(0, 3); // Limit to 3 suggestions
+      .slice(0, 5); // Limit to 5 suggestions
     
     setTagSuggestions(matchingTags);
-    setShowTagSuggestions(matchingTags.length > 0);
+    setShowTagSuggestions(true); // Always show even if empty for feedback
   };
   
   // Add a tag from suggestions or from input
@@ -270,26 +271,37 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
                     onChange={handleTagInputChange}
                     onKeyPress={handleTagKeyPress}
                     placeholder="Add tags (press Enter or comma to add)"
+                    autoComplete="off"
                   />
                   {showTagSuggestions && (
                     <ListGroup style={{ 
                       position: 'absolute', 
                       width: '100%', 
-                      zIndex: 10,
-                      maxHeight: '150px',
+                      zIndex: 1000,
+                      maxHeight: '200px',
                       overflowY: 'auto',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                      border: '1px solid #ced4da',
+                      marginTop: '2px',
+                      backgroundColor: '#fff'
                     }}>
-                      {tagSuggestions.map(tag => (
-                        <ListGroup.Item 
-                          key={tag} 
-                          action 
-                          onClick={() => addTag(tag)}
-                          className="py-2"
-                        >
-                          {tag}
+                      {tagSuggestions.length > 0 ? (
+                        tagSuggestions.map(tag => (
+                          <ListGroup.Item 
+                            key={tag} 
+                            action 
+                            onClick={() => addTag(tag)}
+                            className="py-2 suggestion-item"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span className="suggestion-text">{tag}</span>
+                          </ListGroup.Item>
+                        ))
+                      ) : (
+                        <ListGroup.Item className="py-2 text-muted">
+                          No matching tags found
                         </ListGroup.Item>
-                      ))}
+                      )}
                     </ListGroup>
                   )}
                 </div>

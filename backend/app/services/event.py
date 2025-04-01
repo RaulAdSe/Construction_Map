@@ -31,7 +31,10 @@ def get_events(
     Get all events for a project.
     Admin users can see all events, regular users cannot see closed events.
     """
-    query = db.query(Event).filter(Event.project_id == project_id)
+    from sqlalchemy.orm import joinedload
+    
+    # Use join to get user info
+    query = db.query(Event).options(joinedload(Event.created_by_user)).filter(Event.project_id == project_id)
     
     # Filter by user
     if user_id:
@@ -46,6 +49,12 @@ def get_events(
     
     # Get events
     events = query.offset(skip).limit(limit).all()
+    
+    # Add username to each event
+    for event in events:
+        if not hasattr(event, 'created_by_user_name') or not event.created_by_user_name:
+            event.created_by_user_name = event.created_by_user.username if event.created_by_user else f"User {event.created_by_user_id}"
+    
     return events
 
 
@@ -55,15 +64,26 @@ def get_events_by_map(
     skip: int = 0,
     limit: int = 100
 ) -> List[Event]:
-    """Get all events for a specific map"""
-    query = db.query(Event).filter(Event.map_id == map_id)
-    events = query.order_by(desc(Event.created_at)).offset(skip).limit(limit).all()
+    """
+    Get all events for a specific map.
+    """
+    from sqlalchemy.orm import joinedload
     
-    # Fix active_maps for each event
+    # Use join to get user info
+    events = db.query(Event).options(joinedload(Event.created_by_user)).filter(
+        Event.map_id == map_id
+    ).order_by(Event.created_at.desc()).offset(skip).limit(limit).all()
+    
+    # Process each event
     for event in events:
+        # Fix active_maps for each event
         if event.active_maps == [] or event.active_maps is None:
             event.active_maps = {}
             
+        # Add username to each event
+        if not hasattr(event, 'created_by_user_name') or not event.created_by_user_name:
+            event.created_by_user_name = event.created_by_user.username if event.created_by_user else f"User {event.created_by_user_id}"
+    
     return events
 
 
