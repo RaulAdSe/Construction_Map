@@ -61,47 +61,62 @@ const MentionInput = ({
     const lastAtIndex = text.lastIndexOf('@', cursorPos);
     if (lastAtIndex === -1) return;
     
+    // Get caret position in the textarea
     const textareaPosition = textarea.getBoundingClientRect();
     
-    // Get all lines up to the current position
-    const textBeforeCursor = text.substring(0, lastAtIndex);
-    const lines = textBeforeCursor.split('\n');
-    const currentLineIndex = lines.length - 1;
+    // Create a mirror div to calculate exact cursor position
+    const mirror = document.createElement('div');
     
-    // Get text on the current line up to the @ symbol
-    const currentLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
-    const currentLineUpToAt = textBeforeCursor.substring(currentLineStart);
+    // Copy the textarea's styling
+    const style = window.getComputedStyle(textarea);
     
-    // Create a hidden div with the same styling as the textarea
-    const div = document.createElement('div');
-    div.style.position = 'absolute';
-    div.style.visibility = 'hidden';
-    div.style.whiteSpace = 'pre-wrap';
-    div.style.width = `${textarea.clientWidth}px`;
-    div.style.padding = window.getComputedStyle(textarea).padding;
-    div.style.font = window.getComputedStyle(textarea).font;
-    div.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
+    // List of styles to copy
+    const stylesToCopy = [
+      'fontFamily', 'fontSize', 'fontWeight', 'lineHeight',
+      'letterSpacing', 'padding', 'border', 'boxSizing'
+    ];
     
-    // Create a span for text up to the @ symbol
-    const span = document.createElement('span');
-    span.textContent = currentLineUpToAt;
-    div.appendChild(span);
+    stylesToCopy.forEach(styleName => {
+      mirror.style[styleName] = style.getPropertyValue(styleName);
+    });
     
-    // Append to body, measure, then remove
-    document.body.appendChild(div);
-    const spanRect = span.getBoundingClientRect();
-    document.body.removeChild(div);
+    // Special handling for the width
+    mirror.style.position = 'absolute';
+    mirror.style.top = '0';
+    mirror.style.left = '0';
+    mirror.style.visibility = 'hidden';
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.overflowWrap = 'break-word';
+    mirror.style.width = `${textarea.offsetWidth}px`;
     
-    // Calculate line height
-    const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || 18;
+    // Create marker span
+    const marker = document.createElement('span');
+    marker.textContent = '|'; // Marker character
     
-    // Calculate the position
-    const paddingLeft = parseFloat(window.getComputedStyle(textarea).paddingLeft) || 0;
-    const paddingTop = parseFloat(window.getComputedStyle(textarea).paddingTop) || 0;
+    // Split text at cursor position
+    const textBeforeCaret = text.substring(0, lastAtIndex);
+    const textAfterCaret = text.substring(lastAtIndex);
     
-    // Position dropdown below and at the @ symbol
-    const top = textareaPosition.top + paddingTop + (lineHeight * currentLineIndex) + lineHeight + window.scrollY;
-    const left = textareaPosition.left + paddingLeft + spanRect.width + window.scrollX;
+    // Add text before caret
+    mirror.textContent = textBeforeCaret;
+    
+    // Add marker span
+    mirror.appendChild(marker);
+    
+    // Add text after cursor
+    const textNode = document.createTextNode(textAfterCaret);
+    mirror.appendChild(textNode);
+    
+    // Append to body, get position, then remove
+    document.body.appendChild(mirror);
+    
+    // Get marker position
+    const markerPosition = marker.getBoundingClientRect();
+    document.body.removeChild(mirror);
+    
+    // Calculate the position for the suggestions dropdown
+    const top = markerPosition.top + markerPosition.height + window.scrollY;
+    let left = markerPosition.left + window.scrollX;
     
     // Ensure the suggestion box doesn't go out of viewport
     const maxLeft = window.innerWidth - 260; // 250px width + 10px margin
