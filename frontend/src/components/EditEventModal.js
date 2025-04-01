@@ -3,6 +3,8 @@ import { Modal, Button, Form, Row, Col, Image, Alert, ListGroup, Badge } from 'r
 import { updateEvent } from '../services/eventService';
 import MentionInput from './MentionInput';
 import axios from 'axios';
+import { projectService } from '../services/api';
+import { API_URL } from '../config';
 
 const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER", projectId }) => {
   const [title, setTitle] = useState('');
@@ -29,13 +31,15 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
   
   const fetchProjectTags = async () => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/v1/projects/${projectId}/tags`, {
+      // Use the API_URL constant for consistent URL construction
+      const response = await axios.get(`${API_URL}/projects/${projectId}/tags`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
       
       if (response.data && Array.isArray(response.data)) {
+        console.log('Fetched tags in EditEventModal:', response.data);
         setAllProjectTags(response.data);
       }
     } catch (error) {
@@ -55,11 +59,13 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     }
     
     // Filter tags that match the current input
+    const inputLower = input.toLowerCase();
     const matchingTags = allProjectTags
-      .filter(tag => tag.toLowerCase().includes(input.toLowerCase()))
+      .filter(tag => tag.toLowerCase().includes(inputLower))
       .filter(tag => !selectedTags.includes(tag))
       .slice(0, 5); // Limit to 5 suggestions
     
+    console.log('Matching tags in EditModal:', matchingTags, 'All tags:', allProjectTags);
     setTagSuggestions(matchingTags);
     setShowTagSuggestions(true); // Always show even if empty for feedback
   };

@@ -3,6 +3,8 @@ import { Modal, Button, Form, Alert, Row, Col, Spinner, ListGroup, Badge } from 
 import { addEvent } from '../services/eventService';
 import MentionInput from './MentionInput';
 import axios from 'axios';
+import { projectService } from '../services/api';
+import { API_URL } from '../config';
 
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = {} }) => {
   const [title, setTitle] = useState('');
@@ -33,13 +35,15 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   
   const fetchProjectTags = async () => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/v1/projects/${projectId}/tags`, {
+      // Use the project service to fetch tags
+      const response = await axios.get(`${API_URL}/projects/${projectId}/tags`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
       
       if (response.data && Array.isArray(response.data)) {
+        console.log('Fetched tags:', response.data);
         setAllProjectTags(response.data);
       }
     } catch (error) {
@@ -59,11 +63,13 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     }
     
     // Filter tags that match the current input
+    const inputLower = input.toLowerCase();
     const matchingTags = allProjectTags
-      .filter(tag => tag.toLowerCase().includes(input.toLowerCase()))
+      .filter(tag => tag.toLowerCase().includes(inputLower))
       .filter(tag => !selectedTags.includes(tag))
       .slice(0, 5); // Limit to 5 suggestions
     
+    console.log('Matching tags:', matchingTags, 'All tags:', allProjectTags);
     setTagSuggestions(matchingTags);
     setShowTagSuggestions(true); // Always show even if empty for feedback
   };
@@ -95,11 +101,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     }
   };
   
-  // Convert selected tags array to comma-separated string for the API
-  useEffect(() => {
-    setTags(selectedTags.join(','));
-  }, [selectedTags]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -117,7 +118,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     setLoading(true);
     
     // Use the active map configuration from the current map view
-    // This automatically uses the current visible maps and their opacities from the MapViewer
     const activeMapSettings = visibleMaps;
     
     // Create FormData for multipart upload (if there's an image)

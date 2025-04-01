@@ -384,7 +384,7 @@ def get_project_tags(
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     # Get all events for the project
-    events = db.query(project.events).all()
+    events = db.query(Event).filter(Event.project_id == project_id).all()
     
     # Extract all tags from events
     all_tags = []
@@ -392,6 +392,10 @@ def get_project_tags(
         if event.tags and isinstance(event.tags, list):
             all_tags.extend(event.tags)
     
-    # Return unique tags
-    unique_tags = list(set(all_tags))
+    # Return unique tags (sort alphabetically for better UX)
+    unique_tags = sorted(list(set(all_tags)))
+    
+    # Log the response for debugging
+    print(f"Returning {len(unique_tags)} unique tags for project {project_id}")
+    
     return unique_tags 
