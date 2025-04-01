@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Form, Button, Card, Image, Alert, Spinner } from 'react-bootstrap';
 import { format } from 'date-fns';
 import api from '../api';
@@ -17,12 +17,14 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   // Reference to highlighted comment
   const highlightedCommentRef = useRef(null);
 
-  // Load comments
-  const fetchComments = async () => {
+  // Load comments - memoize the fetch function to prevent recreating it on each render
+  const fetchComments = useCallback(async () => {
+    if (!eventId) return;
+    
     setLoading(true);
     try {
       const response = await api.get(`/events/${eventId}/comments`);
-      setComments(response.data);
+      setComments(response.data || []);
       setError('');
     } catch (err) {
       console.error('Error fetching comments:', err);
@@ -30,18 +32,17 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
 
+  // Only fetch comments when eventId changes
   useEffect(() => {
     if (eventId) {
       fetchComments();
     }
-  }, [eventId]);
-  
-  // No automatic scrolling - too problematic
+  }, [eventId, fetchComments]);
 
   // Handle file selection
-  const handleFileChange = (e) => {
+  const handleFileChange = useCallback((e) => {
     const file = e.target.files[0];
     if (!file) {
       setImage(null);
@@ -56,12 +57,12 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
 
     setImage(file);
     setPreviewUrl(URL.createObjectURL(file));
-  };
+  }, []);
 
   // Handle comment submission
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    if (!content.trim()) {
+    if (!content.trim() || !eventId) {
       setError('Comment cannot be empty');
       return;
     }
@@ -95,11 +96,14 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [content, eventId, image, fetchComments]);
+
+  // Safely get comments length with null check
+  const commentsLength = Array.isArray(comments) ? comments.length : 0;
 
   return (
     <div className="event-comments">
-      <h5 className="mb-3">Comments {comments.length > 0 && `(${comments.length})`}</h5>
+      <h5 className="mb-3">Comments {commentsLength > 0 && `(${commentsLength})`}</h5>
       
       {/* Comment Form */}
       <Card className="mb-4">
@@ -180,7 +184,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
             <span className="visually-hidden">Loading comments...</span>
           </Spinner>
         </div>
-      ) : comments.length === 0 ? (
+      ) : commentsLength === 0 ? (
         <p className="text-center text-muted">No comments yet. Be the first to comment!</p>
       ) : (
         <div className="comments-list">

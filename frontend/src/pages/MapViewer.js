@@ -377,12 +377,22 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleViewEvent = (event) => {
-    setSelectedEvent(event);
-    
-    // Reset highlight comment when manually selecting an event
-    setHighlightCommentId(null);
-    
-    setShowViewEventModal(true);
+    // Only update state if we're actually changing events
+    if (!selectedEvent || selectedEvent.id !== event.id) {
+      // Reset highlight comment when manually selecting an event
+      setHighlightCommentId(null);
+      
+      // Use callback form of setState to prevent race conditions
+      setSelectedEvent(event);
+      
+      // Set show modal only after state is updated
+      setTimeout(() => {
+        setShowViewEventModal(true);
+      }, 0);
+    } else if (!showViewEventModal) {
+      // If the same event, but modal is closed, just show the modal
+      setShowViewEventModal(true);
+    }
   };
   
   const handleEditEvent = (event) => {

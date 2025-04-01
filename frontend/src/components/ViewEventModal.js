@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bootstrap';
 import { format } from 'date-fns';
 import EventComments from './EventComments';
@@ -21,6 +21,12 @@ const ViewEventModal = ({
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
   const [activeTab, setActiveTab] = useState('details');
+  
+  // Use ref for modal element to help with force closing
+  const modalRef = useRef(null);
+  
+  // Memoize the event ID to avoid unnecessary re-renders
+  const eventId = useMemo(() => event?.id, [event?.id]);
   
   useEffect(() => {
     if (event) {
@@ -164,6 +170,7 @@ const ViewEventModal = ({
       dialogClassName="event-modal-dialog"
       backdropClassName="event-modal-backdrop"
       contentClassName="modal-content"
+      ref={modalRef}
     >
       <Modal.Header closeButton>
         <Modal.Title>
@@ -353,8 +360,9 @@ const ViewEventModal = ({
             eventKey="comments" 
             title={`Comments ${event.comment_count ? `(${event.comment_count})` : ''}`}
           >
+            {/* Use memoized eventId to prevent unnecessary re-renders */}
             <EventComments 
-              eventId={event.id} 
+              eventId={eventId} 
               projectId={projectId} 
               highlightCommentId={highlightCommentId}
             />
