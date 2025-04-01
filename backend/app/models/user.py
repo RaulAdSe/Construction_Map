@@ -17,4 +17,5 @@ class User(Base):
     # Relationships
     projects = relationship("ProjectUser", back_populates="user")
     events = relationship("Event", back_populates="created_by_user")
-    event_comments = relationship("EventComment", back_populates="user") 
+    event_comments = relationship("EventComment", back_populates="user")
+    activities = relationship("UserActivity", back_populates="user") 

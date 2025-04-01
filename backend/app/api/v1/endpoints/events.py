@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Response, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
@@ -10,6 +10,7 @@ from app.services import project as project_service
 from app.services import event_comment as comment_service
 from app.models.map import Map
 from app.models.event import Event as EventModel
+from app.api.v1.endpoints.monitoring import log_user_activity
 
 router = APIRouter()
 
@@ -152,6 +153,7 @@ def get_event(
 
 @router.post("/", response_model=Event)
 async def create_event(
+    request: Request,
     project_id: int = Form(...),
     map_id: int = Form(...),
     title: str = Form(...),
@@ -200,6 +202,24 @@ async def create_event(
             tags=tags,
             image=image
         )
+        
+        # Log user activity
+        log_user_activity(
+            user_id=current_user.id,
+            username=current_user.username,
+            action="event_create",
+            ip_address=request.client.host if request.client else "Unknown",
+            user_type="admin" if current_user.is_admin else "member",
+            details={
+                "project_id": project_id,
+                "map_id": map_id,
+                "event_id": event.id,
+                "event_title": event.title,
+                "event_status": event.status,
+                "event_state": event.state
+            }
+        )
+        
         return event
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -209,6 +229,7 @@ async def create_event(
 def update_event(
     event_id: int,
     event_update: EventUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -237,6 +258,26 @@ def update_event(
     # Update event
     try:
         updated_event = event_service.update_event(db, event_id, event_update)
+        
+        # Log user activity
+        log_user_activity(
+            user_id=current_user.id,
+            username=current_user.username,
+            action="event_update",
+            ip_address=request.client.host if request.client else "Unknown",
+            user_type="admin" if current_user.is_admin else "member",
+            details={
+                "event_id": event_id,
+                "project_id": event.project_id,
+                "map_id": event.map_id,
+                "event_title": updated_event.title,
+                "event_status": updated_event.status,
+                "event_state": updated_event.state,
+                "status_changed": event.status != updated_event.status,
+                "state_changed": event.state != updated_event.state
+            }
+        )
+        
         return updated_event
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -245,14 +286,15 @@ def update_event(
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_event(
     event_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     Delete an event.
     """
-    # Get event
-    event = event_service.get_event(db, event_id)
+    # Check if event exists
+    event = db.query(EventModel).filter(EventModel.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
@@ -261,11 +303,26 @@ def delete_event(
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Delete event
-    success = event_service.delete_event(db, event_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete event")
+    # Log user activity before deletion
+    log_user_activity(
+        user_id=current_user.id,
+        username=current_user.username,
+        action="event_delete",
+        ip_address=request.client.host if request.client else "Unknown",
+        user_type="admin" if current_user.is_admin else "member",
+        details={
+            "event_id": event_id,
+            "project_id": event.project_id,
+            "map_id": event.map_id,
+            "event_title": event.title
+        }
+    )
     
+    # Delete event (this will cascade delete comments too)
+    result = event_service.delete_event(db, event_id)
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to delete event")
+        
     return None
 
 

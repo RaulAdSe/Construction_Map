@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Navbar, Spinner, Alert, Modal, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Navbar, Spinner, Alert, Modal, Form, Tabs, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { fetchProjects, createProject, deleteProject } from '../services/mapService';
+import { isUserAdmin } from '../utils/permissions';
+import MonitoringDashboard from '../components/monitoring/MonitoringDashboard';
 import '../assets/styles/ProjectList.css';
 
 const ProjectList = ({ onLogout }) => {
@@ -14,6 +16,7 @@ const ProjectList = ({ onLogout }) => {
   const [newProject, setNewProject] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState('projects');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -106,6 +109,62 @@ const ProjectList = ({ onLogout }) => {
     setError('');
   };
 
+  // Render the projects tab content
+  const renderProjectsTab = () => {
+    if (loading) {
+      return (
+        <div className="text-center p-5">
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </Spinner>
+        </div>
+      );
+    }
+    
+    if (projects.length === 0) {
+      return (
+        <div className="text-center p-5 bg-light rounded">
+          <h3>No Projects Available</h3>
+          <p>There are no projects in the system yet. Create your first project to get started!</p>
+          <Button variant="primary" size="lg" onClick={() => setShowModal(true)}>
+            Create Your First Project
+          </Button>
+        </div>
+      );
+    }
+    
+    return (
+      <Row xs={1} md={2} lg={3} className="g-4">
+        {projects.map(project => (
+          <Col key={project.id}>
+            <Card className="project-card h-100">
+              <Button 
+                variant="danger" 
+                size="sm" 
+                className="delete-project-btn"
+                onClick={(e) => handleDeleteClick(e, project)}
+                aria-label={`Delete ${project.name} project`}
+              >
+                <i className="bi bi-trash"></i>
+              </Button>
+              <Card.Body onClick={() => handleProjectSelect(project.id)}>
+                <Card.Title>{project.name}</Card.Title>
+                <Card.Text>
+                  {project.description || 'No description available'}
+                </Card.Text>
+              </Card.Body>
+              <Card.Footer onClick={() => handleProjectSelect(project.id)}>
+                <small className="text-muted">
+                  Created: {formatDate(project.created_at)}
+                </small>
+              </Card.Footer>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    );
+  };
+
   return (
     <div className="project-list-page">
       <Navbar bg="dark" variant="dark" expand="lg">
@@ -116,63 +175,35 @@ const ProjectList = ({ onLogout }) => {
       </Navbar>
 
       <Container className="mt-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2>Select a Project</h2>
-          <Button variant="primary" className="create-project-btn" onClick={() => setShowModal(true)}>
-            <i className="bi bi-plus-lg"></i>Create New Project
-          </Button>
-        </div>
-        
-        {error && (
-          <Alert variant="danger" onClose={() => setError('')} dismissible>
-            {error}
-          </Alert>
-        )}
-
-        {loading ? (
-          <div className="text-center p-5">
-            <Spinner animation="border" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </Spinner>
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="text-center p-5 bg-light rounded">
-            <h3>No Projects Available</h3>
-            <p>There are no projects in the system yet. Create your first project to get started!</p>
-            <Button variant="primary" size="lg" onClick={() => setShowModal(true)}>
-              Create Your First Project
-            </Button>
-          </div>
-        ) : (
-          <Row xs={1} md={2} lg={3} className="g-4">
-            {projects.map(project => (
-              <Col key={project.id}>
-                <Card className="project-card h-100">
-                  <Button 
-                    variant="danger" 
-                    size="sm" 
-                    className="delete-project-btn"
-                    onClick={(e) => handleDeleteClick(e, project)}
-                    aria-label={`Delete ${project.name} project`}
-                  >
-                    <i className="bi bi-trash"></i>
-                  </Button>
-                  <Card.Body onClick={() => handleProjectSelect(project.id)}>
-                    <Card.Title>{project.name}</Card.Title>
-                    <Card.Text>
-                      {project.description || 'No description available'}
-                    </Card.Text>
-                  </Card.Body>
-                  <Card.Footer onClick={() => handleProjectSelect(project.id)}>
-                    <small className="text-muted">
-                      Created: {formatDate(project.created_at)}
-                    </small>
-                  </Card.Footer>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        )}
+        <Tabs
+          activeKey={activeTab}
+          onSelect={setActiveTab}
+          id="project-tabs"
+          className="mb-4"
+        >
+          <Tab eventKey="projects" title="Projects">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h2>Select a Project</h2>
+              <Button variant="primary" className="create-project-btn" onClick={() => setShowModal(true)}>
+                <i className="bi bi-plus-lg"></i>Create New Project
+              </Button>
+            </div>
+            
+            {error && (
+              <Alert variant="danger" onClose={() => setError('')} dismissible>
+                {error}
+              </Alert>
+            )}
+            
+            {renderProjectsTab()}
+          </Tab>
+          
+          {isUserAdmin() && (
+            <Tab eventKey="monitoring" title="System Monitoring">
+              <MonitoringDashboard />
+            </Tab>
+          )}
+        </Tabs>
       </Container>
 
       {/* Create Project Modal */}
