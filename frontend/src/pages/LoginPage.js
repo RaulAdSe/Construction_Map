@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Form, Button, Container, Row, Col, Alert } from 'react-bootstrap';
 import '../assets/styles/LoginPage.css';
 import { login } from '../services/authService';
+import translate from '../utils/translate';
 
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -13,7 +14,7 @@ const LoginPage = ({ onLogin }) => {
     e.preventDefault();
     
     if (!username || !password) {
-      setError('Please enter both username and password');
+      setError(translate('Please enter both username and password'));
       return;
     }
 
@@ -47,7 +48,7 @@ const LoginPage = ({ onLogin }) => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Login failed. Please check your credentials.');
+      setError(translate('Login failed. Please check your credentials.'));
     } finally {
       setLoading(false);
     }
@@ -58,28 +59,28 @@ const LoginPage = ({ onLogin }) => {
       <Row className="justify-content-md-center">
         <Col md={6}>
           <div className="login-container">
-            <h2>Construction Map Viewer</h2>
+            <h2>{translate('Construction Map Viewer')}</h2>
             <Form onSubmit={handleSubmit}>
               <Form.Group className="mb-3">
-                <Form.Label>Username</Form.Label>
+                <Form.Label>{translate('Username')}</Form.Label>
                 <Form.Control 
                   type="text" 
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username" 
+                  placeholder={translate('Enter username')} 
                   required
                 />
               </Form.Group>
 
               <Form.Group className="mb-3">
-                <Form.Label>Password</Form.Label>
+                <Form.Label>{translate('Password')}</Form.Label>
                 <Form.Control 
                   type="password" 
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password" 
+                  placeholder={translate('Password')} 
                   required
                 />
               </Form.Group>
@@ -92,7 +93,7 @@ const LoginPage = ({ onLogin }) => {
                 className="login-button"
                 disabled={loading}
               >
-                {loading ? 'Logging in...' : 'Log In'}
+                {loading ? translate('Logging in...') : translate('Log In')}
               </Button>
             </Form>
           </div>
