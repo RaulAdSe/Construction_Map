@@ -5,6 +5,7 @@ import MentionInput from './MentionInput';
 import axios from 'axios';
 import { projectService } from '../services/api';
 import { API_URL } from '../config';
+import apiClient from '../services/api';
 
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = {} }) => {
   const [title, setTitle] = useState('');
@@ -35,12 +36,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   
   const fetchProjectTags = async () => {
     try {
-      // Use the project service to fetch tags
-      const response = await axios.get(`${API_URL}/projects/${projectId}/tags`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // Use projectService instead of apiClient
+      const response = await projectService.getProjectTags(projectId);
       
       if (response.data && Array.isArray(response.data)) {
         console.log('Fetched tags:', response.data);
@@ -48,6 +45,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
       }
     } catch (error) {
       console.error('Error fetching project tags:', error);
+      // Show a user-friendly message but don't block functionality
+      setAllProjectTags([]);
     }
   };
   

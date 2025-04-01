@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+// Add debug flag to control console output
+const DEBUG = false;
+
 const API_URL = 'http://localhost:8000/api/v1';
 
 // Create axios instance with default config
@@ -8,6 +11,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true
 });
 
 // Add auth token to requests if available
@@ -17,7 +21,45 @@ apiClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+}, (error) => {
+  if (DEBUG) console.error('Request error:', error);
+  return Promise.reject(error);
 });
+
+// Add response interceptor to handle common responses
+apiClient.interceptors.response.use(
+  response => {
+    return response;
+  },
+  error => {
+    // Handle unauthorized errors (401)
+    if (error.response && error.response.status === 401) {
+      if (DEBUG) console.warn('Unauthorized access, redirecting to login');
+      // Check if we're not already on the login page to avoid redirect loops
+      if (!window.location.pathname.includes('/login')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    }
+    
+    // Log other errors only when debugging is enabled
+    if (DEBUG) {
+      if (error.response) {
+        console.error('Response error:', error.response.status, error.response.data);
+      } else if (error.request) {
+        console.error('Request error (no response):', error.request);
+      } else {
+        console.error('Error setting up request:', error.message);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// Export the apiClient instance
+export { apiClient };
+export default apiClient;
 
 // Auth services
 export const authService = {
@@ -75,6 +117,11 @@ export const projectService = {
   
   deleteProject: async (id) => {
     return await apiClient.delete(`/projects/${id}`);
+  },
+  
+  // Get all project tags
+  getProjectTags: async (projectId) => {
+    return await apiClient.get(`/projects/${projectId}/tags`);
   },
   
   // Get all project members
@@ -218,11 +265,4 @@ export const eventService = {
   deleteEvent: async (id) => {
     return await apiClient.delete(`/events/${id}`);
   }
-};
-
-export default {
-  auth: authService,
-  projects: projectService,
-  maps: mapService,
-  events: eventService,
 }; 
