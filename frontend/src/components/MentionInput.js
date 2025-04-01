@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Form } from 'react-bootstrap';
 import MentionSuggestions from './MentionSuggestions';
 import { insertMention, parseAndHighlightMentions } from '../utils/mentionUtils';
@@ -20,37 +20,8 @@ const MentionInput = ({
   const displayRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Check for @ character while typing
-  const handleInputChange = (e) => {
-    const text = e.target.value;
-    onChange(text);
-    
-    // Check if @ was typed
-    const lastAtIndex = text.lastIndexOf('@');
-    if (lastAtIndex !== -1) {
-      // Check if @ is at the start or has a space before it
-      const charBeforeAt = lastAtIndex > 0 ? text[lastAtIndex - 1] : ' ';
-      if (charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0) {
-        // Only show suggestions if there's not a complete mention already
-        const textAfterAt = text.substring(lastAtIndex + 1);
-        const spaceAfterMention = textAfterAt.indexOf(' ');
-        const isCompleteMention = spaceAfterMention !== -1 && textAfterAt.substring(0, spaceAfterMention).length > 0;
-        
-        if (!isCompleteMention) {
-          // Calculate cursor position for suggestions
-          calculateMentionPosition();
-          setShowMentions(true);
-          return;
-        }
-      }
-    }
-    
-    // If we get here, no active mention is being typed
-    setShowMentions(false);
-  };
-
-  // Calculate position for the mention suggestions dropdown
-  const calculateMentionPosition = () => {
+  // Memoize the position calculation function
+  const calculateMentionPosition = useCallback(() => {
     if (!inputRef.current) return;
     
     const textarea = inputRef.current;
@@ -123,10 +94,39 @@ const MentionInput = ({
     const finalLeft = Math.min(left, maxLeft);
     
     setMentionPosition({ top, left: finalLeft });
-  };
+  }, [value]);
 
-  // Handle when user selects a username from suggestions
-  const handleUserSelect = (username) => {
+  // Memoize the input change handler
+  const handleInputChange = useCallback((e) => {
+    const text = e.target.value;
+    onChange(text);
+    
+    // Check if @ was typed
+    const lastAtIndex = text.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      // Check if @ is at the start or has a space before it
+      const charBeforeAt = lastAtIndex > 0 ? text[lastAtIndex - 1] : ' ';
+      if (charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0) {
+        // Only show suggestions if there's not a complete mention already
+        const textAfterAt = text.substring(lastAtIndex + 1);
+        const spaceAfterMention = textAfterAt.indexOf(' ');
+        const isCompleteMention = spaceAfterMention !== -1 && textAfterAt.substring(0, spaceAfterMention).length > 0;
+        
+        if (!isCompleteMention) {
+          // Calculate cursor position for suggestions
+          calculateMentionPosition();
+          setShowMentions(true);
+          return;
+        }
+      }
+    }
+    
+    // If we get here, no active mention is being typed
+    setShowMentions(false);
+  }, [onChange, calculateMentionPosition]);
+
+  // Memoize the user selection handler
+  const handleUserSelect = useCallback((username) => {
     if (!inputRef.current) return;
     
     // Insert mention at cursor position
@@ -145,16 +145,16 @@ const MentionInput = ({
     
     // Hide suggestions
     setShowMentions(false);
-  };
+  }, [onChange]);
   
-  // Handle input keydown events
-  const handleKeyDown = (e) => {
+  // Memoize keydown handler
+  const handleKeyDown = useCallback((e) => {
     // ESC key to dismiss mentions suggestions
     if (e.key === 'Escape' && showMentions) {
       e.preventDefault();
       setShowMentions(false);
     }
-  };
+  }, [showMentions]);
 
   // Close mentions suggestion when clicking outside
   useEffect(() => {
@@ -172,6 +172,16 @@ const MentionInput = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Memoize the suggestions props to prevent unnecessary re-renders
+  const mentionSuggestionProps = useMemo(() => ({
+    text: value,
+    position: mentionPosition,
+    onSelectUser: handleUserSelect,
+    projectId: projectId,
+    isVisible: showMentions,
+    setIsVisible: setShowMentions
+  }), [value, mentionPosition, handleUserSelect, projectId, showMentions]);
 
   // Render a read-only version with highlighted mentions
   if (isReadOnly) {
@@ -204,18 +214,9 @@ const MentionInput = ({
         rows={rows}
         className={className}
       />
-      {showMentions && (
-        <MentionSuggestions 
-          text={value}
-          position={mentionPosition}
-          onSelectUser={handleUserSelect}
-          projectId={projectId}
-          isVisible={showMentions}
-          setIsVisible={setShowMentions}
-        />
-      )}
+      {showMentions && <MentionSuggestions {...mentionSuggestionProps} />}
     </div>
   );
 };
 
-export default MentionInput; 
+export default React.memo(MentionInput); 

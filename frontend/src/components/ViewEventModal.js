@@ -38,18 +38,22 @@ const ViewEventModal = ({
     }
   }, [onHide]);
   
-  // Only update state when event changes or modal shows
+  // Add an effect that will safely manage status and type state when the event changes
   useEffect(() => {
-    if (event && show) {
-      setCurrentStatus(event.status || 'open');
-      setCurrentType(event.state || 'periodic check');
+    // Check if we have a valid event object
+    if (memoizedEvent) {
+      // Only update state when needed, not on every render
+      if (currentStatus !== memoizedEvent.status || currentType !== memoizedEvent.state) {
+        setCurrentStatus(memoizedEvent.status || 'open');
+        setCurrentType(memoizedEvent.state || 'periodic check');
+      }
       
-      // If there's a highlighted comment, switch to comments tab
-      if (highlightCommentId) {
+      // Set active tab based on highlighted comment (happens only when navigating from a notification)
+      if (highlightCommentId && activeTab !== 'comments') {
         setActiveTab('comments');
       }
     }
-  }, [event?.id, show, highlightCommentId]);
+  }, [memoizedEvent, highlightCommentId, currentStatus, currentType, activeTab]);
 
   // Add an effect to handle keyboard escape
   useEffect(() => {
@@ -182,6 +186,15 @@ const ViewEventModal = ({
       backdropClassName="event-modal-backdrop"
       contentClassName="modal-content"
       ref={modalRef}
+      key={`event-modal-${eventId || 'empty'}`}
+      onExited={() => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+        
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }}
     >
       <Modal.Header closeButton>
         <Modal.Title>
