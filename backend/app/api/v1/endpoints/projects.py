@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_active_user, get_db
 from app.models.user import User
 from app.models.project import ProjectUser
+from app.models.event import Event
 from app.schemas.project import Project, ProjectCreate, ProjectUpdate, ProjectDetail, ProjectUserCreate, ProjectUserUpdate
 from app.schemas.user import User as UserSchema
 from app.services import project as project_service
