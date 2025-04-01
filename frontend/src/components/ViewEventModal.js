@@ -21,6 +21,7 @@ const ViewEventModal = ({
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
   const [activeTab, setActiveTab] = useState('details');
+  const [eventKey, setEventKey] = useState(0);
   
   // Use ref for modal element to help with force closing
   const modalRef = useRef(null);
@@ -28,8 +29,16 @@ const ViewEventModal = ({
   // Memoize the event ID to avoid unnecessary re-renders
   const eventId = useMemo(() => event?.id, [event?.id]);
   
-  // Memoize the entire event object to prevent excessive re-renders
-  const memoizedEvent = useMemo(() => event, [event?.id]);
+  // Keep a memoized version of the event to avoid unintended re-renders
+  // but update it when necessary status/type changes occur
+  const memoizedEvent = useMemo(() => {
+    return event ? {
+      ...event,
+      // Ensure current UI state values are reflected in the memoized event
+      status: currentStatus || event.status,
+      state: currentType || event.state
+    } : null;
+  }, [event, currentStatus, currentType]);
   
   // Use callback for the onHide function to prevent infinite loops
   const handleHide = useCallback(() => {
@@ -38,22 +47,14 @@ const ViewEventModal = ({
     }
   }, [onHide]);
   
-  // Add an effect that will safely manage status and type state when the event changes
+  // Initialize state values when a new event is loaded
   useEffect(() => {
-    // Check if we have a valid event object
-    if (memoizedEvent) {
-      // Only update state when needed, not on every render
-      if (currentStatus !== memoizedEvent.status || currentType !== memoizedEvent.state) {
-        setCurrentStatus(memoizedEvent.status || 'open');
-        setCurrentType(memoizedEvent.state || 'periodic check');
-      }
-      
-      // Set active tab based on highlighted comment (happens only when navigating from a notification)
-      if (highlightCommentId && activeTab !== 'comments') {
-        setActiveTab('comments');
-      }
+    if (event) {
+      setCurrentStatus(event.status);
+      setCurrentType(event.state);
+      setEventKey(prevKey => prevKey + 1); // Force child components to re-render
     }
-  }, [memoizedEvent, highlightCommentId, currentStatus, currentType, activeTab]);
+  }, [event?.id, highlightCommentId]); // Only reset when event ID changes or when highlighting a comment
 
   // Add an effect to handle keyboard escape
   useEffect(() => {
@@ -137,7 +138,10 @@ const ViewEventModal = ({
       await updateEventStatus(memoizedEvent.id, newStatus);
       if (onEventUpdated) {
         // Create a new event object with the updated status to trigger proper updates
-        const updatedEvent = {...memoizedEvent, status: newStatus};
+        const updatedEvent = {
+          ...memoizedEvent, 
+          status: newStatus
+        };
         onEventUpdated(updatedEvent);
       }
     } catch (error) {
@@ -168,7 +172,10 @@ const ViewEventModal = ({
       await updateEventState(memoizedEvent.id, newType);
       if (onEventUpdated) {
         // Create a new event object with the updated type to trigger proper updates
-        const updatedEvent = {...memoizedEvent, state: newType};
+        const updatedEvent = {
+          ...memoizedEvent,
+          state: newType
+        };
         onEventUpdated(updatedEvent);
       }
     } catch (error) {
@@ -375,6 +382,7 @@ const ViewEventModal = ({
               eventId={eventId} 
               projectId={projectId} 
               highlightCommentId={highlightCommentId}
+              key={eventKey}
             />
           </Tab>
         </Tabs>
