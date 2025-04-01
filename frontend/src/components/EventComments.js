@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Form, Button, Card, Image, Alert, Spinner } from 'react-bootstrap';
 import { format } from 'date-fns';
 import api from '../api';
 import MentionInput from './MentionInput';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
-const EventComments = ({ eventId, projectId }) => {
+const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -13,6 +13,9 @@ const EventComments = ({ eventId, projectId }) => {
   const [content, setContent] = useState('');
   const [image, setImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  
+  // Reference to highlighted comment
+  const highlightedCommentRef = useRef(null);
 
   // Load comments
   const fetchComments = async () => {
@@ -34,6 +37,20 @@ const EventComments = ({ eventId, projectId }) => {
       fetchComments();
     }
   }, [eventId]);
+  
+  // Scroll to highlighted comment if specified
+  useEffect(() => {
+    if (highlightCommentId && !loading && comments.length > 0) {
+      setTimeout(() => {
+        if (highlightedCommentRef.current) {
+          highlightedCommentRef.current.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }, 300); // Small delay to ensure the component has properly rendered
+    }
+  }, [highlightCommentId, comments, loading]);
 
   // Handle file selection
   const handleFileChange = (e) => {
@@ -180,7 +197,20 @@ const EventComments = ({ eventId, projectId }) => {
       ) : (
         <div className="comments-list">
           {comments.map((comment) => (
-            <Card key={comment.id} className="mb-3">
+            <Card 
+              key={comment.id} 
+              className={`mb-3 ${highlightCommentId && parseInt(highlightCommentId, 10) === comment.id ? 'highlighted-comment' : ''}`}
+              style={{
+                borderLeft: highlightCommentId && parseInt(highlightCommentId, 10) === comment.id 
+                  ? '4px solid #0d6efd' 
+                  : 'none',
+                boxShadow: highlightCommentId && parseInt(highlightCommentId, 10) === comment.id 
+                  ? '0 0 10px rgba(13, 110, 253, 0.3)' 
+                  : 'none',
+                transition: 'box-shadow 0.3s ease'
+              }}
+              ref={highlightCommentId && parseInt(highlightCommentId, 10) === comment.id ? highlightedCommentRef : null}
+            >
               <Card.Body>
                 <div className="d-flex justify-content-between align-items-start mb-2">
                   <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
 import MapList from '../components/MapList';
 import MapDetail from '../components/MapDetail';
@@ -22,6 +22,7 @@ import '../assets/styles/MapViewer.css';
 const MapViewer = ({ onLogout }) => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [maps, setMaps] = useState([]);
   const [events, setEvents] = useState([]);
@@ -45,6 +46,9 @@ const MapViewer = ({ onLogout }) => {
   const [mapForEvent, setMapForEvent] = useState(null);
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
+  
+  // Add a state variable for the comment to highlight
+  const [highlightCommentId, setHighlightCommentId] = useState(null);
   
   // Fetch current user info from token and get their admin status
   useEffect(() => {
@@ -354,6 +358,10 @@ const MapViewer = ({ onLogout }) => {
   
   const handleViewEvent = (event) => {
     setSelectedEvent(event);
+    
+    // Reset highlight comment when manually selecting an event
+    setHighlightCommentId(null);
+    
     setShowViewEventModal(true);
   };
   
@@ -429,6 +437,88 @@ const MapViewer = ({ onLogout }) => {
       return null;
     }
   };
+  
+  // Extract highlight info from location state or query parameters
+  useEffect(() => {
+    const checkForHighlightedEvent = async () => {
+      // Check if we have highlight info in location state (from programmatic navigation)
+      const highlightEventId = location.state?.highlightEventId;
+      const highlightCommentId = location.state?.highlightCommentId;
+      
+      // If we have an event to highlight from the state
+      if (highlightEventId && events.length > 0) {
+        console.log(`Highlighting event ${highlightEventId} from notification navigation`);
+        
+        // Find the event
+        const eventToHighlight = events.find(e => e.id === parseInt(highlightEventId, 10));
+        
+        if (eventToHighlight) {
+          // Select the event's map
+          const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
+          if (eventMap) {
+            setSelectedMap(eventMap);
+            
+            // Make sure this map is visible
+            if (!visibleMapIds.includes(eventMap.id)) {
+              setVisibleMapIds(prev => [...prev, eventMap.id]);
+            }
+          }
+          
+          // Set the selected event and show the event modal
+          setSelectedEvent(eventToHighlight);
+          
+          // Store the comment ID for highlighting
+          if (highlightCommentId) {
+            // Store the highlight comment ID in a state variable
+            setHighlightCommentId(parseInt(highlightCommentId, 10));
+          }
+          
+          setShowViewEventModal(true);
+          
+          // Clear the highlight info from location state after processing
+          window.history.replaceState({}, document.title);
+        }
+      }
+      
+      // Check URL parameters (for direct links)
+      const urlParams = new URLSearchParams(window.location.search);
+      const eventIdFromUrl = urlParams.get('event');
+      const commentIdFromUrl = urlParams.get('comment');
+      
+      if (eventIdFromUrl && events.length > 0) {
+        console.log(`Highlighting event ${eventIdFromUrl} from URL parameters`);
+        
+        // Find the event
+        const eventToHighlight = events.find(e => e.id === parseInt(eventIdFromUrl, 10));
+        
+        if (eventToHighlight) {
+          // Select the event's map
+          const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
+          if (eventMap) {
+            setSelectedMap(eventMap);
+            
+            // Make sure this map is visible
+            if (!visibleMapIds.includes(eventMap.id)) {
+              setVisibleMapIds(prev => [...prev, eventMap.id]);
+            }
+          }
+          
+          // Set the selected event and show the event modal
+          setSelectedEvent(eventToHighlight);
+          setShowViewEventModal(true);
+          
+          // Remove the parameters from the URL to prevent issues on refresh
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+      }
+    };
+    
+    // Only run this effect after events are loaded
+    if (events.length > 0 && !loading) {
+      checkForHighlightedEvent();
+    }
+  }, [events, maps, location.state, loading]);
   
   if (loading) {
     return (
@@ -671,13 +761,17 @@ const MapViewer = ({ onLogout }) => {
       
       <ViewEventModal
         show={showViewEventModal}
-        onHide={() => setShowViewEventModal(false)}
+        onHide={() => {
+          setShowViewEventModal(false);
+          setHighlightCommentId(null); // Reset highlight when closing
+        }}
         event={selectedEvent}
         allMaps={maps}
         onEventUpdated={handleEventUpdated}
         currentUser={currentUser}
         projectId={project?.id}
         effectiveIsAdmin={effectiveIsAdmin}
+        highlightCommentId={highlightCommentId}
       />
       
       <EditEventModal

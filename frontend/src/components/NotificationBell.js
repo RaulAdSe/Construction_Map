@@ -33,7 +33,11 @@ const NotificationBell = () => {
       console.log('Fetched notifications:', response.data);
       
       if (response.data && Array.isArray(response.data.notifications)) {
-        setNotifications(response.data.notifications);
+        // Ensure newest notifications are at the top (should be handled by backend)
+        const sortedNotifications = response.data.notifications.sort((a, b) => 
+          new Date(b.created_at) - new Date(a.created_at)
+        );
+        setNotifications(sortedNotifications);
         setUnreadCount(response.data.unread_count || 0);
       } else {
         console.error('Unexpected response format:', response.data);
@@ -148,15 +152,44 @@ const NotificationBell = () => {
       await markAsRead(notification.id);
     }
     
+    // Close notification panel
+    setIsOpen(false);
+    
     // Navigate to the link destination if it exists
     if (notification.link) {
       console.log('Navigating to:', notification.link);
-      navigate(notification.link);
+      
+      // Parse the link to extract parameters
+      try {
+        const linkUrl = new URL(notification.link, window.location.origin);
+        
+        // Handle navigation based on the link structure
+        if (linkUrl.pathname.startsWith('/project/')) {
+          const projectId = linkUrl.pathname.split('/').pop();
+          const eventId = linkUrl.searchParams.get('event');
+          const commentId = linkUrl.searchParams.get('comment');
+          
+          console.log(`Navigating to project ${projectId}, event ${eventId}, comment ${commentId}`);
+          
+          // Navigate and include any query parameters
+          navigate(`/project/${projectId}`, { 
+            state: { 
+              highlightEventId: eventId,
+              highlightCommentId: commentId
+            }
+          });
+        } else {
+          // For other links, navigate directly
+          navigate(notification.link);
+        }
+      } catch (error) {
+        console.error('Error parsing notification link:', error);
+        // Fallback to direct navigation
+        navigate(notification.link);
+      }
     } else {
       console.warn('Notification has no link to navigate to');
     }
-    
-    setIsOpen(false);
   };
 
   const toggleNotifications = () => {
@@ -202,19 +235,7 @@ const NotificationBell = () => {
         {unreadCount > 0 && (
           <Badge 
             bg="danger" 
-            style={{ 
-              position: 'absolute', 
-              top: '-8px', 
-              right: '-8px', 
-              borderRadius: '50%',
-              minWidth: '18px',
-              height: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4px',
-              fontSize: '0.7rem'
-            }}
+            className="notification-badge"
           >
             {unreadCount}
           </Badge>

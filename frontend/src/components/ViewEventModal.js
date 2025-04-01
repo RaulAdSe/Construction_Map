@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bootstrap';
 import { format } from 'date-fns';
 import EventComments from './EventComments';
@@ -6,17 +6,33 @@ import { updateEventStatus, updateEventState } from '../services/eventService';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, effectiveIsAdmin }) => {
+const ViewEventModal = ({ 
+  show, 
+  onHide, 
+  event, 
+  allMaps = [], 
+  onEventUpdated, 
+  currentUser, 
+  projectId, 
+  effectiveIsAdmin,
+  highlightCommentId
+}) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
+  const [activeTab, setActiveTab] = useState('details');
   
   useEffect(() => {
     if (event) {
       setCurrentStatus(event.status || 'open');
       setCurrentType(event.state || 'periodic check');
+      
+      // If there's a highlighted comment, switch to comments tab
+      if (highlightCommentId) {
+        setActiveTab('comments');
+      }
     }
-  }, [event]);
+  }, [event, highlightCommentId]);
 
   if (!event) return null;
   
@@ -142,7 +158,8 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       </Modal.Header>
       <Modal.Body>
         <Tabs 
-          defaultActiveKey="details" 
+          activeKey={activeTab}
+          onSelect={(k) => setActiveTab(k)}
           className="mb-3"
         >
           <Tab eventKey="details" title="Details">
@@ -317,7 +334,11 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
             eventKey="comments" 
             title={`Comments ${event.comment_count ? `(${event.comment_count})` : ''}`}
           >
-            <EventComments eventId={event.id} projectId={projectId} />
+            <EventComments 
+              eventId={event.id} 
+              projectId={projectId} 
+              highlightCommentId={highlightCommentId}
+            />
           </Tab>
         </Tabs>
       </Modal.Body>
