@@ -536,19 +536,8 @@ const MapViewer = ({ onLogout }) => {
       if (location.state?.highlightEventId) {
         window.history.replaceState({}, document.title);
       }
-      
-      // Also remove any stuck modal backdrops
-      const modalBackdrops = document.querySelectorAll('.modal-backdrop');
-      modalBackdrops.forEach(backdrop => {
-        backdrop.remove();
-      });
-      
-      // Fix body styling
-      document.body.classList.remove('modal-open');
-      document.body.style.overflow = '';
-      document.body.style.paddingRight = '';
     } catch (error) {
-      console.error('Failed to clean up after modal:', error);
+      console.error('Failed to clean up location state:', error);
     }
   };
   
@@ -561,33 +550,22 @@ const MapViewer = ({ onLogout }) => {
       if (e.key === 'Escape') {
         escapeCount++;
         
-        // If user presses Escape twice within 500ms, force close any modals
+        // If user presses Escape twice within 500ms, close any modals safely
         if (escapeCount === 1) {
           escapeTimer = setTimeout(() => {
             escapeCount = 0;
           }, 500);
         } else if (escapeCount >= 2) {
-          console.log('EMERGENCY ESCAPE: Force closing all modals');
+          console.log('EMERGENCY ESCAPE: Closing modals properly');
           
-          // Force close view event modal
+          // Close all modals using their React state handlers
           setShowViewEventModal(false);
           setHighlightCommentId(null);
           setSelectedEvent(null);
-          
-          // Force close edit event modal
           setShowEditEventModal(false);
-          
-          // Force close all other modals
           setShowAddMapModal(false);
           setShowAddEventModal(false);
           setShowMapSelectionModal(false);
-          
-          // Remove backdrop and reset body
-          const modalBackdrops = document.querySelectorAll('.modal-backdrop');
-          modalBackdrops.forEach(backdrop => backdrop.remove());
-          document.body.classList.remove('modal-open');
-          document.body.style.overflow = '';
-          document.body.style.paddingRight = '';
           
           // Clear location state to prevent getting stuck in a highlight loop
           window.history.replaceState({}, document.title);
