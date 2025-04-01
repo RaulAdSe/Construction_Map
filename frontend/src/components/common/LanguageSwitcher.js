@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from './TranslationProvider';
 
@@ -8,8 +8,9 @@ import { useTranslation } from './TranslationProvider';
 const LanguageSwitcher = () => {
   const { currentLanguage, toggleLanguage, translate } = useTranslation();
   
-  const handleToggle = () => {
+  const handleToggle = useCallback(() => {
     const newLanguage = toggleLanguage();
+    console.log('Switched language to:', newLanguage);
     
     // Update user's language preference if they're logged in
     try {
@@ -23,7 +24,14 @@ const LanguageSwitcher = () => {
     } catch (error) {
       console.error('Error saving user language preference:', error);
     }
-  };
+    
+    // Force component to re-render (React may batch updates)
+    setTimeout(() => {
+      // This is a hack to force a re-render if needed
+      const forceUpdateEvent = new Event('forceLanguageUpdate');
+      window.dispatchEvent(forceUpdateEvent);
+    }, 0);
+  }, [toggleLanguage]);
   
   const tooltip = (
     <Tooltip id="language-tooltip">
@@ -43,6 +51,7 @@ const LanguageSwitcher = () => {
         onClick={handleToggle}
         className="language-switcher"
         aria-label={`Switch to ${currentLanguage === 'en' ? 'Spanish' : 'English'}`}
+        key={`lang-switch-${currentLanguage}`} // Force re-render when language changes
       >
         {currentLanguage === 'en' ? '🇪🇸 ES' : '🇺🇸 EN'}
       </Button>

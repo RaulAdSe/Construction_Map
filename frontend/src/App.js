@@ -9,6 +9,20 @@ import { setLanguage } from './utils/translate';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Add a state variable to force re-render on language changes
+  const [languageKey, setLanguageKey] = useState(0);
+  
+  useEffect(() => {
+    // Listen for forced language updates
+    const handleForceUpdate = () => {
+      setLanguageKey(prev => prev + 1);
+    };
+    window.addEventListener('forceLanguageUpdate', handleForceUpdate);
+    
+    return () => {
+      window.removeEventListener('forceLanguageUpdate', handleForceUpdate);
+    };
+  }, []);
   
   useEffect(() => {
     // Check if user has a valid token
@@ -42,7 +56,7 @@ function App() {
   return (
     <TranslationProvider>
       <Router>
-        <Routes>
+        <Routes key={`routes-${languageKey}`}>
           <Route 
             path="/" 
             element={isAuthenticated ? <Navigate to="/projects" /> : <LoginPage onLogin={handleLogin} />} 

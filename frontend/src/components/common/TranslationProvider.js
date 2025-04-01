@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import translate, { 
   setLanguage, 
   getCurrentLanguage, 
-  toggleLanguage 
+  toggleLanguage,
+  useLanguage
 } from '../../utils/translate';
 
 // Create a context for translation functions and language state
@@ -24,32 +25,18 @@ export const useTranslation = () => {
  * Provider component that wraps the app to make translations available
  */
 export const TranslationProvider = ({ children }) => {
-  const [currentLanguage, setCurrentLanguage] = useState(getCurrentLanguage());
-  
-  // Listen for language changes from other components
-  useEffect(() => {
-    const handleLanguageChange = () => {
-      setCurrentLanguage(getCurrentLanguage());
-    };
-    
-    window.addEventListener('languageChange', handleLanguageChange);
-    
-    return () => {
-      window.removeEventListener('languageChange', handleLanguageChange);
-    };
-  }, []);
+  // Use our custom hook to track language and re-render on changes
+  const currentLanguage = useLanguage();
   
   // Handler for toggling language
   const handleToggleLanguage = () => {
     const newLang = toggleLanguage();
-    setCurrentLanguage(newLang);
     return newLang;
   };
   
   // Handler for setting a specific language
   const handleSetLanguage = (lang) => {
     setLanguage(lang);
-    setCurrentLanguage(lang);
   };
   
   // Value to provide to the context
