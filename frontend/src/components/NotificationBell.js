@@ -155,6 +155,11 @@ const NotificationBell = () => {
       try {
         const linkUrl = new URL(notification.link, window.location.origin);
         
+        // Reset any userClosedModal flag when navigating to new event
+        if (window.resetModalClosedFlag && typeof window.resetModalClosedFlag === 'function') {
+          window.resetModalClosedFlag();
+        }
+        
         // Handle navigation based on the link structure
         if (linkUrl.pathname.startsWith('/project/')) {
           const projectId = linkUrl.pathname.split('/').pop();

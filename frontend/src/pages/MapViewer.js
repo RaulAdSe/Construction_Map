@@ -600,6 +600,18 @@ const MapViewer = ({ onLogout }) => {
     setUserClosedModal(false);
   }, [projectId]);
   
+  // Add a global function to reset the userClosedModal flag
+  useEffect(() => {
+    window.resetModalClosedFlag = () => {
+      console.log('Resetting userClosedModal flag for notification navigation');
+      setUserClosedModal(false);
+    };
+    
+    return () => {
+      delete window.resetModalClosedFlag;
+    };
+  }, []);
+  
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
