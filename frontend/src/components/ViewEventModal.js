@@ -306,26 +306,6 @@ const ViewEventModal = ({
                   <p>Coordinates: X: {memoizedEvent.x_coordinate.toFixed(2)}%, Y: {memoizedEvent.y_coordinate.toFixed(2)}%</p>
                 </div>
                 
-                {Object.keys(activeMapSettings).length > 0 && (
-                  <div className="mb-3">
-                    <h6>Map Overlay Configuration</h6>
-                    <div className="map-settings-list">
-                      {Object.entries(activeMapSettings).map(([mapId, settings]) => (
-                        <div key={mapId} className="d-flex justify-content-between align-items-center mb-1">
-                          <span>
-                            {parseInt(mapId) === memoizedEvent.map_id ? (
-                              <strong>{getMapName(mapId)} (Main)</strong>
-                            ) : (
-                              getMapName(mapId)
-                            )}
-                          </span>
-                          <span>Opacity: {Math.round((settings.opacity || 1) * 100)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
                 {memoizedEvent.tags && memoizedEvent.tags.length > 0 && (
                   <div className="mb-3">
                     <h6>Tags</h6>
