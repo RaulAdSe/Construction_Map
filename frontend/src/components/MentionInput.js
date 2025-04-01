@@ -54,51 +54,54 @@ const MentionInput = ({
     if (!inputRef.current) return;
     
     const textarea = inputRef.current;
-    const { selectionStart } = textarea;
     const text = value;
     
     // Find the position of the last @ symbol before cursor
-    const lastAtIndex = text.lastIndexOf('@', selectionStart);
+    const cursorPos = textarea.selectionStart;
+    const lastAtIndex = text.lastIndexOf('@', cursorPos);
     if (lastAtIndex === -1) return;
     
     const textareaPosition = textarea.getBoundingClientRect();
+    
+    // Get all lines up to the current position
     const textBeforeCursor = text.substring(0, lastAtIndex);
     const lines = textBeforeCursor.split('\n');
     const currentLineIndex = lines.length - 1;
-    const currentLine = lines[currentLineIndex];
+    
+    // Get text on the current line up to the @ symbol
+    const currentLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
+    const currentLineUpToAt = textBeforeCursor.substring(currentLineStart);
     
     // Create a hidden div with the same styling as the textarea
     const div = document.createElement('div');
     div.style.position = 'absolute';
-    div.style.top = '0';
-    div.style.left = '0';
-    div.style.whiteSpace = 'pre-wrap';
-    div.style.overflow = 'auto';
     div.style.visibility = 'hidden';
+    div.style.whiteSpace = 'pre-wrap';
     div.style.width = `${textarea.clientWidth}px`;
     div.style.padding = window.getComputedStyle(textarea).padding;
     div.style.font = window.getComputedStyle(textarea).font;
     div.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
     
-    // Create a span for the text before @ on the current line
+    // Create a span for text up to the @ symbol
     const span = document.createElement('span');
-    span.textContent = currentLine;
+    span.textContent = currentLineUpToAt;
     div.appendChild(span);
     
     // Append to body, measure, then remove
     document.body.appendChild(div);
-    const atPosition = span.getBoundingClientRect();
+    const spanRect = span.getBoundingClientRect();
     document.body.removeChild(div);
     
     // Calculate line height
     const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || 18;
     
-    // Calculate position - position right under the @ character
-    const top = textareaPosition.top + (lineHeight * currentLineIndex) + lineHeight + window.scrollY + 5;
+    // Calculate the position
+    const paddingLeft = parseFloat(window.getComputedStyle(textarea).paddingLeft) || 0;
+    const paddingTop = parseFloat(window.getComputedStyle(textarea).paddingTop) || 0;
     
-    // Horizontal position at the @ symbol
-    const left = textareaPosition.left + atPosition.width + window.scrollX + 
-                 parseFloat(window.getComputedStyle(textarea).paddingLeft);
+    // Position dropdown below and at the @ symbol
+    const top = textareaPosition.top + paddingTop + (lineHeight * currentLineIndex) + lineHeight + window.scrollY;
+    const left = textareaPosition.left + paddingLeft + spanRect.width + window.scrollX;
     
     // Ensure the suggestion box doesn't go out of viewport
     const maxLeft = window.innerWidth - 260; // 250px width + 10px margin
