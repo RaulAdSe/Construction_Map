@@ -134,9 +134,10 @@ export const updateEventStatus = async (eventId, status, userRole) => {
     
     console.log(`Updating event ${eventId} status to ${status}`);
     
-    // Send as JSON instead of FormData
+    // Match the expected format for EventUpdate
     const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
-      status: status
+      status: status,
+      is_admin_request: isAdmin
     });
     
     return updateResponse.data;
@@ -150,9 +151,24 @@ export const updateEventState = async (eventId, state) => {
   try {
     console.log(`Updating event ${eventId} state to ${state}`);
     
-    // Send as JSON instead of FormData
+    // Get admin status
+    let isAdmin = false;
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.is_admin === true) {
+          isAdmin = true;
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+    
+    // Match the expected format for EventUpdate
     const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
-      state: state
+      state: state,
+      is_admin_request: isAdmin
     });
     
     return updateResponse.data;

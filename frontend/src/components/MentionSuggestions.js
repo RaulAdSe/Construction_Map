@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ListGroup } from 'react-bootstrap';
 import { projectService } from '../services/api';
-import { API_URL } from '../config';
 
 const MentionSuggestions = ({ 
   text, 
@@ -27,6 +26,11 @@ const MentionSuggestions = ({
         setUsers(response.data);
       } catch (error) {
         console.error('Error fetching project users:', error);
+        // Don't show error if it's just a 404 (project not found)
+        if (error.response && error.response.status === 404) {
+          // Project might not exist or user doesn't have access
+          setUsers([]);
+        }
       } finally {
         setLoading(false);
       }
