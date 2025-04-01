@@ -24,7 +24,7 @@ const MentionSuggestions = ({
       
       try {
         setLoading(true);
-        const response = await getAuthAxios().get(`${API_URL}/api/v1/projects/${projectId}/members`);
+        const response = await getAuthAxios().get(`${API_URL}/projects/${projectId}/members`);
         setUsers(response.data);
       } catch (error) {
         console.error('Error fetching project users:', error);
