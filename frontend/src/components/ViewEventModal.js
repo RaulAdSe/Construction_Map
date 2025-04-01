@@ -129,13 +129,16 @@ const ViewEventModal = ({
       return;
     }
     
+    // Update the UI immediately
     setCurrentStatus(newStatus);
     
     try {
       setUpdating(true);
       await updateEventStatus(memoizedEvent.id, newStatus);
       if (onEventUpdated) {
-        onEventUpdated({...memoizedEvent, status: newStatus});
+        // Create a new event object with the updated status to trigger proper updates
+        const updatedEvent = {...memoizedEvent, status: newStatus};
+        onEventUpdated(updatedEvent);
       }
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -157,13 +160,16 @@ const ViewEventModal = ({
       return;
     }
     
+    // Update the UI immediately
     setCurrentType(newType);
     
     try {
       setUpdating(true);
       await updateEventState(memoizedEvent.id, newType);
       if (onEventUpdated) {
-        onEventUpdated({...memoizedEvent, state: newType});
+        // Create a new event object with the updated type to trigger proper updates
+        const updatedEvent = {...memoizedEvent, state: newType};
+        onEventUpdated(updatedEvent);
       }
     } catch (error) {
       console.error('Failed to update type:', error);

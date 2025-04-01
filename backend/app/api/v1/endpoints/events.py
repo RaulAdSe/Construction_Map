@@ -113,40 +113,35 @@ def get_event(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Get a specific event.
+    Get an event by ID.
     """
-    # Get event with comment count
-    event_data = event_service.get_event_with_comments_count(db, event_id)
-    if not event_data:
+    # Get event
+    event_dict = event_service.get_event_with_comments_count(db, event_id)
+    if not event_dict:
         raise HTTPException(status_code=404, detail="Event not found")
     
     # Check if user has access to project
-    project = project_service.get_project(db, event_data["project_id"])
-    if not any(pu.user_id == current_user.id for pu in project.users):
+    project = project_service.get_project(db, event_dict["project_id"])
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not current_user.is_admin and not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Get username for the creator
-    username = db.query(User.username).filter(User.id == event_data["created_by_user_id"]).scalar()
+    # Get map name
+    map_obj = db.query(Map).filter(Map.id == event_dict["map_id"]).first()
+    map_name = map_obj.name if map_obj else f"Map ID: {event_dict['map_id']}"
     
-    # Create EventDetail
-    event_detail = EventDetail(
-        id=event_data["id"],
-        project_id=event_data["project_id"],
-        map_id=event_data["map_id"],
-        created_by_user_id=event_data["created_by_user_id"],
-        created_by_user_name=username,
-        title=event_data["title"],
-        description=event_data["description"],
-        status=event_data["status"],
-        state=event_data["state"],
-        active_maps=event_data["active_maps"],
-        image_url=event_data["image_url"],
-        tags=event_data["tags"],
-        x_coordinate=event_data["x_coordinate"],
-        y_coordinate=event_data["y_coordinate"],
-        created_at=event_data["created_at"],
-        comment_count=event_data["comment_count"]
-    )
+    # Get creator username
+    creator = db.query(User).filter(User.id == event_dict["created_by_user_id"]).first()
+    creator_name = creator.username if creator else f"User ID: {event_dict['created_by_user_id']}"
+    
+    # Create EventDetail object with additional information
+    event_detail = {
+        **event_dict,
+        "map_name": map_name,
+        "created_by_user_name": creator_name,
+    }
     
     return event_detail
 

@@ -1,7 +1,7 @@
 import os
 import uuid
 import json
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -123,13 +123,17 @@ def get_events_with_comments_count(
     skip: int = 0, 
     limit: int = 100
 ) -> List[Dict[str, Any]]:
-    """Get events with comment counts"""
+    """Get events with comment counts and creator usernames"""
     query = db.query(
         Event,
-        func.count(EventComment.id).label('comment_count')
+        func.count(EventComment.id).label('comment_count'),
+        User.username.label('created_by_user_name')
     ).outerjoin(
         EventComment, 
         Event.id == EventComment.event_id
+    ).join(
+        User,
+        Event.created_by_user_id == User.id
     ).filter(
         Event.project_id == project_id
     )
@@ -138,16 +142,18 @@ def get_events_with_comments_count(
         query = query.filter(Event.created_by_user_id == user_id)
     
     results = query.group_by(
-        Event.id
+        Event.id,
+        User.username
     ).order_by(
         desc(Event.created_at)
     ).offset(skip).limit(limit).all()
     
     events_with_counts = []
-    for event, comment_count in results:
+    for event, comment_count, created_by_user_name in results:
         # Convert event to dict and add comment count
         event_dict = {c.name: getattr(event, c.name) for c in event.__table__.columns}
         event_dict['comment_count'] = comment_count
+        event_dict['created_by_user_name'] = created_by_user_name
         
         # Fix for active_maps - convert empty array to empty dict if needed
         if event_dict['active_maps'] == [] or event_dict['active_maps'] is None:

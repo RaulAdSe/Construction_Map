@@ -19,6 +19,8 @@ import { fetchEvents } from '../services/eventService';
 import { isUserAdmin } from '../utils/permissions';
 import '../assets/styles/MapViewer.css';
 
+const DEBUG = false;
+
 const MapViewer = ({ onLogout }) => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -69,7 +71,7 @@ const MapViewer = ({ onLogout }) => {
           
           // Set admin status based on is_admin flag
           const userIsAdmin = user.is_admin === true;
-          console.log('User admin status:', userIsAdmin);
+          if (DEBUG) console.log('User admin status:', userIsAdmin);
           setIsAdmin(userIsAdmin);
           setEffectiveIsAdmin(userIsAdmin);
         }
@@ -117,7 +119,7 @@ const MapViewer = ({ onLogout }) => {
     });
     
     setVisibleEvents(filteredEvents);
-    console.log("Updated visible events:", filteredEvents.length, "out of", events.length);
+    if (DEBUG) console.log("Updated visible events:", filteredEvents.length, "out of", events.length);
   }, [events, visibleMapIds, maps]);
   
   useEffect(() => {
@@ -133,7 +135,7 @@ const MapViewer = ({ onLogout }) => {
       if (!visibleMapIds.includes(selectedMap.id)) {
         setVisibleMapIds(prev => [...prev, selectedMap.id]);
       }
-      console.log("Selected map changed, ensuring it's visible:", selectedMap.id);
+      if (DEBUG) console.log("Selected map changed, ensuring it's visible:", selectedMap.id);
     }
   }, [selectedMap]);
   
@@ -145,7 +147,7 @@ const MapViewer = ({ onLogout }) => {
       
       if (mainMap) {
         // Initialize with the main map
-        console.log("Initializing visible maps with main map:", mainMap.id);
+        if (DEBUG) console.log("Initializing visible maps with main map:", mainMap.id);
         
         // Check if already in the list to avoid duplicates
         if (!visibleMapIds.includes(mainMap.id)) {
@@ -155,14 +157,36 @@ const MapViewer = ({ onLogout }) => {
     }
   }, [maps]);
   
-  // Update the handleVisibleMapsChanged function to capture opacity settings
-  const handleVisibleMapsChanged = (newVisibleMapIds, opacitySettings = {}) => {
-    console.log("Visible maps changed to:", newVisibleMapIds);
-    setVisibleMapIds(newVisibleMapIds);
+  // Fix the handleVisibleMapsChanged function by using useCallback and preventing unnecessary updates
+  const handleVisibleMapsChanged = useCallback((newVisibleMapIds, opacitySettings = {}) => {
+    if (DEBUG) console.log("Visible maps changed to:", newVisibleMapIds);
     
-    // Store opacity settings as well
-    setMapVisibilitySettings(opacitySettings);
-  };
+    // Use functional updates to avoid stale state
+    setVisibleMapIds(prevIds => {
+      // Only update if the arrays are different
+      if (JSON.stringify(prevIds) === JSON.stringify(newVisibleMapIds)) {
+        return prevIds; // Return the previous state to prevent update
+      }
+      return newVisibleMapIds;
+    });
+    
+    // Only update opacity settings if they've changed
+    setMapVisibilitySettings(prevSettings => {
+      // Check if the settings are different
+      let hasChanged = false;
+      for (const id in opacitySettings) {
+        if (!prevSettings[id] || prevSettings[id].opacity !== opacitySettings[id].opacity) {
+          hasChanged = true;
+          break;
+        }
+      }
+      
+      if (!hasChanged && Object.keys(prevSettings).length === Object.keys(opacitySettings).length) {
+        return prevSettings; // Return the previous state to prevent update
+      }
+      return opacitySettings;
+    });
+  }, []);
   
   // Create a formatted map settings object for the event
   const getActiveMapSettings = () => {
@@ -191,7 +215,7 @@ const MapViewer = ({ onLogout }) => {
           
           // If we have a main map and it's different from the currently selected map
           if (mainMap && (!selectedMap || mainMap.id !== selectedMap.id)) {
-            console.log('Main map changed, updating selected map');
+            if (DEBUG) console.log('Main map changed, updating selected map');
             setSelectedMap(mainMap);
           }
         } catch (error) {
@@ -234,13 +258,13 @@ const MapViewer = ({ onLogout }) => {
       if (mapsData.length > 0) {
         const mainMap = mapsData.find(map => map.map_type === 'implantation');
         if (mainMap) {
-          console.log('Found and selected main map:', mainMap.name);
+          if (DEBUG) console.log('Found and selected main map:', mainMap.name);
           setSelectedMap(mainMap);
           
           // Initialize visible maps with the main map ID
           setVisibleMapIds([mainMap.id]);
         } else {
-          console.log('No main map found, selecting first map');
+          if (DEBUG) console.log('No main map found, selecting first map');
           setSelectedMap(mapsData[0]);
           
           // Initialize visible maps with the first map ID
@@ -414,16 +438,23 @@ const MapViewer = ({ onLogout }) => {
       map_name: mapName 
     };
     
+    // Update the events array with the new event data
     const updatedEvents = events.map(event => 
       event.id === updatedEvent.id ? eventWithMapName : event
     );
     
+    // Set the events state with the new array
     setEvents(updatedEvents);
+    
+    // Show notification about the update
     showNotification('Event updated successfully!');
     
-    // If we updated the selected event, also update it
+    // If we updated the currently selected event, also update it directly
+    // This ensures the ViewEventModal shows the updated values immediately
     if (selectedEvent && selectedEvent.id === updatedEvent.id) {
-      setSelectedEvent(eventWithMapName);
+      // Create a new object to ensure React detects the change
+      const updatedSelectedEvent = { ...selectedEvent, ...updatedEvent };
+      setSelectedEvent(updatedSelectedEvent);
     }
   };
   
@@ -440,13 +471,17 @@ const MapViewer = ({ onLogout }) => {
       // Check current localStorage
       const token = localStorage.getItem('token');
       const userJson = localStorage.getItem('user');
-      console.log('Current token:', token);
-      console.log('Current user data:', userJson);
+      if (DEBUG) {
+        console.log('Current token:', token);
+        console.log('Current user data:', userJson);
+      }
       
       // Try to decode the token
       if (token) {
         const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-        console.log('Token payload:', tokenPayload);
+        if (DEBUG) {
+          console.log('Token payload:', tokenPayload);
+        }
         
         // If we have a token but no user data, create user data
         if (!userJson) {
@@ -458,7 +493,7 @@ const MapViewer = ({ onLogout }) => {
             id: username
           };
           localStorage.setItem('user', JSON.stringify(user));
-          console.log('Created user data:', user);
+          if (DEBUG) console.log('Created user data:', user);
           alert('Added missing user data. Please refresh the page.');
           return user;
         }
@@ -482,7 +517,7 @@ const MapViewer = ({ onLogout }) => {
       
       // If we have an event to highlight from the state
       if (highlightEventId && events.length > 0) {
-        console.log(`Highlighting event ${highlightEventId} from notification navigation`);
+        if (DEBUG) console.log(`Highlighting event ${highlightEventId} from notification navigation`);
         
         // Find the event
         const eventToHighlight = events.find(e => e.id === parseInt(highlightEventId, 10));
@@ -525,7 +560,7 @@ const MapViewer = ({ onLogout }) => {
       const commentIdFromUrl = urlParams.get('comment');
       
       if (eventIdFromUrl && events.length > 0) {
-        console.log(`Highlighting event ${eventIdFromUrl} from URL parameters`);
+        if (DEBUG) console.log(`Highlighting event ${eventIdFromUrl} from URL parameters`);
         
         // Find the event
         const eventToHighlight = events.find(e => e.id === parseInt(eventIdFromUrl, 10));
@@ -598,7 +633,7 @@ const MapViewer = ({ onLogout }) => {
             escapeCount = 0;
           }, 500);
         } else if (escapeCount >= 2) {
-          console.log('EMERGENCY ESCAPE: Closing modals properly');
+          if (DEBUG) console.log('EMERGENCY ESCAPE: Closing modals properly');
           
           // Close all modals using their React state handlers
           setShowViewEventModal(false);
@@ -636,7 +671,7 @@ const MapViewer = ({ onLogout }) => {
   // Add a global function to reset the userClosedModal flag
   useEffect(() => {
     window.resetModalClosedFlag = () => {
-      console.log('Resetting userClosedModal flag for notification navigation');
+      if (DEBUG) console.log('Resetting userClosedModal flag for notification navigation');
       setUserClosedModal(false);
     };
     
@@ -667,6 +702,19 @@ const MapViewer = ({ onLogout }) => {
     effectiveIsAdmin,
     highlightCommentId
   ]);
+  
+  // Let's also fix the handleVisibleMapsChanged function to prevent unnecessary re-renders
+  // by memoizing the props passed to MapDetail
+  const mapDetailProps = useMemo(() => ({
+    map: selectedMap,
+    events,
+    onMapClick: handleMapClick,
+    isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap.id,
+    onEventClick: handleViewEvent,
+    allMaps: maps,
+    projectId: projectId,
+    onVisibleMapsChanged: handleVisibleMapsChanged
+  }), [selectedMap, events, handleMapClick, mapForEvent, handleViewEvent, maps, projectId, handleVisibleMapsChanged]);
   
   if (loading) {
     return (
@@ -714,7 +762,7 @@ const MapViewer = ({ onLogout }) => {
             </Nav>
             <div className="d-flex align-items-center">
               {/* Debug message */}
-              {console.log('Rendering navbar, isAdmin:', isAdmin)}
+              {DEBUG && console.log('Rendering navbar, isAdmin:', isAdmin)}
               
               {/* RoleSwitcher component - always render but component will self-hide if not admin */}
               <RoleSwitcher 
@@ -794,15 +842,7 @@ const MapViewer = ({ onLogout }) => {
                   <Col md={9}>
                     {selectedMap ? (
                       <MapDetail
-                        map={selectedMap}
-                        events={visibleEvents}
-                        mode={effectiveIsAdmin ? 'edit' : 'view'}
-                        onMapClick={handleMapClick}
-                        isSelectingLocation={mapForEvent && mapForEvent.id === selectedMap.id}
-                        onEventClick={handleViewEvent}
-                        allMaps={maps.filter(m => m.project_id === project.id)}
-                        projectId={project.id}
-                        onVisibleMapsChanged={handleVisibleMapsChanged}
+                        {...mapDetailProps}
                       />
                     ) : (
                       <div className="text-center p-5 bg-light rounded">
