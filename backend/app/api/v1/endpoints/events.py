@@ -257,7 +257,12 @@ def update_event(
     
     # Update event
     try:
-        updated_event = event_service.update_event(db, event_id, event_update)
+        updated_event = event_service.update_event(
+            db, 
+            event_id, 
+            event_update,
+            current_user_id=current_user.id
+        )
         
         # Log user activity
         log_user_activity(
