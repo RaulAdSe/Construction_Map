@@ -208,6 +208,63 @@ def list_tables():
         print(f"Error listing tables: {e}")
 
 
+def generate_gcp_env_vars(args):
+    """Generate environment variables specifically for GCP Cloud SQL setup"""
+    print("\n=== GCP CLOUD SQL ENVIRONMENT VARIABLES ===")
+    
+    instance_name = args.instance_name or "your-instance-name"
+    db_name = args.db_name or "construction_map"
+    db_user = args.db_user or "postgres"
+    project_id = args.project_id or "your-project-id"
+    region = args.region or "us-central1"
+    
+    # Build the connection string based on connection method
+    if args.use_proxy:
+        # Cloud SQL Auth proxy - good for local development
+        conn_string = f"postgresql://{db_user}:{args.db_password or 'password'}@127.0.0.1:5432/{db_name}"
+        print("\n# Using Cloud SQL Auth Proxy connection")
+        print("# Install the proxy: https://cloud.google.com/sql/docs/postgres/connect-auth-proxy")
+        print(f"# Run: ./cloud-sql-proxy {project_id}:{region}:{instance_name}")
+    else:
+        # Direct connection with socket - good for GCP services (Cloud Run, App Engine, etc.)
+        socket_path = f"/cloudsql/{project_id}:{region}:{instance_name}"
+        conn_string = f"postgresql://{db_user}:{args.db_password or 'password'}@/{db_name}?host={socket_path}"
+        print("\n# Using direct socket connection (for GCP services)")
+    
+    env_vars = {
+        "CLOUD_DB_ENABLED": "true",
+        "CLOUD_DB_CONNECTION_STRING": conn_string,
+        "CLOUD_DB_POOL_SIZE": args.pool_size or "10",      # Good default for Cloud SQL
+        "CLOUD_DB_MAX_OVERFLOW": args.max_overflow or "20", # Good default for Cloud SQL
+        "CLOUD_DB_POOL_TIMEOUT": "30",
+        "CLOUD_DB_POOL_RECYCLE": "1800",    # 30 minutes - Cloud SQL drops idle connections around 10 hours
+        "CLOUD_DB_SSL_MODE": "require"      # GCP Cloud SQL connections should always use SSL
+    }
+    
+    # Standard monitoring settings
+    env_vars.update({
+        "ACTIVITY_RETENTION_DAYS": "90",
+        "MAX_ACTIVITIES_PER_USER": "1000",
+        "SLOW_QUERY_THRESHOLD": "0.5",
+        "LOG_PATH": "/logs",   # Set to a volume mount path in cloud environment
+    })
+    
+    print("\n# Add these environment variables to your GCP deployment:")
+    for key, value in env_vars.items():
+        print(f"{key}={value}")
+    
+    if args.output:
+        with open(args.output, "w") as f:
+            for key, value in env_vars.items():
+                f.write(f"{key}={value}\n")
+        print(f"\nEnvironment variables written to {args.output}")
+    
+    if not args.use_proxy:
+        print("\nIMPORTANT: For direct socket connections:")
+        print("- Ensure your service has the Cloud SQL Client IAM role")
+        print("- In Cloud Run or App Engine, add the Cloud SQL connection as a resource")
+
+
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(description="Cloud Database Setup Utility")
@@ -215,6 +272,7 @@ def main():
     parser.add_argument("--test", action="store_true", help="Test database connection")
     parser.add_argument("--tables", action="store_true", help="List database tables and row counts")
     parser.add_argument("--generate-env", action="store_true", help="Generate environment variables")
+    parser.add_argument("--generate-gcp-env", action="store_true", help="Generate GCP Cloud SQL environment variables")
     parser.add_argument("--connection-string", help="Cloud DB connection string")
     parser.add_argument("--pool-size", help="Connection pool size")
     parser.add_argument("--max-overflow", help="Connection pool max overflow")
@@ -222,6 +280,15 @@ def main():
                         help="SSL mode for cloud connection")
     parser.add_argument("--ssl-ca-cert", help="Path to SSL CA certificate")
     parser.add_argument("--output", help="Output file for environment variables")
+    
+    # GCP specific parameters
+    parser.add_argument("--project-id", help="GCP project ID")
+    parser.add_argument("--instance-name", help="GCP Cloud SQL instance name")
+    parser.add_argument("--region", help="GCP region (default: us-central1)")
+    parser.add_argument("--db-name", help="Database name in Cloud SQL")
+    parser.add_argument("--db-user", help="Database username in Cloud SQL")
+    parser.add_argument("--db-password", help="Database password in Cloud SQL")
+    parser.add_argument("--use-proxy", action="store_true", help="Use Cloud SQL Auth Proxy instead of direct socket")
     
     args = parser.parse_args()
     
@@ -243,6 +310,9 @@ def main():
     
     if args.generate_env:
         generate_env_vars(args)
+    
+    if args.generate_gcp_env:
+        generate_gcp_env_vars(args)
 
 
 if __name__ == "__main__":
