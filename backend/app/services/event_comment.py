@@ -86,7 +86,7 @@ async def create_comment(
                     buffer.write(content)
                 
                 # Set image URL in database
-                relative_path = f"comments/{unique_filename}"
+                relative_path = f"/uploads/comments/{unique_filename}"
                 db_comment.image_url = relative_path
                 print(f"Image saved, URL set to: {relative_path}")
             except Exception as img_error:
