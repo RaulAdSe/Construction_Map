@@ -20,10 +20,16 @@ def get_notifications(
     """
     Get the current user's notifications
     """
+    print(f"Fetching notifications for user: {current_user.username} (id: {current_user.id})")
+    
     notifications = NotificationService.get_user_notifications(
         db, current_user.id, skip=skip, limit=limit
     )
     unread_count = NotificationService.get_unread_count(db, current_user.id)
+    
+    print(f"Found {len(notifications)} notifications, {unread_count} unread")
+    if notifications:
+        print(f"Notification samples: {[n.message for n in notifications[:3]]}")
     
     return {
         "notifications": notifications,

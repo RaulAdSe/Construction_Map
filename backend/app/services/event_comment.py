@@ -46,12 +46,14 @@ async def create_comment(
     metadata: Optional[Dict[str, Any]] = None
 ) -> EventComment:
     """Create a new comment for an event"""
-    # Get the event
+    # Get the event to validate and for linking
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise ValueError("Event not found")
     
-    # Initialize new comment
+    print(f"Creating comment for event {event_id} by user {user_id}, content: '{content}'")
+    
+    # Create the comment in database
     db_comment = EventComment(
         event_id=event_id,
         user_id=user_id,
@@ -85,9 +87,11 @@ async def create_comment(
     db.refresh(db_comment)
     
     # Create link to the event with comment
-    link = f"/events/{event_id}?comment={db_comment.id}"
+    link = f"/project/{event.project_id}?event={event_id}&comment={db_comment.id}"
+    print(f"Generated notification link: {link}")
     
     # Notify event creator about the new comment
+    print(f"Notifying event creator (id: {event.created_by_user_id}) about new comment")
     NotificationService.notify_comment(
         db, 
         event_id, 
@@ -98,7 +102,8 @@ async def create_comment(
     )
     
     # Process mentions in comment
-    NotificationService.notify_mentions(
+    print(f"Processing mentions in comment: '{content}'")
+    mention_notifications = NotificationService.notify_mentions(
         db, 
         content, 
         user_id, 
@@ -106,6 +111,7 @@ async def create_comment(
         comment_id=db_comment.id,
         link=link
     )
+    print(f"Created {len(mention_notifications)} mention notifications")
     
     # Notify admins about new comment
     user = db.query(User).filter(User.id == user_id).first()

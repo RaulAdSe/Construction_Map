@@ -173,15 +173,20 @@ class NotificationService:
         # Get all mentioned users that exist in the database
         mentioned_users = db.query(User).filter(User.username.in_(mentions)).all()
         
+        print(f"Found mentioned users in database: {[user.username for user in mentioned_users]}")
+        
         for user in mentioned_users:
-            if user.id == author_id:
-                # Skip self-mentions
-                continue
+            # Allow self-mentions for testing purposes
+            # if user.id == author_id:
+            #     # Skip self-mentions
+            #     continue
                 
             context = "a comment" if comment_id else "an event"
             title_context = f" '{event.title}'" if event else ""
             
             message = f"You were mentioned in {context}{title_context}"
+            
+            print(f"Creating notification for user {user.username} (id: {user.id})")
             
             notification_data = NotificationCreate(
                 user_id=user.id,
