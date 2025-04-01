@@ -132,17 +132,13 @@ export const updateEventStatus = async (eventId, status, userRole) => {
       throw new Error('Only ADMIN users can close events');
     }
     
-    // Create a minimalist request with only the necessary fields
-    const formData = new FormData();
-    formData.append('status', status);
-    
     console.log(`Updating event ${eventId} status to ${status}`);
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    // Send as JSON instead of FormData
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+      status: status
     });
+    
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} status:`, error);
@@ -152,17 +148,13 @@ export const updateEventStatus = async (eventId, status, userRole) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
-    // Create a minimalist request with only the necessary fields
-    const formData = new FormData();
-    formData.append('state', state);
-    
     console.log(`Updating event ${eventId} state to ${state}`);
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    // Send as JSON instead of FormData
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+      state: state
     });
+    
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} state:`, error);

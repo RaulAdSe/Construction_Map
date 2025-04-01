@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ListGroup } from 'react-bootstrap';
 import axios from 'axios';
+import { getAuthAxios } from '../services/api';
+import { API_URL } from '../config';
 
 const MentionSuggestions = ({ 
   text, 
@@ -22,7 +24,7 @@ const MentionSuggestions = ({
       
       try {
         setLoading(true);
-        const response = await axios.get(`/api/projects/${projectId}/users`);
+        const response = await getAuthAxios().get(`${API_URL}/api/v1/projects/${projectId}/members`);
         setUsers(response.data);
       } catch (error) {
         console.error('Error fetching project users:', error);
