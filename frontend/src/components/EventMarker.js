@@ -62,15 +62,19 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
   // Get the color based on event type and status
   let color;
   
-  if (event.state === 'incidence') {
+  // Use the current state and status values
+  const currentState = event.state;
+  const currentStatus = event.status;
+  
+  if (currentState === 'incidence') {
     // For incidence events, use the specific status color
-    color = incidenceStatusColors[event.status] || incidenceStatusColors['open'];
+    color = incidenceStatusColors[currentStatus] || incidenceStatusColors['open'];
   } else {
     // For periodic check or other types, use the type color
-    color = typeColors[event.state] || getColorForUser(event.created_by_user_id);
+    color = typeColors[currentState] || getColorForUser(event.created_by_user_id);
     
     // For non-incidence events, we can still dim closed ones
-    if (event.status === 'closed') {
+    if (currentStatus === 'closed') {
       color = adjustBrightness(color, 0.6);
     }
   }
@@ -87,19 +91,25 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
 
   // Get type badge
   const getTypeBadge = () => {
-    switch (event.state) {
+    // Get the most current type/state value
+    const currentState = event.state;
+    
+    switch (currentState) {
       case 'incidence':
         return <Badge bg="danger">Incidence</Badge>;
       case 'periodic check':
         return <Badge bg="info">Periodic Check</Badge>;
       default:
-        return <Badge bg="secondary">{event.state || 'Unknown'}</Badge>;
+        return <Badge bg="secondary">{currentState || 'Unknown'}</Badge>;
     }
   };
   
   // Get status badge
   const getStatusBadge = () => {
-    switch (event.status) {
+    // Get the most current status value
+    const currentStatus = event.status;
+    
+    switch (currentStatus) {
       case 'open':
         return <Badge bg="danger">Open</Badge>;
       case 'in-progress':
@@ -109,7 +119,7 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
       case 'closed':
         return <Badge bg="secondary">Closed</Badge>;
       default:
-        return <Badge bg="secondary">{event.status || 'Unknown'}</Badge>;
+        return <Badge bg="secondary">{currentStatus || 'Unknown'}</Badge>;
     }
   };
 
@@ -118,7 +128,7 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
       <div>
         <strong>{event.title}</strong>
       </div>
-      <div>Created by: {event.created_by_user_name || `User ${event.created_by_user_id}`}</div>
+      <div>Created by: {event.created_by_user_name || 'Unknown user'}</div>
       <div>{getTypeBadge()} {getStatusBadge()}</div>
       <div className="small text-muted">Click for details</div>
     </Tooltip>

@@ -438,13 +438,13 @@ const MapViewer = ({ onLogout }) => {
       map_name: mapName 
     };
     
-    // Update the events array with the new event data
-    const updatedEvents = events.map(event => 
-      event.id === updatedEvent.id ? eventWithMapName : event
-    );
+    // Force a deep clone to ensure React detects the change
+    const updatedEventsCopy = JSON.parse(JSON.stringify(
+      events.map(event => event.id === updatedEvent.id ? eventWithMapName : event)
+    ));
     
     // Set the events state with the new array
-    setEvents(updatedEvents);
+    setEvents(updatedEventsCopy);
     
     // Show notification about the update
     showNotification('Event updated successfully!');
@@ -453,9 +453,24 @@ const MapViewer = ({ onLogout }) => {
     // This ensures the ViewEventModal shows the updated values immediately
     if (selectedEvent && selectedEvent.id === updatedEvent.id) {
       // Create a new object to ensure React detects the change
-      const updatedSelectedEvent = { ...selectedEvent, ...updatedEvent };
+      const updatedSelectedEvent = { 
+        ...selectedEvent, 
+        ...updatedEvent,
+        status: updatedEvent.status, // Explicitly update these fields
+        state: updatedEvent.state 
+      };
       setSelectedEvent(updatedSelectedEvent);
     }
+    
+    // Force update visibleEvents to reflect changes
+    // This will trigger a rerender of the EventMarker components
+    const updatedVisibleEvents = visibleEvents.map(event => {
+      if (event.id === updatedEvent.id) {
+        return { ...event, ...updatedEvent };
+      }
+      return event;
+    });
+    setVisibleEvents(updatedVisibleEvents);
   };
   
   const showNotification = (message, type = 'success') => {
