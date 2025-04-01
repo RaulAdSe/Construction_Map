@@ -1,0 +1,30 @@
+/* Global Z-Index Management */
+
+/* Ensure proper stacking context for notification components */
+.notification-bell-container {
+  position: relative;
+  z-index: 9999 !important;
+}
+
+.notification-panel {
+  z-index: 10000 !important;
+  position: absolute !important;
+  /* Add !important to override any conflicting styles */
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Override Bootstrap navbar z-index to ensure notifications appear above it */
+.navbar {
+  z-index: 1030;
+}
+
+/* Ensure modals don't interfere with notification panel */
+.modal-backdrop {
+  z-index: 1040;
+}
+
+.modal {
+  z-index: 1050;
+}
+
+/* Add any other global styles below */ 
