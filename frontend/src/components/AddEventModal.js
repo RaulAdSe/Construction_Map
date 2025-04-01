@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Modal, Button, Form, Alert, Row, Col } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Modal, Button, Form, Alert, Row, Col, Spinner } from 'react-bootstrap';
 import { addEvent } from '../services/eventService';
+import MentionInput from './MentionInput';
 
 const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [] }) => {
   const [title, setTitle] = useState('');
@@ -160,12 +161,13 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           
           <Form.Group className="mb-3">
             <Form.Label>Description</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
+            <MentionInput
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter event description"
+              onChange={setDescription}
+              placeholder="Enter event description (use @ to mention users)"
+              rows={3}
+              projectId={projectId}
+              id="event-description"
             />
           </Form.Group>
           

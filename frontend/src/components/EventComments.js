@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Form, Button, Card, Image, Alert, Spinner } from 'react-bootstrap';
 import { format } from 'date-fns';
 import api from '../api';
+import MentionInput from './MentionInput';
+import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
 const EventComments = ({ eventId }) => {
   const [comments, setComments] = useState([]);
@@ -101,13 +103,14 @@ const EventComments = ({ eventId }) => {
           
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="Add a comment..."
+              <Form.Label>Add a Comment</Form.Label>
+              <MentionInput
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={submitting}
+                onChange={setContent}
+                placeholder="Write your comment here... (use @ to mention users)"
+                rows={3}
+                projectId={eventId} // Using eventId to fetch users from the same project
+                id="comment-input"
               />
             </Form.Group>
             
@@ -191,7 +194,7 @@ const EventComments = ({ eventId }) => {
                   </div>
                 </div>
                 
-                <p className="mb-2">{comment.content}</p>
+                <p className="mb-2">{parseAndHighlightMentions(comment.content)}</p>
                 
                 {comment.image_url && (
                   <div className="comment-image mt-2">

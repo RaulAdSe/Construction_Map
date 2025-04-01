@@ -104,7 +104,7 @@ export const projectService = {
       const fieldValue = String(field).trim();
       console.log(`Sending field update with value: "${fieldValue}"`);
       
-      const response = await apiClient.put(`/projects/${projectId}/members/${userId}/field`, 
+      const response = await apiClient.put(`/projects/${projectId}/users/${userId}/field`, 
         { field: fieldValue },
         { 
           headers: {

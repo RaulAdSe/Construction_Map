@@ -93,6 +93,29 @@ The project previously had two React applications:
 
 We've consolidated to only use the frontend/src implementation, as it was the more recent, actively maintained codebase. The root-level src folder and associated configuration (webpack.config.js) have been removed to simplify the repository structure.
 
+## Notification System
+
+The app includes a comprehensive notification system that:
+
+1. **User Notifications**: Alerts users when someone interacts with events they created or when mentioned
+2. **Notification Panel**: A bell icon in the navigation bar displays unread notification count
+3. **@mention functionality**: Users can mention each other in comments and event descriptions using @username
+4. **Admin Notifications**: Administrators receive notifications for all new events and comments
+
+### Notification Triggers
+
+- When someone comments on an event you created
+- When someone changes the status/state of an event you created
+- When someone mentions you with @username in a comment or event description
+- For admins: when any event is created or modified and when any comment is added
+
+### Notification Features
+
+- Unread counts displayed as a badge on the bell icon 
+- One-click access to the relevant content (event or comment)
+- Ability to mark notifications as read or delete them
+- "Mark all as read" functionality
+
 ## License
 
 This project is licensed under the MIT License. 

@@ -20,15 +20,7 @@ const SystemHealth = () => {
         setSystemHealth(systemData);
         
         // Try to get database health data
-        try {
-          const dbData = await getDatabaseHealth();
-          setDbHealth(dbData);
-          setDbError(null);
-        } catch (dbErr) {
-          console.error('Error fetching DB health:', dbErr);
-          setDbError('Unable to fetch database health information');
-          setDbHealth(null);
-        }
+        await fetchDatabaseHealth();
       } catch (err) {
         console.error('Error fetching system health data:', err);
         setError('Failed to fetch system health information.');
@@ -44,6 +36,24 @@ const SystemHealth = () => {
     
     return () => clearInterval(interval);
   }, []);
+
+  const fetchDatabaseHealth = async () => {
+    try {
+      setDbHealth(await getDatabaseHealth());
+      setDbError(null);
+    } catch (error) {
+      console.error('Error fetching DB health:', error);
+      setDbError('Database connection issue');
+      // Set a default status so the UI still works
+      setDbHealth({
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        response_time_ms: 0,
+        slow_queries_count: 0,
+        recent_slow_queries: []
+      });
+    }
+  };
 
   if (loading && !systemHealth) {
     return <Alert variant="info">Loading system health data...</Alert>;

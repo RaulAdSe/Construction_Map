@@ -10,7 +10,9 @@ import io
 
 from app.models.event import Event
 from app.models.event_comment import EventComment
+from app.models.user import User
 from app.core.config import settings
+from app.services.notification import NotificationService
 
 
 def get_event(db: Session, event_id: int) -> Optional[Event]:
@@ -209,13 +211,35 @@ async def create_event(
     db.add(event)
     db.commit()
     db.refresh(event)
+    
+    # Create notifications for mentioned users
+    if description:
+        link = f"/events/{event.id}"
+        NotificationService.notify_mentions(
+            db, 
+            description, 
+            created_by_user_id, 
+            event_id=event.id, 
+            link=link
+        )
+    
+    # Notify all admins about the new event
+    NotificationService.notify_admins(
+        db, 
+        "created a new event", 
+        created_by_user_id, 
+        event_id=event.id, 
+        link=f"/events/{event.id}"
+    )
+    
     return event
 
 
 def update_event(
     db: Session, 
     event_id: int, 
-    event_update
+    event_update,
+    current_user_id: int
 ) -> Optional[Event]:
     """
     Update an event.
@@ -223,6 +247,10 @@ def update_event(
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         return None
+    
+    # Check if status is being updated
+    old_status = event.status
+    old_state = event.state
     
     # Update fields if provided
     update_data = event_update.dict(exclude_unset=True)
@@ -232,6 +260,58 @@ def update_event(
     
     db.commit()
     db.refresh(event)
+    
+    # Create notifications for status/state changes
+    link = f"/events/{event.id}"
+    
+    if 'status' in update_data and update_data['status'] != old_status:
+        # Notify event creator if current user is not the creator
+        if event.created_by_user_id != current_user_id:
+            NotificationService.notify_event_interaction(
+                db, 
+                event_id, 
+                current_user_id, 
+                f"updated the status to '{event.status}'", 
+                link
+            )
+            
+    if 'state' in update_data and update_data['state'] != old_state:
+        # Notify event creator if current user is not the creator
+        if event.created_by_user_id != current_user_id:
+            NotificationService.notify_event_interaction(
+                db, 
+                event_id, 
+                current_user_id, 
+                f"changed the state to '{event.state}'", 
+                link
+            )
+    
+    # Check for new mentions if description was updated
+    if 'description' in update_data:
+        NotificationService.notify_mentions(
+            db, 
+            event.description, 
+            current_user_id, 
+            event_id=event.id, 
+            link=link
+        )
+        
+    # Notify admins about the update
+    if current_user_id != event.created_by_user_id:
+        action = "updated an event"
+        if 'status' in update_data:
+            action = f"changed event status to '{event.status}'"
+        elif 'state' in update_data:
+            action = f"changed event state to '{event.state}'"
+            
+        NotificationService.notify_admins(
+            db, 
+            action, 
+            current_user_id, 
+            event_id=event.id, 
+            link=link
+        )
+    
     return event
 
 

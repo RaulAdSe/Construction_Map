@@ -11,4 +11,45 @@
   justify-content: center;
   font-size: calc(10px + 2vmin);
   color: white;
+}
+
+/* Notification Bell Styles */
+.notification-bell-container {
+  position: relative;
+  display: inline-block !important;
+  margin-right: 20px !important;
+  z-index: 9000 !important;
+}
+
+.notification-bell {
+  cursor: pointer;
+  color: #fff !important;
+  padding: 8px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease;
+  z-index: 9000 !important;
+}
+
+.notification-bell:hover {
+  background: rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.1);
+}
+
+.notification-bell svg {
+  color: white !important;
+}
+
+/* Add a class for notifications to ensure they're always on top */
+.notification-overlay {
+  z-index: 9999 !important;
+  position: relative;
+}
+
+/* Ensure the notification toast stays on top */
+.toast {
+  z-index: 9999 !important;
 } 

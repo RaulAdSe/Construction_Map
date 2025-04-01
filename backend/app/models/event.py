@@ -46,4 +46,5 @@ class Event(Base):
     project = relationship("Project", back_populates="events")
     map = relationship("Map", back_populates="events")
     created_by_user = relationship("User", back_populates="events")
-    comments = relationship("EventComment", back_populates="event", cascade="all, delete-orphan") 
+    comments = relationship("EventComment", back_populates="event", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="event") 

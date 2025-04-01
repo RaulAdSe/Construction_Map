@@ -11,6 +11,7 @@ import EditEventModal from '../components/EditEventModal';
 import ViewEventModal from '../components/ViewEventModal';
 import MapSelectionModal from '../components/MapSelectionModal';
 import Notification from '../components/Notification';
+import NotificationBell from '../components/NotificationBell';
 import RoleSwitcher from '../components/RoleSwitcher';
 import ContactsTab from '../components/ContactsTab';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
@@ -483,6 +484,7 @@ const MapViewer = ({ onLogout }) => {
                 onRoleChange={handleRoleChange}
               />
               
+              <NotificationBell />
               <Button variant="outline-light" onClick={onLogout} className="ms-2">Logout</Button>
             </div>
           </Navbar.Collapse>
@@ -683,7 +685,8 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
-        effectiveIsAdmin={effectiveIsAdmin}
+        projectId={project?.id}
+        userRole={effectiveIsAdmin ? "ADMIN" : "MEMBER"}
       />
       
       {/* Notification */}

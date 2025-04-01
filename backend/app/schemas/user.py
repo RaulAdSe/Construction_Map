@@ -32,6 +32,11 @@ class User(UserInDBBase):
     pass
 
 
+class UserResponse(UserInDBBase):
+    """User response schema without sensitive information"""
+    pass
+
+
 class UserInDB(UserInDBBase):
     password_hash: str
 

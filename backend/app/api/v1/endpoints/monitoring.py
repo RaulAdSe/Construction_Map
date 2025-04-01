@@ -6,6 +6,7 @@ import psutil
 import time
 import os
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.core.db_monitoring import get_slow_queries
 from app.api.deps import get_db, get_current_user
@@ -128,22 +129,37 @@ def get_db_health(db: Session = Depends(get_db), current_user: User = Depends(ge
         # Measure query response time
         start_time = time.time()
         # Simple query to check DB connectivity and response time
-        db.execute("SELECT 1").fetchall()
+        result = db.execute(text("SELECT 1")).fetchall()
+        print(f"DB query result: {result}")
         query_time = time.time() - start_time
         
         # Get recent slow queries
-        recent_slow_queries = get_slow_queries(5)
-        slow_query_count = len(recent_slow_queries)
+        print("About to call get_slow_queries")
+        recent_slow_queries = []
+        try:
+            recent_slow_queries = get_slow_queries(5) or []
+            print(f"Recent slow queries type: {type(recent_slow_queries)}")
+        except Exception as sq_error:
+            print(f"Error getting slow queries: {str(sq_error)}")
         
-        return {
+        slow_query_count = len(recent_slow_queries) if recent_slow_queries else 0
+        
+        result = {
             "status": "healthy" if query_time < 0.5 and slow_query_count < 10 else "warning",
             "timestamp": datetime.now().isoformat(),
             "response_time_ms": round(query_time * 1000, 2),
             "slow_queries_count": slow_query_count,
             "recent_slow_queries": recent_slow_queries[:5] if recent_slow_queries else []
         }
+        print(f"DB health result: {result}")
+        return result
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error getting database health: {str(e)}")
+        print(f"Traceback: {error_trace}")
         monitoring_logger.error(f"Error getting database health: {str(e)}")
+        monitoring_logger.error(f"Traceback: {error_trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get database health: {str(e)}"

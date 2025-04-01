@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Row, Col, Image, Alert } from 'react-bootstrap';
 import { updateEvent } from '../services/eventService';
+import MentionInput from './MentionInput';
 
-const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER" }) => {
+const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER", projectId }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('periodic check');
@@ -128,11 +129,13 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
               
               <Form.Group className="mb-3">
                 <Form.Label>Description</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
+                <MentionInput
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={setDescription}
+                  placeholder="Enter event description (use @ to mention users)"
+                  rows={3}
+                  projectId={projectId}
+                  id="edit-event-description"
                 />
               </Form.Group>
               

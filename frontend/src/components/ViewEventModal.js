@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
+import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
 const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, effectiveIsAdmin }) => {
   const [updating, setUpdating] = useState(false);
@@ -149,7 +150,7 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
               <Col md={event.image_url ? 8 : 12}>
                 <div className="mb-3">
                   <h6>Description</h6>
-                  <p>{event.description || "No description provided."}</p>
+                  <p>{event.description ? parseAndHighlightMentions(event.description) : "No description provided."}</p>
                 </div>
                 
                 <Row>

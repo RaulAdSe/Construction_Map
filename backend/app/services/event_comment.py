@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.models.event_comment import EventComment
+from app.models.event import Event
 from app.models.user import User
 from app.core.config import settings
+from app.services.notification import NotificationService
 
 
 def get_comment(db: Session, comment_id: int) -> Optional[EventComment]:
@@ -44,6 +46,11 @@ async def create_comment(
     metadata: Optional[Dict[str, Any]] = None
 ) -> EventComment:
     """Create a new comment for an event"""
+    # Get the event
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
     # Initialize new comment
     db_comment = EventComment(
         event_id=event_id,
@@ -77,12 +84,49 @@ async def create_comment(
     db.commit()
     db.refresh(db_comment)
     
+    # Create link to the event with comment
+    link = f"/events/{event_id}?comment={db_comment.id}"
+    
+    # Notify event creator about the new comment
+    NotificationService.notify_comment(
+        db, 
+        event_id, 
+        db_comment.id, 
+        user_id, 
+        event.created_by_user_id,
+        link
+    )
+    
+    # Process mentions in comment
+    NotificationService.notify_mentions(
+        db, 
+        content, 
+        user_id, 
+        event_id=event_id, 
+        comment_id=db_comment.id,
+        link=link
+    )
+    
+    # Notify admins about new comment
+    user = db.query(User).filter(User.id == user_id).first()
+    user_name = user.username if user else "Someone"
+    
+    NotificationService.notify_admins(
+        db, 
+        f"commented on event", 
+        user_id, 
+        event_id=event_id, 
+        comment_id=db_comment.id,
+        link=link
+    )
+    
     return db_comment
 
 
 def update_comment(
     db: Session,
     comment_id: int,
+    user_id: int,
     content: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None
 ) -> Optional[EventComment]:
@@ -93,6 +137,7 @@ def update_comment(
     
     # Update fields if provided
     if content is not None:
+        old_content = db_comment.content
         db_comment.content = content
     
     if metadata is not None:
@@ -103,6 +148,22 @@ def update_comment(
     # Save changes
     db.commit()
     db.refresh(db_comment)
+    
+    # If content was updated, check for new mentions
+    if content is not None and content != old_content:
+        event = db.query(Event).filter(Event.id == db_comment.event_id).first()
+        if event:
+            link = f"/events/{event.id}?comment={comment_id}"
+            
+            # Process mentions in updated comment
+            NotificationService.notify_mentions(
+                db, 
+                content, 
+                user_id, 
+                event_id=event.id, 
+                comment_id=comment_id,
+                link=link
+            )
     
     return db_comment
 

@@ -132,13 +132,17 @@ export const updateEventStatus = async (eventId, status, userRole) => {
       throw new Error('Only ADMIN users can close events');
     }
     
-    // Create the update data with status and role info
-    const updateData = {
-      status: status,
-      is_admin_request: isAdmin // Send this to backend so it knows this is an admin request
-    };
+    // Create a minimalist request with only the necessary fields
+    const formData = new FormData();
+    formData.append('status', status);
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
+    console.log(`Updating event ${eventId} status to ${status}`);
+    
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} status:`, error);
@@ -148,18 +152,17 @@ export const updateEventStatus = async (eventId, status, userRole) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
-    // Avoid using the dedicated endpoint that's giving 404 errors
-    // Instead, update the whole event but only change the state field
-    // First get the current event data
-    const response = await api.get(`${API_URL}/events/${eventId}`);
-    const event = response.data;
+    // Create a minimalist request with only the necessary fields
+    const formData = new FormData();
+    formData.append('state', state);
     
-    // Update with minimal data to avoid validation issues
-    const updateData = {
-      state: state
-    };
+    console.log(`Updating event ${eventId} state to ${state}`);
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} state:`, error);
