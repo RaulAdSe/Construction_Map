@@ -3,16 +3,15 @@ import { OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
 
 // Define type colors
 const typeColors = {
-  'incidence': '#FF3333',
   'periodic check': '#3399FF'
 };
 
-// Define status modifiers (opacity or brightness variations)
-const statusModifiers = {
-  'open': 1.0, // Full brightness
-  'in-progress': 0.8, // Slightly dimmer
-  'resolved': 0.6, // Dimmer
-  'closed': 0.4 // Significantly dimmer
+// Define status colors for incidence type
+const incidenceStatusColors = {
+  'open': '#FF0000',      // Bright Red
+  'in-progress': '#FFCC00', // Yellow
+  'resolved': '#00CC00',  // Green
+  'closed': '#6C757D'     // Gray
 };
 
 // Map of user IDs to different colors for consistency
@@ -60,14 +59,21 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
     return null;
   }
   
-  // Get base color from event type
-  let baseColor = event.state && typeColors[event.state] 
-    ? typeColors[event.state] 
-    : getColorForUser(event.created_by_user_id);
+  // Get the color based on event type and status
+  let color;
   
-  // Adjust color based on status
-  const statusFactor = statusModifiers[event.status] || 1.0;
-  const color = adjustBrightness(baseColor, statusFactor);
+  if (event.state === 'incidence') {
+    // For incidence events, use the specific status color
+    color = incidenceStatusColors[event.status] || incidenceStatusColors['open'];
+  } else {
+    // For periodic check or other types, use the type color
+    color = typeColors[event.state] || getColorForUser(event.created_by_user_id);
+    
+    // For non-incidence events, we can still dim closed ones
+    if (event.status === 'closed') {
+      color = adjustBrightness(color, 0.6);
+    }
+  }
   
   // Use CSS classes for core styles and only use inline styles for positioning and color
   const markerStyle = {
@@ -95,9 +101,9 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
   const getStatusBadge = () => {
     switch (event.status) {
       case 'open':
-        return <Badge bg="primary">Open</Badge>;
+        return <Badge bg="danger">Open</Badge>;
       case 'in-progress':
-        return <Badge bg="info">In Progress</Badge>;
+        return <Badge bg="warning">In Progress</Badge>;
       case 'resolved':
         return <Badge bg="success">Resolved</Badge>;
       case 'closed':

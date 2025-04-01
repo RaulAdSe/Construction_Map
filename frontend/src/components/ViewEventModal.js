@@ -54,9 +54,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   const getStatusBadge = () => {
     switch (currentStatus) {
       case 'open':
-        return <Badge bg="primary">Open</Badge>;
+        return <Badge bg="danger">Open</Badge>;
       case 'in-progress':
-        return <Badge bg="info">In Progress</Badge>;
+        return <Badge bg="warning">In Progress</Badge>;
       case 'resolved':
         return <Badge bg="success">Resolved</Badge>;
       case 'closed':
