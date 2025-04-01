@@ -44,6 +44,10 @@ if not os.path.exists(events_dir):
 if not os.path.exists(comments_dir):
     os.makedirs(comments_dir)
 
+# Also mount them directly to support both path formats
+app.mount("/events", StaticFiles(directory=events_dir), name="events")
+app.mount("/comments", StaticFiles(directory=comments_dir), name="comments")
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Construction Map API"}

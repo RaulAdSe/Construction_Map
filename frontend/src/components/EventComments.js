@@ -244,7 +244,10 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                   {comment.image_url && (
                     <div className="comment-image mt-2">
                       <a 
-                        href={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`} 
+                        href={comment.image_url.startsWith('http') 
+                          ? comment.image_url 
+                          : `http://localhost:8000${comment.image_url}`
+                        } 
                         target="_blank" 
                         rel="noopener noreferrer"
                       >
@@ -256,6 +259,20 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                           alt="Comment attachment" 
                           thumbnail 
                           style={{ maxWidth: '100%', maxHeight: '200px' }}
+                          onError={(e) => {
+                            console.log('Image failed to load:', comment.image_url);
+                            // Attempt to display using a different URL format
+                            if (!e.target.dataset.retried) {
+                              e.target.dataset.retried = 'true';
+                              if (comment.image_url.startsWith('/uploads')) {
+                                // Try without the /uploads prefix
+                                e.target.src = `http://localhost:8000${comment.image_url.replace('/uploads', '')}`;
+                              } else {
+                                // Add /uploads prefix if it's missing
+                                e.target.src = `http://localhost:8000/uploads${comment.image_url.startsWith('/') ? comment.image_url : '/' + comment.image_url}`;
+                              }
+                            }
+                          }}
                         />
                         <div className="mt-1">
                           <small className="text-muted">Click to view full size</small>
