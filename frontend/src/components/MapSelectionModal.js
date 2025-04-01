@@ -1,11 +1,12 @@
 import React from 'react';
 import { Modal, Button, ListGroup, Alert } from 'react-bootstrap';
+import translate from '../utils/translate';
 
 const MapSelectionModal = ({ show, onHide, maps, onMapSelected }) => {
   return (
     <Modal show={show} onHide={onHide}>
       <Modal.Header closeButton>
-        <Modal.Title>Select a Map</Modal.Title>
+        <Modal.Title>{translate('Select Map')}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {maps && maps.length > 0 ? (
@@ -27,13 +28,13 @@ const MapSelectionModal = ({ show, onHide, maps, onMapSelected }) => {
           </div>
         ) : (
           <Alert variant="warning">
-            No maps available. Please add a map first.
+            {translate('No maps available. Please add a map first.')}
           </Alert>
         )}
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={onHide}>
-          Cancel
+          {translate('Cancel')}
         </Button>
       </Modal.Footer>
     </Modal>
