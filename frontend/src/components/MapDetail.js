@@ -270,6 +270,27 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     });
   };
   
+  // Store map opacity settings
+  const [mapOpacities, setMapOpacities] = useState(() => {
+    // Default opacities: 100% for main map, 50% for overlays
+    const defaultOpacities = {};
+    if (implantationMap) {
+      defaultOpacities[implantationMap.id] = 1.0;
+    }
+    overlayMaps.forEach(map => {
+      defaultOpacities[map.id] = 0.5;
+    });
+    return defaultOpacities;
+  });
+  
+  // Handle opacity change for a map
+  const handleOpacityChange = (mapId, opacity) => {
+    setMapOpacities(prev => ({
+      ...prev,
+      [mapId]: opacity / 100
+    }));
+  };
+  
   // Function to render a single map layer
   const renderMapLayer = (currentMap, zIndex, isOverlay = false) => {
     if (!currentMap || !currentMap.content_url) {
@@ -278,7 +299,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     
     const url = currentMap.content_url;
     const fileExt = url.split('.').pop().toLowerCase();
-    const opacity = isOverlay ? 0.5 : 1.0; // Fixed opacity: 100% for main map, 50% for overlays
+    const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
     
     const layerStyle = {
       position: 'absolute',
@@ -407,13 +428,21 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   useEffect(() => {
     // Only notify parent if callback is provided
     if (onVisibleMapsChanged) {
-      onVisibleMapsChanged(visibleMaps);
+      // Create an object with map IDs and their opacity settings
+      const mapSettings = {};
+      visibleMaps.forEach(id => {
+        mapSettings[id] = {
+          opacity: mapOpacities[id] || (id === implantationMap?.id ? 1.0 : 0.5)
+        };
+      });
+      
+      onVisibleMapsChanged(visibleMaps, mapSettings);
     }
     
     // Log whenever visible maps change to help debug
     console.log("Visible maps changed:", visibleMaps);
     console.log("Current visible events:", visibleEvents.length);
-  }, [visibleMaps, onVisibleMapsChanged, visibleEvents.length]);
+  }, [visibleMaps, mapOpacities, onVisibleMapsChanged, visibleEvents.length, implantationMap]);
   
   // Console log on mount to debug events visibility
   useEffect(() => {
@@ -470,6 +499,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
                   disabled={true} // Main map cannot be toggled off
                 />
               </div>
+              {/* Add opacity slider for main map */}
+              <div style={{ width: '50%' }}>
+                <Form.Range 
+                  value={(mapOpacities[implantationMap.id] || 1.0) * 100}
+                  onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
+                  min="50"
+                  max="100"
+                />
+              </div>
             </ListGroup.Item>
             
             {overlayMaps.map(overlayMap => (
@@ -487,6 +525,17 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
                     className="me-2"
                   />
                 </div>
+                {/* Add opacity slider for overlay maps */}
+                {visibleMaps.includes(overlayMap.id) && (
+                  <div style={{ width: '50%' }}>
+                    <Form.Range 
+                      value={(mapOpacities[overlayMap.id] || 0.5) * 100}
+                      onChange={(e) => handleOpacityChange(overlayMap.id, parseInt(e.target.value))}
+                      min="10"
+                      max="100"
+                    />
+                  </div>
+                )}
               </ListGroup.Item>
             ))}
           </ListGroup>

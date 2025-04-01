@@ -47,6 +47,9 @@ const MapViewer = ({ onLogout }) => {
   const [eventPosition, setEventPosition] = useState({ x: 0, y: 0 });
   const [selectedEvent, setSelectedEvent] = useState(null);
   
+  // Create a state to store the current map visibility settings including opacities
+  const [mapVisibilitySettings, setMapVisibilitySettings] = useState({});
+  
   // Add a state variable for the comment to highlight
   const [highlightCommentId, setHighlightCommentId] = useState(null);
   
@@ -152,10 +155,24 @@ const MapViewer = ({ onLogout }) => {
     }
   }, [maps]);
   
-  // Handle updates to visible maps from MapDetail component
-  const handleVisibleMapsChanged = (newVisibleMapIds) => {
+  // Update the handleVisibleMapsChanged function to capture opacity settings
+  const handleVisibleMapsChanged = (newVisibleMapIds, opacitySettings = {}) => {
     console.log("Visible maps changed to:", newVisibleMapIds);
     setVisibleMapIds(newVisibleMapIds);
+    
+    // Store opacity settings as well
+    setMapVisibilitySettings(opacitySettings);
+  };
+  
+  // Create a formatted map settings object for the event
+  const getActiveMapSettings = () => {
+    const settings = {};
+    visibleMapIds.forEach(id => {
+      settings[id] = {
+        opacity: mapVisibilitySettings[id] || 1.0
+      };
+    });
+    return settings;
   };
   
   // Reload map data when switching to Map View tab
@@ -848,7 +865,7 @@ const MapViewer = ({ onLogout }) => {
         onEventAdded={handleEventAdded}
         projectId={project?.id}
         allMaps={maps}
-        visibleMaps={selectedMap?.visibleMaps || []}
+        visibleMaps={getActiveMapSettings()}
       />
       
       <ViewEventModal

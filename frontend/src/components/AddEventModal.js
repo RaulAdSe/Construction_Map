@@ -3,7 +3,7 @@ import { Modal, Button, Form, Alert, Row, Col, Spinner } from 'react-bootstrap';
 import { addEvent } from '../services/eventService';
 import MentionInput from './MentionInput';
 
-const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [] }) => {
+const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = {} }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('periodic check');
@@ -13,22 +13,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const [loading, setLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
   
-  // Get visible maps and their settings from the parent component
-  const [visibleMapIds, setVisibleMapIds] = useState([mapId]);
-  const [mapOpacities, setMapOpacities] = useState({});
-  
-  // Create a list of all available maps for the overlay configuration
-  const availableMaps = allMaps.filter(m => m.project_id === parseInt(projectId));
-  const mainMap = availableMaps.find(m => m.id === parseInt(mapId));
-  const overlayMaps = availableMaps.filter(m => m.id !== parseInt(mapId));
-  
-  // Initialize map opacities if needed
-  if (mainMap && !mapOpacities[mainMap.id]) {
-    setMapOpacities(prev => ({
-      ...prev,
-      [mainMap.id]: 1.0
-    }));
-  }
+  // Get the main map from allMaps
+  const mainMap = allMaps.find(m => m.id === parseInt(mapId));
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,13 +32,9 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     setError('');
     setLoading(true);
     
-    // Prepare map overlay configuration
-    const activeMapSettings = {};
-    visibleMapIds.forEach(id => {
-      activeMapSettings[id] = {
-        opacity: mapOpacities[id] || 1.0
-      };
-    });
+    // Use the active map configuration from the current map view
+    // This automatically uses the current visible maps and their opacities from the MapViewer
+    const activeMapSettings = visibleMaps;
     
     // Parse tags
     const tagsList = tags
@@ -100,32 +82,11 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     setTags('');
     setError('');
     setUploadFile(null);
-    // Keep map selections as they are
   };
   
   const handleClose = () => {
     resetForm();
     onHide();
-  };
-  
-  const toggleMapVisibility = (id) => {
-    setVisibleMapIds(prev => {
-      // Main map is always visible
-      if (id === mainMap?.id) return prev;
-      
-      if (prev.includes(id)) {
-        return prev.filter(mapId => mapId !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
-  
-  const handleOpacityChange = (id, value) => {
-    setMapOpacities(prev => ({
-      ...prev,
-      [id]: value / 100
-    }));
   };
   
   const handleFileChange = (e) => {
@@ -225,54 +186,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               <strong>Position:</strong> X: {position.x.toFixed(2)}%, Y: {position.y.toFixed(2)}%
             </p>
           </Form.Group>
-          
-          {overlayMaps.length > 0 && (
-            <Form.Group className="mb-3">
-              <Form.Label>Map Overlay Configuration</Form.Label>
-              <div className="overlay-maps-list">
-                <div className="main-map mb-2 d-flex justify-content-between align-items-center">
-                  <Form.Check
-                    type="checkbox"
-                    id={`map-toggle-main-${mainMap?.id}`}
-                    label={`${mainMap?.name || 'Main Map'} (Main)`}
-                    checked={true}
-                    disabled={true}
-                  />
-                  <Form.Range
-                    value={(mapOpacities[mainMap?.id] || 1.0) * 100}
-                    onChange={(e) => handleOpacityChange(mainMap?.id, parseInt(e.target.value))}
-                    min="50"
-                    max="100"
-                    className="w-50"
-                  />
-                </div>
-                
-                {overlayMaps.map(map => (
-                  <div key={map.id} className="mb-2 d-flex justify-content-between align-items-center">
-                    <Form.Check
-                      type="checkbox"
-                      id={`map-toggle-${map.id}`}
-                      label={map.name}
-                      checked={visibleMapIds.includes(map.id)}
-                      onChange={() => toggleMapVisibility(map.id)}
-                    />
-                    {visibleMapIds.includes(map.id) && (
-                      <Form.Range
-                        value={(mapOpacities[map.id] || 0.5) * 100}
-                        onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value))}
-                        min="10"
-                        max="100"
-                        className="w-50"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <Form.Text className="text-muted">
-                The selected maps and their opacity settings will be saved with this event for future reference.
-              </Form.Text>
-            </Form.Group>
-          )}
           
           <Form.Group className="mb-3">
             <Form.Label>Attach Image (optional)</Form.Label>
