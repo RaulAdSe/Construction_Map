@@ -55,9 +55,17 @@ const MentionInput = ({
     
     const textarea = inputRef.current;
     const { selectionStart } = textarea;
-    const textBeforeCursor = value.substring(0, selectionStart);
+    const text = value;
+    
+    // Find the position of the last @ symbol before cursor
+    const lastAtIndex = text.lastIndexOf('@', selectionStart);
+    if (lastAtIndex === -1) return;
+    
+    const textareaPosition = textarea.getBoundingClientRect();
+    const textBeforeCursor = text.substring(0, lastAtIndex);
     const lines = textBeforeCursor.split('\n');
     const currentLineIndex = lines.length - 1;
+    const currentLine = lines[currentLineIndex];
     
     // Create a hidden div with the same styling as the textarea
     const div = document.createElement('div');
@@ -72,33 +80,31 @@ const MentionInput = ({
     div.style.font = window.getComputedStyle(textarea).font;
     div.style.lineHeight = window.getComputedStyle(textarea).lineHeight;
     
-    // Create a span for the text before cursor on the current line
-    const currentLine = document.createElement('span');
-    currentLine.textContent = lines[currentLineIndex];
-    div.appendChild(currentLine);
+    // Create a span for the text before @ on the current line
+    const span = document.createElement('span');
+    span.textContent = currentLine;
+    div.appendChild(span);
     
     // Append to body, measure, then remove
     document.body.appendChild(div);
-    const cursorPosition = currentLine.getBoundingClientRect();
+    const atPosition = span.getBoundingClientRect();
     document.body.removeChild(div);
-    
-    // Get textarea position
-    const textareaPosition = textarea.getBoundingClientRect();
     
     // Calculate line height
     const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || 18;
     
-    // Calculate position (add a small offset)
-    const top = textareaPosition.top + (lineHeight * currentLineIndex) + lineHeight + window.scrollY;
-    let left = textareaPosition.left + cursorPosition.width + window.scrollX;
+    // Calculate position - position right under the @ character
+    const top = textareaPosition.top + (lineHeight * currentLineIndex) + lineHeight + window.scrollY + 5;
+    
+    // Horizontal position at the @ symbol
+    const left = textareaPosition.left + atPosition.width + window.scrollX + 
+                 parseFloat(window.getComputedStyle(textarea).paddingLeft);
     
     // Ensure the suggestion box doesn't go out of viewport
     const maxLeft = window.innerWidth - 260; // 250px width + 10px margin
-    if (left > maxLeft) {
-      left = maxLeft;
-    }
+    const finalLeft = Math.min(left, maxLeft);
     
-    setMentionPosition({ top, left });
+    setMentionPosition({ top, left: finalLeft });
   };
 
   // Handle when user selects a username from suggestions

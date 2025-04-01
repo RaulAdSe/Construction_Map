@@ -101,9 +101,25 @@ const MentionSuggestions = ({
         width: '250px',
         boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
         borderRadius: '4px',
-        backgroundColor: '#fff'
+        backgroundColor: '#fff',
+        border: '1px solid rgba(0,0,0,0.125)',
+        transform: 'translateX(-8px)'
       }}
     >
+      <div 
+        style={{
+          position: 'absolute',
+          top: '-6px',
+          left: '8px',
+          width: '12px',
+          height: '12px',
+          transform: 'rotate(45deg)',
+          backgroundColor: '#fff',
+          borderLeft: '1px solid rgba(0,0,0,0.125)',
+          borderTop: '1px solid rgba(0,0,0,0.125)',
+          zIndex: 1001
+        }}
+      />
       <ListGroup>
         {loading ? (
           <ListGroup.Item className="d-flex justify-content-center align-items-center py-3">
