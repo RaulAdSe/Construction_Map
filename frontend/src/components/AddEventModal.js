@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import { Modal, Button, Form, Alert, Row, Col } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Modal, Button, Form, Alert, Row, Col, Spinner, ListGroup, Badge } from 'react-bootstrap';
 import { addEvent } from '../services/eventService';
+import MentionInput from './MentionInput';
+import axios from 'axios';
+import { projectService } from '../services/api';
+import { API_URL } from '../config';
+import apiClient from '../services/api';
 
-const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [] }) => {
+const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = {} }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('periodic check');
@@ -12,22 +17,88 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const [loading, setLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
   
-  // Get visible maps and their settings from the parent component
-  const [visibleMapIds, setVisibleMapIds] = useState([mapId]);
-  const [mapOpacities, setMapOpacities] = useState({});
+  // For tag suggestions
+  const [tagInput, setTagInput] = useState('');
+  const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [allProjectTags, setAllProjectTags] = useState([]);
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [selectedTags, setSelectedTags] = useState([]);
   
-  // Create a list of all available maps for the overlay configuration
-  const availableMaps = allMaps.filter(m => m.project_id === parseInt(projectId));
-  const mainMap = availableMaps.find(m => m.id === parseInt(mapId));
-  const overlayMaps = availableMaps.filter(m => m.id !== parseInt(mapId));
+  // Get the main map from allMaps
+  const mainMap = allMaps.find(m => m.id === parseInt(mapId));
   
-  // Initialize map opacities if needed
-  if (mainMap && !mapOpacities[mainMap.id]) {
-    setMapOpacities(prev => ({
-      ...prev,
-      [mainMap.id]: 1.0
-    }));
-  }
+  // Fetch all existing tags for this project
+  useEffect(() => {
+    if (projectId) {
+      fetchProjectTags();
+    }
+  }, [projectId]);
+  
+  const fetchProjectTags = async () => {
+    try {
+      // Use projectService instead of apiClient
+      const response = await projectService.getProjectTags(projectId);
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log('Fetched tags:', response.data);
+        setAllProjectTags(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching project tags:', error);
+      // Show a user-friendly message but don't block functionality
+      setAllProjectTags([]);
+    }
+  };
+  
+  // Handle tag input change
+  const handleTagInputChange = (e) => {
+    const input = e.target.value;
+    setTagInput(input);
+    
+    // Always show suggestion area if input has content
+    if (input.trim() === '') {
+      setShowTagSuggestions(false);
+      return;
+    }
+    
+    // Filter tags that match the current input
+    const inputLower = input.toLowerCase();
+    const matchingTags = allProjectTags
+      .filter(tag => tag.toLowerCase().includes(inputLower))
+      .filter(tag => !selectedTags.includes(tag))
+      .slice(0, 5); // Limit to 5 suggestions
+    
+    console.log('Matching tags:', matchingTags, 'All tags:', allProjectTags);
+    setTagSuggestions(matchingTags);
+    setShowTagSuggestions(true); // Always show even if empty for feedback
+  };
+  
+  // Add a tag from suggestions or from input
+  const addTag = (tag = null) => {
+    const tagToAdd = tag || tagInput.trim();
+    
+    if (tagToAdd && !selectedTags.includes(tagToAdd)) {
+      setSelectedTags([...selectedTags, tagToAdd]);
+      setTagInput('');
+      setShowTagSuggestions(false);
+    }
+  };
+  
+  // Remove a tag
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
+  };
+  
+  // Handle key press in tag input
+  const handleTagKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag();
+    } else if (e.key === ',') {
+      e.preventDefault();
+      addTag();
+    }
+  };
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,19 +116,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     setError('');
     setLoading(true);
     
-    // Prepare map overlay configuration
-    const activeMapSettings = {};
-    visibleMapIds.forEach(id => {
-      activeMapSettings[id] = {
-        opacity: mapOpacities[id] || 1.0
-      };
-    });
-    
-    // Parse tags
-    const tagsList = tags
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0);
+    // Use the active map configuration from the current map view
+    const activeMapSettings = visibleMaps;
     
     // Create FormData for multipart upload (if there's an image)
     const formData = new FormData();
@@ -71,8 +131,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     formData.append('y_coordinate', position.y);
     formData.append('active_maps', JSON.stringify(activeMapSettings));
     
-    if (tagsList.length > 0) {
-      formData.append('tags', JSON.stringify(tagsList));
+    if (selectedTags.length > 0) {
+      formData.append('tags', JSON.stringify(selectedTags));
     }
     
     if (uploadFile) {
@@ -99,32 +159,13 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     setTags('');
     setError('');
     setUploadFile(null);
-    // Keep map selections as they are
+    setSelectedTags([]);
+    setTagInput('');
   };
   
   const handleClose = () => {
     resetForm();
     onHide();
-  };
-  
-  const toggleMapVisibility = (id) => {
-    setVisibleMapIds(prev => {
-      // Main map is always visible
-      if (id === mainMap?.id) return prev;
-      
-      if (prev.includes(id)) {
-        return prev.filter(mapId => mapId !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
-  
-  const handleOpacityChange = (id, value) => {
-    setMapOpacities(prev => ({
-      ...prev,
-      [id]: value / 100
-    }));
   };
   
   const handleFileChange = (e) => {
@@ -160,12 +201,13 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           
           <Form.Group className="mb-3">
             <Form.Label>Description</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
+            <MentionInput
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter event description"
+              onChange={setDescription}
+              placeholder="Enter event description (use @ to mention users)"
+              rows={3}
+              projectId={projectId}
+              id="event-description"
             />
           </Form.Group>
           
@@ -202,15 +244,63 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           </Row>
           
           <Form.Group className="mb-3">
-            <Form.Label>Tags (comma separated)</Form.Label>
-            <Form.Control
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="tag1, tag2, tag3"
-            />
+            <Form.Label>Tags</Form.Label>
+            <div className="selected-tags mb-2">
+              {selectedTags.map(tag => (
+                <Badge 
+                  key={tag} 
+                  bg="primary" 
+                  className="me-1 mb-1"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => removeTag(tag)}
+                >
+                  {tag} &times;
+                </Badge>
+              ))}
+            </div>
+            <div className="tag-input-container" style={{ position: 'relative' }}>
+              <Form.Control
+                type="text"
+                value={tagInput}
+                onChange={handleTagInputChange}
+                onKeyPress={handleTagKeyPress}
+                placeholder="Add tags (press Enter or comma to add)"
+                autoComplete="off"
+              />
+              {showTagSuggestions && (
+                <ListGroup style={{ 
+                  position: 'absolute', 
+                  width: '100%', 
+                  zIndex: 1000,
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                  border: '1px solid #ced4da',
+                  marginTop: '2px',
+                  backgroundColor: '#fff'
+                }}>
+                  {tagSuggestions.length > 0 ? (
+                    tagSuggestions.map(tag => (
+                      <ListGroup.Item 
+                        key={tag} 
+                        action 
+                        onClick={() => addTag(tag)}
+                        className="py-2 suggestion-item"
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <span className="suggestion-text">{tag}</span>
+                      </ListGroup.Item>
+                    ))
+                  ) : (
+                    <ListGroup.Item className="py-2 text-muted">
+                      No matching tags found
+                    </ListGroup.Item>
+                  )}
+                </ListGroup>
+              )}
+            </div>
             <Form.Text className="text-muted">
-              Separate tags with commas
+              Type to see suggestions from existing tags or create your own
             </Form.Text>
           </Form.Group>
           
@@ -223,54 +313,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               <strong>Position:</strong> X: {position.x.toFixed(2)}%, Y: {position.y.toFixed(2)}%
             </p>
           </Form.Group>
-          
-          {overlayMaps.length > 0 && (
-            <Form.Group className="mb-3">
-              <Form.Label>Map Overlay Configuration</Form.Label>
-              <div className="overlay-maps-list">
-                <div className="main-map mb-2 d-flex justify-content-between align-items-center">
-                  <Form.Check
-                    type="checkbox"
-                    id={`map-toggle-main-${mainMap?.id}`}
-                    label={`${mainMap?.name || 'Main Map'} (Main)`}
-                    checked={true}
-                    disabled={true}
-                  />
-                  <Form.Range
-                    value={(mapOpacities[mainMap?.id] || 1.0) * 100}
-                    onChange={(e) => handleOpacityChange(mainMap?.id, parseInt(e.target.value))}
-                    min="50"
-                    max="100"
-                    className="w-50"
-                  />
-                </div>
-                
-                {overlayMaps.map(map => (
-                  <div key={map.id} className="mb-2 d-flex justify-content-between align-items-center">
-                    <Form.Check
-                      type="checkbox"
-                      id={`map-toggle-${map.id}`}
-                      label={map.name}
-                      checked={visibleMapIds.includes(map.id)}
-                      onChange={() => toggleMapVisibility(map.id)}
-                    />
-                    {visibleMapIds.includes(map.id) && (
-                      <Form.Range
-                        value={(mapOpacities[map.id] || 0.5) * 100}
-                        onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value))}
-                        min="10"
-                        max="100"
-                        className="w-50"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <Form.Text className="text-muted">
-                The selected maps and their opacity settings will be saved with this event for future reference.
-              </Form.Text>
-            </Form.Group>
-          )}
           
           <Form.Group className="mb-3">
             <Form.Label>Attach Image (optional)</Form.Label>

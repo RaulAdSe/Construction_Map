@@ -19,4 +19,5 @@ class EventComment(Base):
 
     # Relationships
     event = relationship("Event", back_populates="comments")
-    user = relationship("User", back_populates="event_comments") 
+    user = relationship("User", back_populates="event_comments")
+    notifications = relationship("Notification", back_populates="comment") 

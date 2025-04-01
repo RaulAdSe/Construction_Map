@@ -1,0 +1,63 @@
+/* Global Z-Index Management */
+
+/* Ensure proper stacking context for notification components */
+.notification-bell-container {
+  position: relative;
+  z-index: 9999 !important;
+}
+
+.notification-panel {
+  z-index: 10000 !important;
+  position: absolute !important;
+  /* Add !important to override any conflicting styles */
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Override Bootstrap navbar z-index to ensure notifications appear above it */
+.navbar {
+  z-index: 1030;
+}
+
+/* Ensure modals don't interfere with notification panel */
+.modal-backdrop {
+  z-index: 1040;
+}
+
+.modal {
+  z-index: 1050;
+}
+
+/* Notification badge styling */
+.notification-badge {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  border-radius: 50%;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  background-color: #dc3545 !important;
+  color: white;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Highlighted comment styling */
+.highlighted-comment {
+  border-left: 4px solid #0d6efd !important;
+  box-shadow: 0 0 10px rgba(13, 110, 253, 0.3) !important;
+  background-color: rgba(13, 110, 253, 0.05);
+  animation: highlight-pulse 2s ease-in-out 1;
+}
+
+@keyframes highlight-pulse {
+  0% { box-shadow: 0 0 5px rgba(13, 110, 253, 0.3); }
+  50% { box-shadow: 0 0 15px rgba(13, 110, 253, 0.7); }
+  100% { box-shadow: 0 0 10px rgba(13, 110, 253, 0.3); }
+}
+
+/* Add any other global styles below */ 

@@ -1,31 +1,87 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bootstrap';
 import { format } from 'date-fns';
 import EventComments from './EventComments';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
+import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
-const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, currentUser, projectId, effectiveIsAdmin }) => {
+const ViewEventModal = ({ 
+  show, 
+  onHide, 
+  event, 
+  allMaps = [], 
+  onEventUpdated, 
+  currentUser, 
+  projectId, 
+  effectiveIsAdmin,
+  highlightCommentId
+}) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
+  const [activeTab, setActiveTab] = useState('details');
+  const [eventKey, setEventKey] = useState(0);
   
+  // Use ref for modal element to help with force closing
+  const modalRef = useRef(null);
+  
+  // Memoize the event ID to avoid unnecessary re-renders
+  const eventId = useMemo(() => event?.id, [event?.id]);
+  
+  // Keep a memoized version of the event to avoid unintended re-renders
+  // but update it when necessary status/type changes occur
+  const memoizedEvent = useMemo(() => {
+    return event ? {
+      ...event,
+      // Ensure current UI state values are reflected in the memoized event
+      status: currentStatus || event.status,
+      state: currentType || event.state
+    } : null;
+  }, [event, currentStatus, currentType]);
+  
+  // Use callback for the onHide function to prevent infinite loops
+  const handleHide = useCallback(() => {
+    if (onHide) {
+      onHide();
+    }
+  }, [onHide]);
+  
+  // Initialize state values when a new event is loaded
   useEffect(() => {
     if (event) {
-      setCurrentStatus(event.status || 'open');
-      setCurrentType(event.state || 'periodic check');
+      setCurrentStatus(event.status);
+      setCurrentType(event.state);
+      setEventKey(prevKey => prevKey + 1); // Force child components to re-render
     }
-  }, [event]);
+  }, [event?.id, highlightCommentId]); // Only reset when event ID changes or when highlighting a comment
 
-  if (!event) return null;
+  // Add an effect to handle keyboard escape
+  useEffect(() => {
+    const handleEscapeKey = (e) => {
+      if (e.key === 'Escape' && show) {
+        handleHide();
+      }
+    };
+
+    if (show) {
+      document.addEventListener('keydown', handleEscapeKey);
+      
+      return () => {
+        document.removeEventListener('keydown', handleEscapeKey);
+      };
+    }
+  }, [show, handleHide]);
+
+  if (!memoizedEvent) return null;
   
   // Parse active maps configuration from event
   let activeMapSettings = {};
   try {
-    if (event.active_maps && typeof event.active_maps === 'string') {
-      activeMapSettings = JSON.parse(event.active_maps);
-    } else if (event.active_maps) {
-      activeMapSettings = event.active_maps;
+    if (memoizedEvent.active_maps && typeof memoizedEvent.active_maps === 'string') {
+      activeMapSettings = JSON.parse(memoizedEvent.active_maps);
+    } else if (memoizedEvent.active_maps) {
+      activeMapSettings = memoizedEvent.active_maps;
     }
   } catch (error) {
     console.error('Error parsing active maps settings:', error);
@@ -53,9 +109,9 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   const getStatusBadge = () => {
     switch (currentStatus) {
       case 'open':
-        return <Badge bg="primary">Open</Badge>;
+        return <Badge bg="danger">Open</Badge>;
       case 'in-progress':
-        return <Badge bg="info">In Progress</Badge>;
+        return <Badge bg="warning">In Progress</Badge>;
       case 'resolved':
         return <Badge bg="success">Resolved</Badge>;
       case 'closed':
@@ -74,17 +130,23 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       return;
     }
     
+    // Update the UI immediately
     setCurrentStatus(newStatus);
     
     try {
       setUpdating(true);
-      await updateEventStatus(event.id, newStatus);
+      await updateEventStatus(memoizedEvent.id, newStatus);
       if (onEventUpdated) {
-        onEventUpdated({...event, status: newStatus});
+        // Create a new event object with the updated status to trigger proper updates
+        const updatedEvent = {
+          ...memoizedEvent, 
+          status: newStatus
+        };
+        onEventUpdated(updatedEvent);
       }
     } catch (error) {
       console.error('Failed to update status:', error);
-      setCurrentStatus(event.status); // Revert on error
+      setCurrentStatus(memoizedEvent.status); // Revert on error
       if (error.response && error.response.status === 403) {
         alert('Permission denied: Only admin users can modify event status.');
       }
@@ -102,17 +164,23 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
       return;
     }
     
+    // Update the UI immediately
     setCurrentType(newType);
     
     try {
       setUpdating(true);
-      await updateEventState(event.id, newType);
+      await updateEventState(memoizedEvent.id, newType);
       if (onEventUpdated) {
-        onEventUpdated({...event, state: newType});
+        // Create a new event object with the updated type to trigger proper updates
+        const updatedEvent = {
+          ...memoizedEvent,
+          state: newType
+        };
+        onEventUpdated(updatedEvent);
       }
     } catch (error) {
       console.error('Failed to update type:', error);
-      setCurrentType(event.state); // Revert on error
+      setCurrentType(memoizedEvent.state); // Revert on error
       if (error.response && error.response.status === 403) {
         alert('Permission denied: Only admin users can modify event type.');
       }
@@ -124,45 +192,56 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   return (
     <Modal
       show={show}
-      onHide={onHide}
+      onHide={handleHide}
       size="lg"
       centered
       dialogClassName="event-modal-dialog"
       backdropClassName="event-modal-backdrop"
       contentClassName="modal-content"
+      ref={modalRef}
+      key={`event-modal-${eventId || 'empty'}`}
+      onExited={() => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+        
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }}
     >
       <Modal.Header closeButton>
         <Modal.Title>
           <div className="d-flex align-items-center">
-            <span className="me-2">Event: {event.title}</span>
+            <span className="me-2">Event: {memoizedEvent.title}</span>
             {getTypeBadge()}
           </div>
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Tabs 
-          defaultActiveKey="details" 
+          activeKey={activeTab}
+          onSelect={(k) => setActiveTab(k)}
           className="mb-3"
         >
           <Tab eventKey="details" title="Details">
             <Row>
-              <Col md={event.image_url ? 8 : 12}>
+              <Col md={memoizedEvent.image_url ? 8 : 12}>
                 <div className="mb-3">
                   <h6>Description</h6>
-                  <p>{event.description || "No description provided."}</p>
+                  <p>{memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description) : "No description provided."}</p>
                 </div>
                 
                 <Row>
                   <Col md={6}>
                     <div className="mb-3">
                       <h6>Created By</h6>
-                      <p>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</p>
+                      <p>{memoizedEvent.created_by_user_name || `User ID: ${memoizedEvent.created_by_user_id}`}</p>
                     </div>
                   </Col>
                   <Col md={6}>
                     <div className="mb-3">
                       <h6>Created At</h6>
-                      <p>{format(new Date(event.created_at), 'PPPp')}</p>
+                      <p>{format(new Date(memoizedEvent.created_at), 'PPPp')}</p>
                     </div>
                   </Col>
                 </Row>
@@ -230,57 +309,39 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                 
                 <div className="mb-3">
                   <h6>Map Location</h6>
-                  <p>Map: {event.map_name || `ID: ${event.map_id}`}</p>
-                  <p>Coordinates: X: {event.x_coordinate.toFixed(2)}%, Y: {event.y_coordinate.toFixed(2)}%</p>
+                  <p>Map: {memoizedEvent.map_name || `ID: ${memoizedEvent.map_id}`}</p>
+                  <p>Coordinates: X: {memoizedEvent.x_coordinate.toFixed(2)}%, Y: {memoizedEvent.y_coordinate.toFixed(2)}%</p>
                 </div>
                 
-                {Object.keys(activeMapSettings).length > 0 && (
-                  <div className="mb-3">
-                    <h6>Map Overlay Configuration</h6>
-                    <div className="map-settings-list">
-                      {Object.entries(activeMapSettings).map(([mapId, settings]) => (
-                        <div key={mapId} className="d-flex justify-content-between align-items-center mb-1">
-                          <span>
-                            {parseInt(mapId) === event.map_id ? (
-                              <strong>{getMapName(mapId)} (Main)</strong>
-                            ) : (
-                              getMapName(mapId)
-                            )}
-                          </span>
-                          <span>Opacity: {Math.round((settings.opacity || 1) * 100)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {event.tags && event.tags.length > 0 && (
+                {memoizedEvent.tags && memoizedEvent.tags.length > 0 && (
                   <div className="mb-3">
                     <h6>Tags</h6>
-                    <div>
-                      {event.tags.map(tag => (
-                        <Badge key={tag} bg="info" className="me-1 mb-1">{tag}</Badge>
+                    <div className="d-flex flex-wrap">
+                      {memoizedEvent.tags.map(tag => (
+                        <Badge key={tag} bg="info" className="me-1 mb-1" style={{ fontSize: '0.9rem', padding: '6px 10px' }}>
+                          {tag}
+                        </Badge>
                       ))}
                     </div>
                   </div>
                 )}
               </Col>
               
-              {event.image_url && (
+              {memoizedEvent.image_url && (
                 <Col md={4}>
                   <div className="event-image-container">
                     <h6 className="mb-2">Attached Image</h6>
                     <a 
-                      href={event.image_url} 
+                      href={memoizedEvent.image_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="image-link"
                       onClick={(e) => {
-                        if (!event.image_url.startsWith('http')) {
+                        if (!memoizedEvent.image_url.startsWith('http')) {
                           e.preventDefault();
                           
                           // Get just the filename without path
-                          const imageFilename = event.image_url.split('/').pop();
+                          const imageFilename = memoizedEvent.image_url.split('/').pop();
                           
                           // Use uploads/events path
                           const imageUrl = `http://localhost:8000/uploads/events/${imageFilename}`;
@@ -289,16 +350,16 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
                       }}
                     >
                       <Image 
-                        src={event.image_url.startsWith('http') 
-                          ? event.image_url 
+                        src={memoizedEvent.image_url.startsWith('http') 
+                          ? memoizedEvent.image_url 
                           : (() => {
                               // Get just the filename without path
-                              const imageFilename = event.image_url.split('/').pop();
+                              const imageFilename = memoizedEvent.image_url.split('/').pop();
                               // Use uploads/events path
                               return `http://localhost:8000/uploads/events/${imageFilename}`;
                             })()
                         } 
-                        alt={event.title} 
+                        alt={memoizedEvent.title} 
                         thumbnail 
                         className="w-100 event-image" 
                         style={{ maxHeight: '300px', objectFit: 'contain' }}
@@ -314,14 +375,24 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
           </Tab>
           <Tab 
             eventKey="comments" 
-            title={`Comments ${event.comment_count ? `(${event.comment_count})` : ''}`}
+            title={`Comments ${memoizedEvent.comment_count ? `(${memoizedEvent.comment_count})` : ''}`}
           >
-            <EventComments eventId={event.id} />
+            {/* Use memoized eventId to prevent unnecessary re-renders */}
+            <EventComments 
+              eventId={eventId} 
+              projectId={projectId} 
+              highlightCommentId={highlightCommentId}
+              key={eventKey}
+            />
           </Tab>
         </Tabs>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
+        <Button 
+          variant="secondary" 
+          onClick={handleHide}
+          className="close-event-btn"
+        >
           Close
         </Button>
       </Modal.Footer>
@@ -329,4 +400,4 @@ const ViewEventModal = ({ show, onHide, event, allMaps = [], onEventUpdated, cur
   );
 };
 
-export default ViewEventModal; 
+export default React.memo(ViewEventModal); 

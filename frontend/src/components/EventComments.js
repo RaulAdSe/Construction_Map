@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Form, Button, Card, Image, Alert, Spinner } from 'react-bootstrap';
 import { format } from 'date-fns';
 import api from '../api';
+import MentionInput from './MentionInput';
+import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
-const EventComments = ({ eventId }) => {
+const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -11,13 +13,18 @@ const EventComments = ({ eventId }) => {
   const [content, setContent] = useState('');
   const [image, setImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  
+  // Reference to highlighted comment
+  const highlightedCommentRef = useRef(null);
 
-  // Load comments
-  const fetchComments = async () => {
+  // Load comments - memoize the fetch function to prevent recreating it on each render
+  const fetchComments = useCallback(async () => {
+    if (!eventId) return;
+    
     setLoading(true);
     try {
       const response = await api.get(`/events/${eventId}/comments`);
-      setComments(response.data);
+      setComments(response.data || []);
       setError('');
     } catch (err) {
       console.error('Error fetching comments:', err);
@@ -25,16 +32,22 @@ const EventComments = ({ eventId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
 
+  // Only fetch comments when eventId changes
   useEffect(() => {
     if (eventId) {
       fetchComments();
     }
-  }, [eventId]);
+    
+    // Reset content and image state when eventId changes
+    setContent('');
+    setImage(null);
+    setPreviewUrl('');
+  }, [eventId, fetchComments]);
 
   // Handle file selection
-  const handleFileChange = (e) => {
+  const handleFileChange = useCallback((e) => {
     const file = e.target.files[0];
     if (!file) {
       setImage(null);
@@ -49,12 +62,12 @@ const EventComments = ({ eventId }) => {
 
     setImage(file);
     setPreviewUrl(URL.createObjectURL(file));
-  };
+  }, []);
 
   // Handle comment submission
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    if (!content.trim()) {
+    if (!content.trim() || !eventId) {
       setError('Comment cannot be empty');
       return;
     }
@@ -88,11 +101,33 @@ const EventComments = ({ eventId }) => {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [content, eventId, image, fetchComments]);
+  
+  // Memoize the content update function
+  const handleContentChange = useCallback((newContent) => {
+    setContent(newContent);
+  }, []);
+
+  // Scroll to highlighted comment when comments are loaded
+  useEffect(() => {
+    if (highlightCommentId && !loading && comments.length > 0) {
+      setTimeout(() => {
+        const highlightedElement = document.getElementById(`comment-${highlightCommentId}`);
+        if (highlightedElement) {
+          highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [highlightCommentId, loading, comments]);
+
+  // Safely get comments length with null check
+  const commentsLength = useMemo(() => 
+    Array.isArray(comments) ? comments.length : 0
+  , [comments]);
 
   return (
     <div className="event-comments">
-      <h5 className="mb-3">Comments {comments.length > 0 && `(${comments.length})`}</h5>
+      <h5 className="mb-3">Comments {commentsLength > 0 && `(${commentsLength})`}</h5>
       
       {/* Comment Form */}
       <Card className="mb-4">
@@ -101,13 +136,14 @@ const EventComments = ({ eventId }) => {
           
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="Add a comment..."
+              <Form.Label>Add a Comment</Form.Label>
+              <MentionInput
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={submitting}
+                onChange={handleContentChange}
+                placeholder="Write your comment here... (use @ to mention users)"
+                rows={3}
+                projectId={projectId}
+                id="comment-input"
               />
             </Form.Group>
             
@@ -172,74 +208,86 @@ const EventComments = ({ eventId }) => {
             <span className="visually-hidden">Loading comments...</span>
           </Spinner>
         </div>
-      ) : comments.length === 0 ? (
+      ) : commentsLength === 0 ? (
         <p className="text-center text-muted">No comments yet. Be the first to comment!</p>
       ) : (
         <div className="comments-list">
-          {comments.map((comment) => (
-            <Card key={comment.id} className="mb-3">
-              <Card.Body>
-                <div className="d-flex justify-content-between align-items-start mb-2">
-                  <div>
-                    <h6 className="mb-0">{comment.username}</h6>
-                    <small className="text-muted">
-                      {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                      {comment.updated_at && comment.updated_at !== comment.created_at && (
-                        <span> (edited)</span>
-                      )}
-                    </small>
+          {comments.map(comment => {
+            const isHighlighted = highlightCommentId && parseInt(highlightCommentId, 10) === comment.id;
+            
+            return (
+              <Card 
+                key={comment.id} 
+                id={`comment-${comment.id}`}
+                className={`mb-3 ${isHighlighted ? 'highlighted-comment' : ''}`}
+                style={{
+                  borderLeft: isHighlighted ? '4px solid #0d6efd' : 'none',
+                  backgroundColor: isHighlighted ? 'rgba(13, 110, 253, 0.05)' : 'white'
+                }}
+                ref={isHighlighted ? highlightedCommentRef : null}
+              >
+                <Card.Body>
+                  <div className="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <h6 className="mb-0">{comment.username}</h6>
+                      <small className="text-muted">
+                        {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
+                        {comment.updated_at && comment.updated_at !== comment.created_at && (
+                          <span> (edited)</span>
+                        )}
+                      </small>
+                    </div>
                   </div>
-                </div>
-                
-                <p className="mb-2">{comment.content}</p>
-                
-                {comment.image_url && (
-                  <div className="comment-image mt-2">
-                    <a 
-                      href={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        if (!comment.image_url.startsWith('http')) {
-                          e.preventDefault();
-                          
-                          // Get just the filename without path
-                          const imageFilename = comment.image_url.split('/').pop();
-                          
-                          // Use comments path for comment images
-                          const imageUrl = `http://localhost:8000/comments/${imageFilename}`;
-                          window.open(imageUrl, '_blank');
-                        }
-                      }}
-                    >
-                      <Image 
-                        src={comment.image_url.startsWith('http') 
+                  
+                  <p className="mb-2">{parseAndHighlightMentions(comment.content)}</p>
+                  
+                  {comment.image_url && (
+                    <div className="comment-image mt-2">
+                      <a 
+                        href={comment.image_url.startsWith('http') 
                           ? comment.image_url 
-                          : (() => {
-                              // Get just the filename without path
-                              const imageFilename = comment.image_url.split('/').pop();
-                              // Use comments path for comment images
-                              return `http://localhost:8000/comments/${imageFilename}`;
-                            })()
+                          : `http://localhost:8000${comment.image_url}`
                         } 
-                        alt="Comment attachment" 
-                        thumbnail 
-                        className="comment-image-thumbnail"
-                        style={{ maxWidth: '100%', maxHeight: '200px' }}
-                      />
-                      <div className="mt-1">
-                        <small className="text-muted">Click to view full size</small>
-                      </div>
-                    </a>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          ))}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                      >
+                        <Image 
+                          src={comment.image_url.startsWith('http') 
+                            ? comment.image_url 
+                            : `http://localhost:8000${comment.image_url}`
+                          } 
+                          alt="Comment attachment" 
+                          thumbnail 
+                          style={{ maxWidth: '100%', maxHeight: '200px' }}
+                          onError={(e) => {
+                            console.log('Image failed to load:', comment.image_url);
+                            // Attempt to display using a different URL format
+                            if (!e.target.dataset.retried) {
+                              e.target.dataset.retried = 'true';
+                              if (comment.image_url.startsWith('/uploads')) {
+                                // Try without the /uploads prefix
+                                e.target.src = `http://localhost:8000${comment.image_url.replace('/uploads', '')}`;
+                              } else {
+                                // Add /uploads prefix if it's missing
+                                e.target.src = `http://localhost:8000/uploads${comment.image_url.startsWith('/') ? comment.image_url : '/' + comment.image_url}`;
+                              }
+                            }
+                          }}
+                        />
+                        <div className="mt-1">
+                          <small className="text-muted">Click to view full size</small>
+                        </div>
+                      </a>
+                    </div>
+                  )}
+                </Card.Body>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
 
-export default EventComments; 
+export default React.memo(EventComments);

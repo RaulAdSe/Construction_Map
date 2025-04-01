@@ -1,7 +1,7 @@
 import os
 import uuid
 import json
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -10,7 +10,9 @@ import io
 
 from app.models.event import Event
 from app.models.event_comment import EventComment
+from app.models.user import User
 from app.core.config import settings
+from app.services.notification import NotificationService
 
 
 def get_event(db: Session, event_id: int) -> Optional[Event]:
@@ -29,7 +31,10 @@ def get_events(
     Get all events for a project.
     Admin users can see all events, regular users cannot see closed events.
     """
-    query = db.query(Event).filter(Event.project_id == project_id)
+    from sqlalchemy.orm import joinedload
+    
+    # Use join to get user info
+    query = db.query(Event).options(joinedload(Event.created_by_user)).filter(Event.project_id == project_id)
     
     # Filter by user
     if user_id:
@@ -44,6 +49,12 @@ def get_events(
     
     # Get events
     events = query.offset(skip).limit(limit).all()
+    
+    # Add username to each event
+    for event in events:
+        if not hasattr(event, 'created_by_user_name') or not event.created_by_user_name:
+            event.created_by_user_name = event.created_by_user.username if event.created_by_user else f"User {event.created_by_user_id}"
+    
     return events
 
 
@@ -53,15 +64,26 @@ def get_events_by_map(
     skip: int = 0,
     limit: int = 100
 ) -> List[Event]:
-    """Get all events for a specific map"""
-    query = db.query(Event).filter(Event.map_id == map_id)
-    events = query.order_by(desc(Event.created_at)).offset(skip).limit(limit).all()
+    """
+    Get all events for a specific map.
+    """
+    from sqlalchemy.orm import joinedload
     
-    # Fix active_maps for each event
+    # Use join to get user info
+    events = db.query(Event).options(joinedload(Event.created_by_user)).filter(
+        Event.map_id == map_id
+    ).order_by(Event.created_at.desc()).offset(skip).limit(limit).all()
+    
+    # Process each event
     for event in events:
+        # Fix active_maps for each event
         if event.active_maps == [] or event.active_maps is None:
             event.active_maps = {}
             
+        # Add username to each event
+        if not hasattr(event, 'created_by_user_name') or not event.created_by_user_name:
+            event.created_by_user_name = event.created_by_user.username if event.created_by_user else f"User {event.created_by_user_id}"
+    
     return events
 
 
@@ -101,13 +123,17 @@ def get_events_with_comments_count(
     skip: int = 0, 
     limit: int = 100
 ) -> List[Dict[str, Any]]:
-    """Get events with comment counts"""
+    """Get events with comment counts and creator usernames"""
     query = db.query(
         Event,
-        func.count(EventComment.id).label('comment_count')
+        func.count(EventComment.id).label('comment_count'),
+        User.username.label('created_by_user_name')
     ).outerjoin(
         EventComment, 
         Event.id == EventComment.event_id
+    ).join(
+        User,
+        Event.created_by_user_id == User.id
     ).filter(
         Event.project_id == project_id
     )
@@ -116,16 +142,18 @@ def get_events_with_comments_count(
         query = query.filter(Event.created_by_user_id == user_id)
     
     results = query.group_by(
-        Event.id
+        Event.id,
+        User.username
     ).order_by(
         desc(Event.created_at)
     ).offset(skip).limit(limit).all()
     
     events_with_counts = []
-    for event, comment_count in results:
+    for event, comment_count, created_by_user_name in results:
         # Convert event to dict and add comment count
         event_dict = {c.name: getattr(event, c.name) for c in event.__table__.columns}
         event_dict['comment_count'] = comment_count
+        event_dict['created_by_user_name'] = created_by_user_name
         
         # Fix for active_maps - convert empty array to empty dict if needed
         if event_dict['active_maps'] == [] or event_dict['active_maps'] is None:
@@ -209,13 +237,35 @@ async def create_event(
     db.add(event)
     db.commit()
     db.refresh(event)
+    
+    # Create notifications for mentioned users
+    if description:
+        link = f"/events/{event.id}"
+        NotificationService.notify_mentions(
+            db, 
+            description, 
+            created_by_user_id, 
+            event_id=event.id, 
+            link=link
+        )
+    
+    # Notify all admins about the new event
+    NotificationService.notify_admins(
+        db, 
+        "created a new event", 
+        created_by_user_id, 
+        event_id=event.id, 
+        link=f"/events/{event.id}"
+    )
+    
     return event
 
 
 def update_event(
     db: Session, 
     event_id: int, 
-    event_update
+    event_update,
+    current_user_id: int
 ) -> Optional[Event]:
     """
     Update an event.
@@ -223,6 +273,10 @@ def update_event(
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         return None
+    
+    # Check if status is being updated
+    old_status = event.status
+    old_state = event.state
     
     # Update fields if provided
     update_data = event_update.dict(exclude_unset=True)
@@ -232,6 +286,58 @@ def update_event(
     
     db.commit()
     db.refresh(event)
+    
+    # Create notifications for status/state changes
+    link = f"/events/{event.id}"
+    
+    if 'status' in update_data and update_data['status'] != old_status:
+        # Notify event creator if current user is not the creator
+        if event.created_by_user_id != current_user_id:
+            NotificationService.notify_event_interaction(
+                db, 
+                event_id, 
+                current_user_id, 
+                f"updated the status to '{event.status}'", 
+                link
+            )
+            
+    if 'state' in update_data and update_data['state'] != old_state:
+        # Notify event creator if current user is not the creator
+        if event.created_by_user_id != current_user_id:
+            NotificationService.notify_event_interaction(
+                db, 
+                event_id, 
+                current_user_id, 
+                f"changed the state to '{event.state}'", 
+                link
+            )
+    
+    # Check for new mentions if description was updated
+    if 'description' in update_data:
+        NotificationService.notify_mentions(
+            db, 
+            event.description, 
+            current_user_id, 
+            event_id=event.id, 
+            link=link
+        )
+        
+    # Notify admins about the update
+    if current_user_id != event.created_by_user_id:
+        action = "updated an event"
+        if 'status' in update_data:
+            action = f"changed event status to '{event.status}'"
+        elif 'state' in update_data:
+            action = f"changed event state to '{event.state}'"
+            
+        NotificationService.notify_admins(
+            db, 
+            action, 
+            current_user_id, 
+            event_id=event.id, 
+            link=link
+        )
+    
     return event
 
 

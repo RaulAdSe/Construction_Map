@@ -3,16 +3,15 @@ import { OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
 
 // Define type colors
 const typeColors = {
-  'incidence': '#FF3333',
   'periodic check': '#3399FF'
 };
 
-// Define status modifiers (opacity or brightness variations)
-const statusModifiers = {
-  'open': 1.0, // Full brightness
-  'in-progress': 0.8, // Slightly dimmer
-  'resolved': 0.6, // Dimmer
-  'closed': 0.4 // Significantly dimmer
+// Define status colors for incidence type
+const incidenceStatusColors = {
+  'open': '#FF0000',      // Bright Red
+  'in-progress': '#FFCC00', // Yellow
+  'resolved': '#00CC00',  // Green
+  'closed': '#6C757D'     // Gray
 };
 
 // Map of user IDs to different colors for consistency
@@ -60,14 +59,25 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
     return null;
   }
   
-  // Get base color from event type
-  let baseColor = event.state && typeColors[event.state] 
-    ? typeColors[event.state] 
-    : getColorForUser(event.created_by_user_id);
+  // Get the color based on event type and status
+  let color;
   
-  // Adjust color based on status
-  const statusFactor = statusModifiers[event.status] || 1.0;
-  const color = adjustBrightness(baseColor, statusFactor);
+  // Use the current state and status values
+  const currentState = event.state;
+  const currentStatus = event.status;
+  
+  if (currentState === 'incidence') {
+    // For incidence events, use the specific status color
+    color = incidenceStatusColors[currentStatus] || incidenceStatusColors['open'];
+  } else {
+    // For periodic check or other types, use the type color
+    color = typeColors[currentState] || getColorForUser(event.created_by_user_id);
+    
+    // For non-incidence events, we can still dim closed ones
+    if (currentStatus === 'closed') {
+      color = adjustBrightness(color, 0.6);
+    }
+  }
   
   // Use CSS classes for core styles and only use inline styles for positioning and color
   const markerStyle = {
@@ -81,29 +91,35 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
 
   // Get type badge
   const getTypeBadge = () => {
-    switch (event.state) {
+    // Get the most current type/state value
+    const currentState = event.state;
+    
+    switch (currentState) {
       case 'incidence':
         return <Badge bg="danger">Incidence</Badge>;
       case 'periodic check':
         return <Badge bg="info">Periodic Check</Badge>;
       default:
-        return <Badge bg="secondary">{event.state || 'Unknown'}</Badge>;
+        return <Badge bg="secondary">{currentState || 'Unknown'}</Badge>;
     }
   };
   
   // Get status badge
   const getStatusBadge = () => {
-    switch (event.status) {
+    // Get the most current status value
+    const currentStatus = event.status;
+    
+    switch (currentStatus) {
       case 'open':
-        return <Badge bg="primary">Open</Badge>;
+        return <Badge bg="danger">Open</Badge>;
       case 'in-progress':
-        return <Badge bg="info">In Progress</Badge>;
+        return <Badge bg="warning">In Progress</Badge>;
       case 'resolved':
         return <Badge bg="success">Resolved</Badge>;
       case 'closed':
         return <Badge bg="secondary">Closed</Badge>;
       default:
-        return <Badge bg="secondary">{event.status || 'Unknown'}</Badge>;
+        return <Badge bg="secondary">{currentStatus || 'Unknown'}</Badge>;
     }
   };
 
@@ -112,7 +128,7 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
       <div>
         <strong>{event.title}</strong>
       </div>
-      <div>Created by: {event.created_by_user_name || `User ${event.created_by_user_id}`}</div>
+      <div>Created by: {event.created_by_user_name || 'Unknown user'}</div>
       <div>{getTypeBadge()} {getStatusBadge()}</div>
       <div className="small text-muted">Click for details</div>
     </Tooltip>

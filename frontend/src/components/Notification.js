@@ -38,6 +38,7 @@ const Notification = ({ show, message, type = 'success' }) => {
       onClose={() => setVisible(false)}
       delay={3000}
       autohide
+      style={{ zIndex: 9999 }}
     >
       <Toast.Header closeButton={true}>
         <strong className="me-auto">Notification</strong>

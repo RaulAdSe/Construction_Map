@@ -13,20 +13,18 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Configure CORS
+# Configure CORS - more direct approach
 origins = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
+    "http://127.0.0.1:3000"
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
 )
 
 # Include API router
@@ -38,9 +36,17 @@ if not os.path.exists(uploads_dir):
     os.makedirs(uploads_dir)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
-# Serve static files for uploads, events and comments
-app.mount("/events", StaticFiles(directory="uploads/events"), name="events")
-app.mount("/comments", StaticFiles(directory="uploads/comments"), name="comments")
+# Ensure event and comment upload directories exist
+events_dir = os.path.join(uploads_dir, "events")
+comments_dir = os.path.join(uploads_dir, "comments")
+if not os.path.exists(events_dir):
+    os.makedirs(events_dir)
+if not os.path.exists(comments_dir):
+    os.makedirs(comments_dir)
+
+# Also mount them directly to support both path formats
+app.mount("/events", StaticFiles(directory=events_dir), name="events")
+app.mount("/comments", StaticFiles(directory=comments_dir), name="comments")
 
 @app.get("/")
 def read_root():

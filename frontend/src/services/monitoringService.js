@@ -20,8 +20,20 @@ export const getServiceHealth = async () => {
 };
 
 export const getDatabaseHealth = async () => {
-  const response = await getAuthAxios().get('/api/v1/monitoring/health/db');
-  return response.data;
+  try {
+    const response = await getAuthAxios().get('/api/v1/monitoring/health/db');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching database health:', error);
+    
+    // Return a default error state if the backend request fails
+    if (error.response) {
+      // The server responded with a status code outside the 2xx range
+      console.error('Server error:', error.response.data);
+    }
+    
+    throw error;
+  }
 };
 
 export const getSystemHealth = async () => {
@@ -103,7 +115,7 @@ export const recordUserActivity = async (activityData) => {
 
 export const getUserActivityStats = async () => {
   try {
-    const response = await getAuthAxios().get(`${API_URL}/monitoring/user-activity/stats`);
+    const response = await getAuthAxios().get(`${API_URL}/api/v1/monitoring/user-activity/stats`);
     return response.data;
   } catch (error) {
     console.error('Error fetching user activity statistics:', error);
@@ -113,7 +125,7 @@ export const getUserActivityStats = async () => {
 
 export const triggerUserActivityCleanup = async () => {
   try {
-    const response = await getAuthAxios().post(`${API_URL}/monitoring/user-activity/cleanup`);
+    const response = await getAuthAxios().post(`${API_URL}/api/v1/monitoring/user-activity/cleanup`);
     return response.data;
   } catch (error) {
     console.error('Error triggering user activity cleanup:', error);

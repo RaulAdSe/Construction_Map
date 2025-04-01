@@ -19,12 +19,48 @@ api.interceptors.request.use(config => {
   return config;
 });
 
+// Add debug flag to control console output
+const DEBUG = false;
+
 export const fetchEvents = async (mapId) => {
   try {
     const response = await api.get(`${API_URL}/maps/${mapId}/events`);
-    return response.data;
+    
+    // Ensure each event has a created_by_user_name
+    const eventsWithUserNames = response.data.map(event => {
+      if (!event.created_by_user_name) {
+        // Make a request to get detailed event information with username
+        return getEventDetails(event.id)
+          .then(detailedEvent => {
+            // Return the event with username from detailed version
+            return {
+              ...event,
+              created_by_user_name: detailedEvent.created_by_user_name
+            };
+          })
+          .catch(() => {
+            // If the request fails, keep the original event
+            return event;
+          });
+      }
+      return Promise.resolve(event);
+    });
+    
+    // Wait for all events to be processed
+    return Promise.all(eventsWithUserNames);
   } catch (error) {
     console.error('Error fetching events:', error);
+    throw error;
+  }
+};
+
+// Helper function to get detailed event information including username
+export const getEventDetails = async (eventId) => {
+  try {
+    const response = await api.get(`${API_URL}/events/${eventId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching event details for event ${eventId}:`, error);
     throw error;
   }
 };
@@ -105,7 +141,7 @@ export const updateEventStatus = async (eventId, status, userRole) => {
         const user = JSON.parse(storedUser);
         if (user.is_admin === true) {
           isAdmin = true;
-          console.log('eventService: User is admin from localStorage');
+          if (DEBUG) console.log('eventService: User is admin from localStorage');
         }
       } catch (error) {
         console.error('Error parsing user data:', error);
@@ -132,13 +168,14 @@ export const updateEventStatus = async (eventId, status, userRole) => {
       throw new Error('Only ADMIN users can close events');
     }
     
-    // Create the update data with status and role info
-    const updateData = {
-      status: status,
-      is_admin_request: isAdmin // Send this to backend so it knows this is an admin request
-    };
+    if (DEBUG) console.log(`Updating event ${eventId} status to ${status}`);
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
+    // Match the expected format for EventUpdate
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+      status: status,
+      is_admin_request: isAdmin
+    });
+    
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} status:`, error);
@@ -148,18 +185,28 @@ export const updateEventStatus = async (eventId, status, userRole) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
-    // Avoid using the dedicated endpoint that's giving 404 errors
-    // Instead, update the whole event but only change the state field
-    // First get the current event data
-    const response = await api.get(`${API_URL}/events/${eventId}`);
-    const event = response.data;
+    if (DEBUG) console.log(`Updating event ${eventId} state to ${state}`);
     
-    // Update with minimal data to avoid validation issues
-    const updateData = {
-      state: state
-    };
+    // Get admin status
+    let isAdmin = false;
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.is_admin === true) {
+          isAdmin = true;
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, updateData);
+    // Match the expected format for EventUpdate
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+      state: state,
+      is_admin_request: isAdmin
+    });
+    
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId} state:`, error);

@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
 import api from '../api';
 import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
+import MentionInput from './MentionInput';
+import { parseAndHighlightMentions } from '../utils/mentionUtils';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effectiveIsAdmin }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
@@ -56,9 +58,9 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const getStatusBadge = (status) => {
     switch (status) {
       case 'open':
-        return <Badge bg="primary">Open</Badge>;
+        return <Badge bg="danger">Open</Badge>;
       case 'in-progress':
-        return <Badge bg="info">In Progress</Badge>;
+        return <Badge bg="warning">In Progress</Badge>;
       case 'resolved':
         return <Badge bg="success">Resolved</Badge>;
       case 'closed':
@@ -215,6 +217,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                 <th>Description</th>
                 <th>Status</th>
                 <th>Type</th>
+                <th>Tags</th>
                 <th>Created By</th>
                 <th>Created At</th>
                 <th>Comments</th>
@@ -274,6 +277,19 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                         {getTypeBadge(event.state)}
                       </div>
                     </OverlayTrigger>
+                  </td>
+                  <td>
+                    {event.tags && event.tags.length > 0 ? (
+                      <div className="event-tags">
+                        {event.tags.map(tag => (
+                          <Badge key={tag} bg="info" className="me-1 mb-1">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted">No tags</span>
+                    )}
                   </td>
                   <td>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>
@@ -338,12 +354,13 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
             <Form onSubmit={handleCommentSubmit}>
               <Form.Group className="mb-3">
                 <Form.Label>Add a comment</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
+                <MentionInput
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write your comment here..."
+                  onChange={setNewComment}
+                  placeholder="Write your comment here... (use @ to mention users)"
+                  rows={3}
+                  projectId={selectedEventId ? filteredEvents.find(e => e.id === selectedEventId)?.project_id : null}
+                  id="event-table-comment-input"
                 />
               </Form.Group>
               
@@ -396,7 +413,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                         <strong>{comment.user_name || `User ID: ${comment.user_id}`}</strong>
                         <small className="text-muted">{format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}</small>
                       </div>
-                      <p className="mt-2 mb-2">{comment.content}</p>
+                      <p className="mt-2 mb-2">{parseAndHighlightMentions(comment.content)}</p>
                       {comment.image_url && (
                         <div className="comment-image mt-2">
                           <a 

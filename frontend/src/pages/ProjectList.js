@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchProjects, createProject, deleteProject } from '../services/mapService';
 import { isUserAdmin } from '../utils/permissions';
 import MonitoringDashboard from '../components/monitoring/MonitoringDashboard';
+import NotificationBell from '../components/NotificationBell';
 import '../assets/styles/ProjectList.css';
 
 const ProjectList = ({ onLogout }) => {
@@ -170,7 +171,10 @@ const ProjectList = ({ onLogout }) => {
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container>
           <Navbar.Brand>Construction Map Viewer</Navbar.Brand>
-          <Button variant="outline-light" onClick={onLogout}>Logout</Button>
+          <div className="d-flex align-items-center">
+            <NotificationBell />
+            <Button variant="outline-light" onClick={onLogout} className="ms-3">Logout</Button>
+          </div>
         </Container>
       </Navbar>
 
