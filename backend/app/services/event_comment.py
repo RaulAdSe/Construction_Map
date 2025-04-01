@@ -46,87 +46,119 @@ async def create_comment(
     metadata: Optional[Dict[str, Any]] = None
 ) -> EventComment:
     """Create a new comment for an event"""
-    # Get the event to validate and for linking
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
-        raise ValueError("Event not found")
-    
-    print(f"Creating comment for event {event_id} by user {user_id}, content: '{content}'")
-    
-    # Create the comment in database
-    db_comment = EventComment(
-        event_id=event_id,
-        user_id=user_id,
-        content=content,
-        comment_data=metadata
-    )
-    
-    # Handle image upload if provided
-    if image:
-        # Create uploads directory if it doesn't exist
-        upload_dir = os.path.join(settings.UPLOAD_FOLDER, "comments")
-        os.makedirs(upload_dir, exist_ok=True)
+    try:
+        # Get the event to validate and for linking
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise ValueError("Event not found")
         
-        # Generate unique filename
-        file_extension = os.path.splitext(image.filename)[1]
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        file_path = os.path.join(upload_dir, unique_filename)
+        print(f"Creating comment for event {event_id} by user {user_id}, content: '{content}'")
         
-        # Save the file
-        with open(file_path, "wb") as buffer:
-            content = await image.read()
-            buffer.write(content)
+        # Create the comment in database
+        db_comment = EventComment(
+            event_id=event_id,
+            user_id=user_id,
+            content=content,
+            comment_data=metadata
+        )
         
-        # Set image URL in database
-        relative_path = os.path.join("comments", unique_filename)
-        db_comment.image_url = relative_path
-    
-    # Save to database
-    db.add(db_comment)
-    db.commit()
-    db.refresh(db_comment)
-    
-    # Create link to the event with comment
-    link = f"/project/{event.project_id}?event={event_id}&comment={db_comment.id}"
-    print(f"Generated notification link: {link}")
-    
-    # Notify event creator about the new comment
-    print(f"Notifying event creator (id: {event.created_by_user_id}) about new comment")
-    NotificationService.notify_comment(
-        db, 
-        event_id, 
-        db_comment.id, 
-        user_id, 
-        event.created_by_user_id,
-        link
-    )
-    
-    # Process mentions in comment
-    print(f"Processing mentions in comment: '{content}'")
-    mention_notifications = NotificationService.notify_mentions(
-        db, 
-        content, 
-        user_id, 
-        event_id=event_id, 
-        comment_id=db_comment.id,
-        link=link
-    )
-    print(f"Created {len(mention_notifications)} mention notifications")
-    
-    # Notify admins about new comment
-    user = db.query(User).filter(User.id == user_id).first()
-    user_name = user.username if user else "Someone"
-    
-    NotificationService.notify_admins(
-        db, 
-        f"commented on event", 
-        user_id, 
-        event_id=event_id, 
-        comment_id=db_comment.id,
-        link=link
-    )
-    
-    return db_comment
+        # Handle image upload if provided
+        if image:
+            try:
+                print(f"Processing image upload: {image.filename}")
+                
+                # Create uploads directory if it doesn't exist
+                upload_dir = os.path.join(settings.UPLOAD_FOLDER, "comments")
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # Generate unique filename
+                file_extension = os.path.splitext(image.filename)[1]
+                unique_filename = f"{uuid.uuid4()}{file_extension}"
+                file_path = os.path.join(upload_dir, unique_filename)
+                
+                print(f"Saving file to: {file_path}")
+                
+                # Save the file
+                with open(file_path, "wb") as buffer:
+                    content = await image.read()
+                    if not content:
+                        print("Warning: Image content is empty")
+                    buffer.write(content)
+                
+                # Set image URL in database
+                relative_path = f"comments/{unique_filename}"
+                db_comment.image_url = relative_path
+                print(f"Image saved, URL set to: {relative_path}")
+            except Exception as img_error:
+                print(f"Error processing image: {str(img_error)}")
+                # Continue without image if there's an error
+                # This ensures the comment gets created even if image upload fails
+        
+        # Save to database
+        db.add(db_comment)
+        db.commit()
+        db.refresh(db_comment)
+        
+        # Create link to the event with comment
+        link = f"/project/{event.project_id}?event={event_id}&comment={db_comment.id}"
+        print(f"Generated notification link: {link}")
+        
+        # Notify event creator about the new comment
+        print(f"Notifying event creator (id: {event.created_by_user_id}) about new comment")
+        try:
+            NotificationService.notify_comment(
+                db, 
+                event_id, 
+                db_comment.id, 
+                user_id, 
+                event.created_by_user_id,
+                link
+            )
+        except Exception as notif_error:
+            print(f"Error sending notification to event creator: {str(notif_error)}")
+            # Continue even if notification fails
+            
+        # Process mentions in comment
+        print(f"Processing mentions in comment: '{content}'")
+        try:
+            mention_notifications = NotificationService.notify_mentions(
+                db, 
+                content, 
+                user_id, 
+                event_id=event_id, 
+                comment_id=db_comment.id,
+                link=link
+            )
+            print(f"Created {len(mention_notifications)} mention notifications")
+        except Exception as mention_error:
+            print(f"Error processing mentions: {str(mention_error)}")
+            # Continue even if mention processing fails
+        
+        # Notify admins about new comment
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            user_name = user.username if user else "Someone"
+            
+            NotificationService.notify_admins(
+                db, 
+                f"commented on event", 
+                user_id, 
+                event_id=event_id, 
+                comment_id=db_comment.id,
+                link=link
+            )
+        except Exception as admin_notif_error:
+            print(f"Error notifying admins: {str(admin_notif_error)}")
+            # Continue even if admin notification fails
+        
+        return db_comment
+    except Exception as e:
+        # Log the full error details for debugging
+        import traceback
+        print(f"Error creating comment: {str(e)}")
+        print(traceback.format_exc())
+        # Re-raise the exception to be caught by the endpoint
+        raise
 
 
 def update_comment(

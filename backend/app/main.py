@@ -36,9 +36,13 @@ if not os.path.exists(uploads_dir):
     os.makedirs(uploads_dir)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
-# Serve static files for uploads, events and comments
-app.mount("/events", StaticFiles(directory="uploads/events"), name="events")
-app.mount("/comments", StaticFiles(directory="uploads/comments"), name="comments")
+# Ensure event and comment upload directories exist
+events_dir = os.path.join(uploads_dir, "events")
+comments_dir = os.path.join(uploads_dir, "comments")
+if not os.path.exists(events_dir):
+    os.makedirs(events_dir)
+if not os.path.exists(comments_dir):
+    os.makedirs(comments_dir)
 
 @app.get("/")
 def read_root():
