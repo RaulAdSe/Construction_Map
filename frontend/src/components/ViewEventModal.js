@@ -22,7 +22,7 @@ const ViewEventModal = ({
   const [currentType, setCurrentType] = useState('');
   const [activeTab, setActiveTab] = useState('details');
   
-  // Create a memoized handler to prevent recreation on each render
+  // Create a simpler handler that directly calls the provided onHide function
   const handleClose = useCallback(() => {
     if (typeof onHide === 'function') {
       onHide();
@@ -41,7 +41,7 @@ const ViewEventModal = ({
     }
   }, [event, highlightCommentId]);
 
-  // Add an effect to manage keyboard escape
+  // Add an effect to handle keyboard escape
   useEffect(() => {
     const handleEscapeKey = (e) => {
       if (e.key === 'Escape' && show) {
@@ -49,10 +49,12 @@ const ViewEventModal = ({
       }
     };
 
-    document.addEventListener('keydown', handleEscapeKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscapeKey);
-    };
+    if (show) {
+      document.addEventListener('keydown', handleEscapeKey);
+      return () => {
+        document.removeEventListener('keydown', handleEscapeKey);
+      };
+    }
   }, [show, handleClose]);
 
   if (!event) return null;
@@ -367,7 +369,7 @@ const ViewEventModal = ({
         <Button 
           variant="secondary" 
           onClick={handleClose}
-          data-testid="close-event-modal-btn"
+          className="close-event-btn"
         >
           Close
         </Button>

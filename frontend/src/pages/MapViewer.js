@@ -526,13 +526,18 @@ const MapViewer = ({ onLogout }) => {
   
   // Define a clean handler for closing the event modal
   const handleCloseViewEventModal = () => {
-    // Close the modal
+    // Reset highlight and close modal immediately
+    setHighlightCommentId(null);
     setShowViewEventModal(false);
     
-    // Reset the comment highlight only after the modal is closed
-    setTimeout(() => {
-      setHighlightCommentId(null);
-    }, 100);
+    // If we were navigated here from a notification, clear location state
+    if (location.state?.highlightEventId) {
+      try {
+        window.history.replaceState({}, document.title);
+      } catch (error) {
+        console.error('Failed to clear history state:', error);
+      }
+    }
   };
   
   if (loading) {

@@ -16,8 +16,10 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   
   // Reference to highlighted comment
   const highlightedCommentRef = useRef(null);
-  // Flag to track if we've already scrolled
+  // Flag to track if we've already scrolled - memoize to component instance
   const hasScrolledRef = useRef(false);
+  // Store previous highlight ID to detect changes
+  const prevHighlightIdRef = useRef(null);
 
   // Load comments
   const fetchComments = async () => {
@@ -38,18 +40,38 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     if (eventId) {
       fetchComments();
     }
+    
     // Reset scroll flag when eventId changes
     hasScrolledRef.current = false;
+    prevHighlightIdRef.current = null;
+    
+    // Cleanup function
+    return () => {
+      hasScrolledRef.current = false;
+      prevHighlightIdRef.current = null;
+    };
   }, [eventId]);
   
-  // Scroll to highlighted comment if specified
+  // Scroll to highlighted comment if specified - with improved handling
   useEffect(() => {
-    // Only scroll if we haven't scrolled yet for this comment
-    if (highlightCommentId && !loading && comments.length > 0 && !hasScrolledRef.current) {
-      // Set flag immediately to prevent multiple scroll attempts
+    // Only attempt to scroll if:
+    // 1. We have a highlightCommentId
+    // 2. Comments are loaded (not loading)
+    // 3. We have comments to display
+    // 4. Either we haven't scrolled yet OR the highlightCommentId has changed
+    const shouldScroll = 
+      highlightCommentId && 
+      !loading && 
+      comments.length > 0 && 
+      (!hasScrolledRef.current || prevHighlightIdRef.current !== highlightCommentId);
+    
+    if (shouldScroll) {
+      // Update our refs to track that we've handled this highlight
       hasScrolledRef.current = true;
+      prevHighlightIdRef.current = highlightCommentId;
       
-      setTimeout(() => {
+      // Use a single setTimeout to avoid multiple queued scrolls
+      const timer = setTimeout(() => {
         if (highlightedCommentRef.current) {
           try {
             highlightedCommentRef.current.scrollIntoView({ 
@@ -61,6 +83,8 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
           }
         }
       }, 300); // Small delay to ensure the component has properly rendered
+      
+      return () => clearTimeout(timer);
     }
   }, [highlightCommentId, comments, loading]);
 
@@ -119,6 +143,81 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Improve the comment card rendering to use a function that memoizes the ref setup
+  const renderCommentCard = (comment) => {
+    const isHighlighted = highlightCommentId && parseInt(highlightCommentId, 10) === comment.id;
+    
+    return (
+      <Card 
+        key={comment.id} 
+        className={`mb-3 ${isHighlighted ? 'highlighted-comment' : ''}`}
+        style={{
+          borderLeft: isHighlighted ? '4px solid #0d6efd' : 'none',
+          boxShadow: isHighlighted ? '0 0 10px rgba(13, 110, 253, 0.3)' : 'none',
+          transition: 'box-shadow 0.3s ease'
+        }}
+        ref={isHighlighted ? highlightedCommentRef : null}
+      >
+        <Card.Body>
+          <div className="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <h6 className="mb-0">{comment.username}</h6>
+              <small className="text-muted">
+                {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
+                {comment.updated_at && comment.updated_at !== comment.created_at && (
+                  <span> (edited)</span>
+                )}
+              </small>
+            </div>
+          </div>
+          
+          <p className="mb-2">{parseAndHighlightMentions(comment.content)}</p>
+          
+          {comment.image_url && (
+            <div className="comment-image mt-2">
+              <a 
+                href={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  if (!comment.image_url.startsWith('http')) {
+                    e.preventDefault();
+                    
+                    // Get just the filename without path
+                    const imageFilename = comment.image_url.split('/').pop();
+                    
+                    // Use comments path for comment images
+                    const imageUrl = `http://localhost:8000/comments/${imageFilename}`;
+                    window.open(imageUrl, '_blank');
+                  }
+                }}
+              >
+                <Image 
+                  src={comment.image_url.startsWith('http') 
+                    ? comment.image_url 
+                    : (() => {
+                        // Get just the filename without path
+                        const imageFilename = comment.image_url.split('/').pop();
+                        // Use comments path for comment images
+                        return `http://localhost:8000/comments/${imageFilename}`;
+                      })()
+                  } 
+                  alt="Comment attachment" 
+                  thumbnail 
+                  className="comment-image-thumbnail"
+                  style={{ maxWidth: '100%', maxHeight: '200px' }}
+                />
+                <div className="mt-1">
+                  <small className="text-muted">Click to view full size</small>
+                </div>
+              </a>
+            </div>
+          )}
+        </Card.Body>
+      </Card>
+    );
   };
 
   return (
@@ -208,79 +307,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
         <p className="text-center text-muted">No comments yet. Be the first to comment!</p>
       ) : (
         <div className="comments-list">
-          {comments.map((comment) => (
-            <Card 
-              key={comment.id} 
-              className={`mb-3 ${highlightCommentId && parseInt(highlightCommentId, 10) === comment.id ? 'highlighted-comment' : ''}`}
-              style={{
-                borderLeft: highlightCommentId && parseInt(highlightCommentId, 10) === comment.id 
-                  ? '4px solid #0d6efd' 
-                  : 'none',
-                boxShadow: highlightCommentId && parseInt(highlightCommentId, 10) === comment.id 
-                  ? '0 0 10px rgba(13, 110, 253, 0.3)' 
-                  : 'none',
-                transition: 'box-shadow 0.3s ease'
-              }}
-              ref={highlightCommentId && parseInt(highlightCommentId, 10) === comment.id ? highlightedCommentRef : null}
-            >
-              <Card.Body>
-                <div className="d-flex justify-content-between align-items-start mb-2">
-                  <div>
-                    <h6 className="mb-0">{comment.username}</h6>
-                    <small className="text-muted">
-                      {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                      {comment.updated_at && comment.updated_at !== comment.created_at && (
-                        <span> (edited)</span>
-                      )}
-                    </small>
-                  </div>
-                </div>
-                
-                <p className="mb-2">{parseAndHighlightMentions(comment.content)}</p>
-                
-                {comment.image_url && (
-                  <div className="comment-image mt-2">
-                    <a 
-                      href={comment.image_url.startsWith('http') ? comment.image_url : `http://localhost:8000${comment.image_url}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                        if (!comment.image_url.startsWith('http')) {
-                          e.preventDefault();
-                          
-                          // Get just the filename without path
-                          const imageFilename = comment.image_url.split('/').pop();
-                          
-                          // Use comments path for comment images
-                          const imageUrl = `http://localhost:8000/comments/${imageFilename}`;
-                          window.open(imageUrl, '_blank');
-                        }
-                      }}
-                    >
-                      <Image 
-                        src={comment.image_url.startsWith('http') 
-                          ? comment.image_url 
-                          : (() => {
-                              // Get just the filename without path
-                              const imageFilename = comment.image_url.split('/').pop();
-                              // Use comments path for comment images
-                              return `http://localhost:8000/comments/${imageFilename}`;
-                            })()
-                        } 
-                        alt="Comment attachment" 
-                        thumbnail 
-                        className="comment-image-thumbnail"
-                        style={{ maxWidth: '100%', maxHeight: '200px' }}
-                      />
-                      <div className="mt-1">
-                        <small className="text-muted">Click to view full size</small>
-                      </div>
-                    </a>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          ))}
+          {comments.map(renderCommentCard)}
         </div>
       )}
     </div>

@@ -233,12 +233,28 @@ const NotificationBell = () => {
       >
         <Bell size={24} color="#fff" />
         {unreadCount > 0 && (
-          <Badge 
-            bg="danger" 
+          <div
             className="notification-badge"
+            style={{
+              position: 'absolute',
+              bottom: '-5px',
+              right: '-5px',
+              borderRadius: '50%',
+              minWidth: '18px',
+              height: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              fontSize: '0.7rem',
+              fontWeight: 'bold',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              boxShadow: '0 0 0 2px #fff'
+            }}
           >
             {unreadCount}
-          </Badge>
+          </div>
         )}
       </div>
 
