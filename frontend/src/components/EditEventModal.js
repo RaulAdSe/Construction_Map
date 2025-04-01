@@ -6,6 +6,7 @@ import axios from 'axios';
 import { projectService } from '../services/api';
 import { API_URL } from '../config';
 import apiClient from '../services/api';
+import translate from '../utils/translate';
 
 const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER", projectId }) => {
   const [title, setTitle] = useState('');
@@ -138,7 +139,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     
     // Check if a non-admin is trying to close an event
     if (status === 'closed' && !canCloseEvent && event.status !== 'closed') {
-      setError('Only ADMIN users can close events.');
+      setError(translate('Only ADMIN users can close events.'));
       setStatus(event.status); // Revert to original status
       setLoading(false);
       return;
@@ -160,10 +161,10 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
       
       // Check for permission denied error
       if (err.response && err.response.status === 403) {
-        setError('Permission denied: Only ADMIN users can close events.');
+        setError(translate('Permission denied: Only ADMIN users can close events.'));
         setStatus(event.status); // Revert to original status
       } else {
-        setError('Failed to update event. Please try again.');
+        setError(translate('Failed to update event. Please try again.'));
       }
     } finally {
       setLoading(false);
@@ -184,7 +185,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     >
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
-          <Modal.Title>Edit Event</Modal.Title>
+          <Modal.Title>{translate('Edit Event')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {error && (
@@ -196,7 +197,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
           <Row>
             <Col md={event.image_url ? 8 : 12}>
               <Form.Group className="mb-3">
-                <Form.Label>Title</Form.Label>
+                <Form.Label>{translate('Title')}</Form.Label>
                 <Form.Control
                   type="text"
                   value={title}
@@ -206,11 +207,11 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
               </Form.Group>
               
               <Form.Group className="mb-3">
-                <Form.Label>Description</Form.Label>
+                <Form.Label>{translate('Description')}</Form.Label>
                 <MentionInput
                   value={description}
                   onChange={setDescription}
-                  placeholder="Enter event description (use @ to mention users)"
+                  placeholder={translate('Enter event description (use @ to mention users)')}
                   rows={3}
                   projectId={projectId}
                   id="edit-event-description"
@@ -220,42 +221,42 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Status</Form.Label>
+                    <Form.Label>{translate('Status')}</Form.Label>
                     <Form.Select
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
                     >
-                      <option value="open">Open</option>
-                      <option value="in-progress">In Progress</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="closed" disabled={!canCloseEvent}>Closed {!canCloseEvent && '(Admin Only)'}</option>
+                      <option value="open">{translate('Open')}</option>
+                      <option value="in-progress">{translate('In Progress')}</option>
+                      <option value="resolved">{translate('Resolved')}</option>
+                      <option value="closed" disabled={!canCloseEvent}>{translate('Closed')} {!canCloseEvent && translate('(Admin Only)')}</option>
                     </Form.Select>
                     {!canCloseEvent && (
                       <Form.Text className="text-muted">
-                        Only ADMIN users can close events
+                        {translate('Only ADMIN users can close events')}
                       </Form.Text>
                     )}
                   </Form.Group>
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Type</Form.Label>
+                    <Form.Label>{translate('Type')}</Form.Label>
                     <Form.Select
                       value={type}
                       onChange={(e) => setType(e.target.value)}
                     >
-                      <option value="periodic check">Periodic Check</option>
-                      <option value="incidence">Incidence</option>
+                      <option value="periodic check">{translate('Periodic Check')}</option>
+                      <option value="incidence">{translate('Incidence')}</option>
                     </Form.Select>
                     <Form.Text className="text-muted">
-                      Type defines the purpose and appearance of the event marker
+                      {translate('Type defines the purpose and appearance of the event marker')}
                     </Form.Text>
                   </Form.Group>
                 </Col>
               </Row>
               
               <Form.Group className="mb-3">
-                <Form.Label>Tags</Form.Label>
+                <Form.Label>{translate('Tags')}</Form.Label>
                 <div className="selected-tags mb-2">
                   {selectedTags.map(tag => (
                     <Badge 
@@ -275,7 +276,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
                     value={tagInput}
                     onChange={handleTagInputChange}
                     onKeyPress={handleTagKeyPress}
-                    placeholder="Add tags (press Enter or comma to add)"
+                    placeholder={translate('Add tags (press Enter or comma to add)')}
                     autoComplete="off"
                   />
                   {showTagSuggestions && (
@@ -304,22 +305,22 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
                         ))
                       ) : (
                         <ListGroup.Item className="py-2 text-muted">
-                          No matching tags found
+                          {translate('No matching tags found')}
                         </ListGroup.Item>
                       )}
                     </ListGroup>
                   )}
                 </div>
                 <Form.Text className="text-muted">
-                  Type to see suggestions from existing tags or create your own
+                  {translate('Type to see suggestions from existing tags or create your own')}
                 </Form.Text>
               </Form.Group>
               
               <Form.Group className="mb-3">
-                <Form.Label>Created By</Form.Label>
+                <Form.Label>{translate('Created By')}</Form.Label>
                 <Form.Control
                   type="text"
-                  value={event.created_by_user_name || `User ID: ${event.created_by_user_id}`}
+                  value={event.created_by_user_name || `${translate('User ID')}: ${event.created_by_user_id}`}
                   disabled
                 />
               </Form.Group>
@@ -328,8 +329,8 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
             {event.image_url && (
               <Col md={4}>
                 <div className="event-image-container">
-                  <h6 className="mb-2">Attached Image</h6>
-                  <p className="text-muted small">Images cannot be changed after creation</p>
+                  <h6 className="mb-2">{translate('Attached Image')}</h6>
+                  <p className="text-muted small">{translate('Images cannot be changed after creation')}</p>
                   <Image 
                     src={event.image_url} 
                     alt={event.title} 
@@ -343,14 +344,14 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={onHide} disabled={loading}>
-            Cancel
+            {translate('Cancel')}
           </Button>
           <Button 
             variant="primary" 
             type="submit"
             disabled={loading}
           >
-            {loading ? 'Saving...' : 'Save Changes'}
+            {loading ? translate('Saving...') : translate('Save Changes')}
           </Button>
         </Modal.Footer>
       </Form>

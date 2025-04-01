@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Spinner, Alert, Form, ListGroup } from 'react-bootstrap';
 import EventMarker from './EventMarker';
-import translate from '../utils/translate';
 
 const DEBUG = false; // Set to true only when debugging is needed
 
@@ -14,18 +13,6 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
   const [viewportScale, setViewportScale] = useState(1);
-  
-  // Map opacities for overlay maps
-  const [mapOpacities, setMapOpacities] = useState(() => {
-    // Initialize with default opacity of 0.5
-    const opacities = {};
-    allMaps.forEach(m => {
-      if (m.map_type === 'overlay') {
-        opacities[m.id] = 0.5;
-      }
-    });
-    return opacities;
-  });
   
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
@@ -51,39 +38,46 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         return prev;
       });
     }
-  }, [implantationMap?.id]);
+  }, [implantationMap?.id]); // Only rerun when the ID changes, not the whole object
   
-  // Notify parent component about visible maps changes
-  useEffect(() => {
-    if (onVisibleMapsChanged) {
-      onVisibleMapsChanged(visibleMaps);
+  // Calculate viewport scaling and content positioning
+  const updateViewportScaling = () => {
+    if (!mapContainerRef.current || !mapContentRef.current) return;
+    
+    const container = mapContainerRef.current;
+    
+    // Get container dimensions
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    
+    // Use initial content dimensions if available, otherwise get from current content
+    let contentWidth, contentHeight;
+    if (initialContentSize.current) {
+      contentWidth = initialContentSize.current.width;
+      contentHeight = initialContentSize.current.height;
+    } else {
+      const contentRect = mapContentRef.current.getBoundingClientRect();
+      contentWidth = contentRect.width || 1200;
+      contentHeight = contentRect.height || 900;
     }
     
-    // Save visible maps to localStorage
-    try {
-      localStorage.setItem(`map_overlays_${projectId}`, JSON.stringify(visibleMaps));
-    } catch (error) {
-      console.error('Error saving map visibility settings:', error);
+    // Calculate scale factors for width and height
+    const scaleX = containerWidth / contentWidth;
+    const scaleY = containerHeight / contentHeight;
+    
+    // Choose the smaller scale to ensure the content fits entirely
+    // within the container while maintaining aspect ratio
+    const newScale = Math.min(scaleX, scaleY) * 0.9425; // 0.9425 to leave slight margins
+    
+    setContainerSize({ width: containerWidth, height: containerHeight });
+    setContentSize({ width: contentWidth, height: contentHeight });
+    setViewportScale(newScale);
+    
+    // Only log when debugging
+    if (DEBUG) {
+      console.log(`Container: ${containerWidth}×${containerHeight}, Content: ${contentWidth}×${contentHeight}, Scale: ${newScale.toFixed(3)}`);
     }
-  }, [visibleMaps, projectId, onVisibleMapsChanged]);
-  
-  // Toggle map visibility
-  const toggleMapVisibility = (mapId) => {
-    setVisibleMaps(prevVisible => {
-      if (prevVisible.includes(mapId)) {
-        return prevVisible.filter(id => id !== mapId);
-      } else {
-        return [...prevVisible, mapId];
-      }
-    });
-  };
-  
-  // Handle opacity change for overlay maps
-  const handleOpacityChange = (mapId, opacityPercent) => {
-    setMapOpacities(prev => ({
-      ...prev,
-      [mapId]: opacityPercent / 100
-    }));
   };
   
   // Initialize and update viewport scaling on mount and resize
@@ -142,202 +136,411 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     }
   }, [localStorageKey, implantationMap]);
   
-  // Calculate and set the viewport scaling factor
-  const updateViewportScaling = () => {
-    if (mapContainerRef.current && mapContentRef.current) {
-      const containerRect = mapContainerRef.current.getBoundingClientRect();
-      const containerWidth = containerRect.width;
-      const containerHeight = containerRect.height;
-      
-      // Get natural dimensions of the image (before any scaling)
-      const contentWidth = mapContentRef.current.naturalWidth;
-      const contentHeight = mapContentRef.current.naturalHeight;
-      
-      // Store the content size for future reference
-      if (!initialContentSize.current && contentWidth && contentHeight) {
-        initialContentSize.current = { width: contentWidth, height: contentHeight };
-      }
-      
-      // Update state with current sizes
-      setContainerSize({ width: containerWidth, height: containerHeight });
-      setContentSize({ width: contentWidth, height: contentHeight });
-      
-      // Calculate the scale factor to fit the image in the container
-      if (contentWidth && contentHeight) {
-        const widthRatio = containerWidth / contentWidth;
-        const heightRatio = containerHeight / contentHeight;
-        
-        // Use the smaller ratio to ensure the image fits within the container
-        const scale = Math.min(widthRatio, heightRatio, 1); // Cap at 1 to prevent enlarging
-        
-        setViewportScale(scale);
+  // Initialize default settings for main map when it changes
+  useEffect(() => {
+    // Reset loading state when map changes
+    if (map) {
+      setImageLoaded(false);
+      setLoadError(false);
+    }
+    
+    // Always ensure main map is visible
+    if (implantationMap) {
+      setVisibleMaps(prev => {
+        if (!prev.includes(implantationMap.id)) {
+          return [...prev, implantationMap.id];
+        }
+        return prev;
+      });
+    }
+  }, [map, implantationMap]);
+  
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    if (implantationMap && visibleMaps.length > 0) {
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(visibleMaps));
+      } catch (error) {
+        console.error('Error saving map settings:', error);
       }
     }
-  };
+  }, [visibleMaps, implantationMap, localStorageKey]);
   
-  // Handle image loading
-  const handleImageLoad = () => {
+  // Handle click events for adding new events
+  useEffect(() => {
+    if (isSelectingLocation && mapContainerRef.current) {
+      const container = mapContainerRef.current;
+      
+      const handleClick = (e) => {
+        // Get the content element's bounding rect
+        const contentRect = mapContentRef.current.getBoundingClientRect();
+        
+        // Get click coordinates relative to the container
+        const containerRect = container.getBoundingClientRect();
+        const containerX = e.clientX - containerRect.left;
+        const containerY = e.clientY - containerRect.top;
+        
+        // Convert container coordinates to content coordinates
+        const contentX = (containerX - (containerRect.width - contentRect.width * viewportScale) / 2) / viewportScale;
+        const contentY = (containerY - (containerRect.height - contentRect.height * viewportScale) / 2) / viewportScale;
+        
+        // Calculate percentage coordinates relative to the content
+        const xPercent = (contentX / contentRect.width) * 100;
+        const yPercent = (contentY / contentRect.height) * 100;
+        
+        // Create modified map object with the current visibleMaps
+        const mapWithVisibleLayers = {
+          ...map,
+          visibleMaps: visibleMaps
+        };
+        
+        onMapClick(mapWithVisibleLayers, xPercent, yPercent);
+      };
+      
+      container.style.cursor = 'crosshair';
+      container.addEventListener('click', handleClick);
+      
+      return () => {
+        container.style.cursor = 'default';
+        container.removeEventListener('click', handleClick);
+      };
+    }
+  }, [isSelectingLocation, map, onMapClick, visibleMaps, viewportScale]);
+  
+  const handleImageLoad = (e) => {
     setImageLoaded(true);
-    setLoadError(false);
-    updateViewportScaling(); // Recalculate scaling once image is loaded
-  };
-  
-  // Handle image loading error
-  const handleImageError = () => {
-    setImageLoaded(false);
-    setLoadError(true);
-    console.error(`Failed to load map image for map ID: ${implantationMap?.id}`);
-  };
-  
-  // Convert event coordinates to viewport coordinates
-  const getEventPosition = (event) => {
-    if (!event || !event.position_x || !event.position_y) return null;
-    
-    // If we don't have the content size yet, we can't calculate the position
-    if (!contentSize.width || !contentSize.height) return null;
-    
-    // Calculate position based on the percentage of the original image
-    const xPos = (event.position_x / 100) * contentSize.width * viewportScale;
-    const yPos = (event.position_y / 100) * contentSize.height * viewportScale;
-    
-    return { x: xPos, y: yPos };
-  };
-  
-  // Handle map click for adding events
-  const handleMapClick = (e) => {
-    if (!isSelectingLocation || !onMapClick) return;
-    
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    
-    // Convert click position to percentage of the image
-    const xPercent = (clickX / (contentSize.width * viewportScale)) * 100;
-    const yPercent = (clickY / (contentSize.height * viewportScale)) * 100;
-    
-    // Clamp values to ensure they're between 0-100
-    const clampedX = Math.max(0, Math.min(100, xPercent));
-    const clampedY = Math.max(0, Math.min(100, yPercent));
-    
-    onMapClick({ x: clampedX, y: clampedY });
-  };
-  
-  // Filter events to only those associated with the currently visible maps
-  const visibleEvents = useMemo(() => {
-    const filteredEvents = events?.filter(event => visibleMaps.includes(event.map_id)) || [];
     if (DEBUG) {
-      console.log(`Filtered ${filteredEvents.length} events for visible maps`, visibleMaps);
+      console.log("Map image loaded, events should now be visible");
     }
-    return filteredEvents;
-  }, [events, visibleMaps]);
+    
+    // Store initial content size if not already set
+    if (!initialContentSize.current && mapContentRef.current) {
+      const contentRect = mapContentRef.current.getBoundingClientRect();
+      initialContentSize.current = {
+        width: contentRect.width || 1200,
+        height: (contentRect.height || 900) * 0.9425 // Apply height adjustment only once
+      };
+    }
+    
+    // Trigger viewport scaling calculation after image is loaded
+    setTimeout(updateViewportScaling, 100);
+  };
   
-  // If there's no map at all, show a message
-  if (!implantationMap) {
-    return (
-      <div className="map-empty-state">
-        <Alert variant="info">
-          {translate('No map selected. Please select a map from the Project Maps tab or add a new one.')}
-        </Alert>
-      </div>
-    );
-  }
+  const handleImageError = () => {
+    setLoadError(true);
+    setImageLoaded(true); // Still set loaded to remove spinner
+  };
   
-  // Show loader while the map is loading
-  if (!imageLoaded && !loadError) {
-    return (
-      <div className="map-loading">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">{translate('Loading...')}</span>
-        </Spinner>
-      </div>
-    );
-  }
+  // Filter events to show only ones visible on currently shown maps
+  const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
-  // Show error if image failed to load
-  if (loadError) {
+  // ALWAYS include events from the main map, plus any events from visible overlay maps
+  // BUT exclude events with 'closed' status
+  const visibleEvents = useMemo(() => {
+    return events.filter(event => {
+      if (!event || !event.map_id) return false;
+      
+      // Skip closed events regardless of map
+      if (event.status === 'closed') return false;
+      
+      // Always show events from the main map, regardless of visibility state
+      if (event.map_id === implantationMap?.id) {
+        return true;
+      }
+      
+      // For overlay maps, only show events if that map is toggled on
+      return visibleMaps.includes(event.map_id);
+    });
+  }, [events, implantationMap, visibleMaps]);
+  
+  // Force imageLoaded to true after a timeout to ensure events display even if load events don't fire
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!imageLoaded) {
+        if (DEBUG) {
+          console.log("Forcing imageLoaded=true after timeout");
+        }
+        setImageLoaded(true);
+      }
+    }, 2000); // 2 second timeout
+    
+    return () => clearTimeout(timer);
+  }, [imageLoaded]);
+  
+  // Ensure event markers are always visible, regardless of map loading state
+  useEffect(() => {
+    // Log event visibility state only when debugging
+    if (DEBUG && visibleEvents && visibleEvents.length > 0 && !imageLoaded) {
+      console.log("Events ready but map not loaded yet");
+    }
+  }, [visibleEvents, imageLoaded]);
+  
+  const handleEventClick = (event, e) => {
+    // Stop propagation to prevent map click handler from firing
+    e.stopPropagation();
+    if (onEventClick) {
+      onEventClick(event);
+    }
+  };
+  
+  const toggleMapVisibility = (mapId) => {
+    setVisibleMaps(prevMaps => {
+      // Don't allow toggling off the main map
+      if (mapId === implantationMap?.id) {
+        return prevMaps;
+      }
+      
+      if (prevMaps.includes(mapId)) {
+        return prevMaps.filter(id => id !== mapId);
+      } else {
+        return [...prevMaps, mapId];
+      }
+    });
+  };
+  
+  // Store map opacity settings
+  const [mapOpacities, setMapOpacities] = useState(() => {
+    // Default opacities: 100% for main map, 50% for overlays
+    const defaultOpacities = {};
+    if (implantationMap) {
+      defaultOpacities[implantationMap.id] = 1.0;
+    }
+    overlayMaps.forEach(map => {
+      defaultOpacities[map.id] = 0.5;
+    });
+    return defaultOpacities;
+  });
+  
+  // Handle opacity change for a map
+  const handleOpacityChange = (mapId, opacity) => {
+    setMapOpacities(prev => ({
+      ...prev,
+      [mapId]: opacity / 100
+    }));
+  };
+  
+  // Function to render a single map layer
+  const renderMapLayer = (currentMap, zIndex, isOverlay = false) => {
+    if (!currentMap || !currentMap.content_url) {
+      return null;
+    }
+    
+    const url = currentMap.content_url;
+    const fileExt = url.split('.').pop().toLowerCase();
+    const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
+    
+    const layerStyle = {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      opacity: opacity,
+      zIndex: zIndex,
+      pointerEvents: 'none', // Let clicks pass through to the base container
+    };
+    
+    if (fileExt === 'pdf') {
+      // For PDFs, use an iframe with direct embed and hide UI controls
+      return (
+        <div key={currentMap.id} style={layerStyle} className="pdf-container">
+          <iframe 
+            src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
+            title={currentMap.name}
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              border: 'none',
+              backgroundColor: 'transparent'
+            }}
+            frameBorder="0"
+            onLoad={(e) => handleImageLoad(e)}
+            onError={() => handleImageError()}
+            className="consistent-pdf-view"
+          />
+        </div>
+      );
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(fileExt)) {
+      // For images, contain them in their container with consistent scaling
+      return (
+        <div key={currentMap.id} style={layerStyle} className="map-image-container">
+          <img 
+            src={url} 
+            alt={currentMap.name} 
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'contain'
+            }}
+            onLoad={(e) => handleImageLoad(e)}
+            onError={() => handleImageError()}
+            className="consistent-map-image"
+          />
+        </div>
+      );
+    } else {
+      return (
+        <div key={currentMap.id} style={layerStyle}>
+          <iframe 
+            src={url} 
+            className="map-iframe-container consistent-iframe-view"
+            title={currentMap.name}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            onLoad={(e) => handleImageLoad(e)}
+            onError={() => handleImageError()}
+          />
+        </div>
+      );
+    }
+  };
+  
+  // Function to render map content with layers
+  const renderMapContent = () => {
+    if (!implantationMap || !implantationMap.content_url) {
+      return <div className="no-content">No content available</div>;
+    }
+    
+    // Get all maps that should be visible
+    const overlayMapObjects = overlayMaps.filter(m => visibleMaps.includes(m.id));
+    
+    // Calculate the content container style with centered positioning
+    const contentStyle = {
+      position: 'absolute',
+      width: contentSize.width,
+      height: initialContentSize.current ? initialContentSize.current.height : contentSize.height,
+      transform: `scale(${viewportScale})`,
+      transformOrigin: 'center center',
+      top: '50%',
+      left: '50%',
+      marginLeft: -(contentSize.width / 2),
+      marginTop: -(initialContentSize.current ? initialContentSize.current.height / 2 : contentSize.height / 2)
+    };
+    
     return (
-      <div className="map-error">
-        <Alert variant="danger">
-          {translate('Failed to load map image. Please try refreshing the page.')}
-        </Alert>
-      </div>
+      <>
+        {!imageLoaded && (
+          <div className="map-loading-container">
+            <Spinner animation="border" />
+            <p>Loading map content...</p>
+          </div>
+        )}
+        
+        <div 
+          ref={mapContentRef}
+          className="map-content-container" 
+          style={contentStyle}
+        >
+          {/* Always render main map first */}
+          {renderMapLayer(implantationMap, 10)}
+          
+          {/* Then render overlay maps */}
+          {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
+          
+          {/* Render event markers within the content container */}
+          <div className="event-markers-container">
+            {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
+              <EventMarker 
+                key={event.id} 
+                event={event} 
+                onClick={(e) => handleEventClick(event, e)}
+                scale={1} // No need to adjust scale as we're in the content coordinate system
+              />
+            ))}
+          </div>
+        </div>
+      </>
     );
-  }
+  };
+  
+  // Add a useEffect to notify parent component when visibleMaps changes
+  useEffect(() => {
+    // Only notify parent if callback is provided
+    if (onVisibleMapsChanged) {
+      // Create an object with map IDs and their opacity settings
+      const mapSettings = {};
+      visibleMaps.forEach(id => {
+        mapSettings[id] = {
+          opacity: mapOpacities[id] || (id === implantationMap?.id ? 1.0 : 0.5)
+        };
+      });
+      
+      onVisibleMapsChanged(visibleMaps, mapSettings);
+    }
+    
+    // Log only when debugging is enabled
+    if (DEBUG) {
+      console.log("Visible maps changed:", visibleMaps);
+      console.log("Current visible events:", visibleEvents.length);
+    }
+  }, [visibleMaps, mapOpacities, onVisibleMapsChanged, implantationMap]); // Remove visibleEvents.length from dependencies
+  
+  // Console log on mount to debug events visibility
+  useEffect(() => {
+    if (DEBUG) {
+      console.log("MapDetail mounted with events:", events.length);
+      console.log("Visible maps:", visibleMaps);
+      console.log("Visible events:", visibleEvents.length);
+    }
+  }, []); // Empty dependency array means this runs only on mount
   
   return (
     <div className="map-detail-container">
-      <div className="map-viewport" ref={mapContainerRef} onClick={handleMapClick}>
-        <div className="map-content" style={{ transform: `scale(${viewportScale})` }}>
-          {/* Main map */}
-          <img
-            ref={mapContentRef}
-            src={implantationMap?.image_url}
-            alt={implantationMap?.name}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-            style={{ position: 'absolute', top: 0, left: 0 }}
-          />
-          
-          {/* Overlay maps */}
-          {overlayMaps.map(overlayMap => (
-            visibleMaps.includes(overlayMap.id) && (
-              <img
-                key={overlayMap.id}
-                src={overlayMap?.image_url}
-                alt={overlayMap?.name}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  opacity: mapOpacities[overlayMap.id] || 0.5,
-                  pointerEvents: 'none' // Allow clicks to pass through to the base map
-                }}
-              />
-            )
-          ))}
-          
-          {/* Event markers */}
-          {visibleEvents.map(event => {
-            const position = getEventPosition(event);
-            if (!position) return null;
-            
-            return (
-              <EventMarker
-                key={event.id}
-                event={event}
-                position={position}
-                onClick={() => onEventClick && onEventClick(event)}
-              />
-            );
-          })}
-          
-          {/* Location selection indicator if in selection mode */}
-          {isSelectingLocation && (
-            <div className="selection-indicator">
-              {translate('Click on the map to place your event.')}
+      <div 
+        ref={mapContainerRef}
+        className="map-container content-fit-view" 
+        data-map-id={map?.id}
+        data-scale={viewportScale.toFixed(3)}
+      >
+        {renderMapContent()}
+        
+        {loadError && (
+          <Alert variant="danger" className="map-error-overlay">
+            Failed to load map content. Please check the file and try again.
+          </Alert>
+        )}
+        
+        {isSelectingLocation && (
+          <div className="selecting-location-overlay">
+            <div className="selecting-location-message">
+              Click on the map to place your event
             </div>
-          )}
-        </div>
+          </div>
+        )}
+        
+        {/* Display event count badge */}
+        {events && events.length > 0 && (
+          <div className="event-count-badge">
+            {visibleEvents.length} of {events.length} {events.length === 1 ? 'Event' : 'Events'}
+          </div>
+        )}
       </div>
       
-      {/* Layer controls */}
-      <div className="map-layers">
-        <h6>{translate('Visible Layers')}</h6>
-        {overlayMaps.length > 0 ? (
+      {/* Map overlay controls */}
+      <div className="map-overlay-controls mt-3">
+        <h6>Map Layers</h6>
+        {implantationMap && (
           <ListGroup>
-            {implantationMap && (
-              <ListGroup.Item className="d-flex justify-content-between align-items-center">
-                <Form.Check
+            <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
+              <div>
+                <Form.Check 
                   type="checkbox"
-                  id={`map-toggle-main`}
-                  label={`${implantationMap.name} (${translate('Primary')})`}
-                  checked={visibleMaps.includes(implantationMap.id)}
-                  onChange={() => toggleMapVisibility(implantationMap.id)}
-                  disabled={true} // Main map should always be visible
+                  id={`map-toggle-${implantationMap.id}`}
+                  label={`${implantationMap.name} (Main)`}
+                  checked={true}
                   className="me-2"
+                  disabled={true} // Main map cannot be toggled off
                 />
-              </ListGroup.Item>
-            )}
+              </div>
+              {/* Add opacity slider for main map */}
+              <div style={{ width: '50%' }}>
+                <Form.Range 
+                  value={(mapOpacities[implantationMap.id] || 1.0) * 100}
+                  onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
+                  min="50"
+                  max="100"
+                />
+              </div>
+            </ListGroup.Item>
             
             {overlayMaps.map(overlayMap => (
               <ListGroup.Item 
@@ -368,14 +571,10 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               </ListGroup.Item>
             ))}
           </ListGroup>
-        ) : (
-          <Alert variant="info">
-            {translate('No overlay maps available.')}
-          </Alert>
         )}
         {!implantationMap && (
           <Alert variant="info">
-            {translate('No maps available for this project. Please add a map to get started.')}
+            No maps available for this project. Add a map to get started.
           </Alert>
         )}
       </div>

@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import api from '../api';
 import MentionInput from './MentionInput';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
+import translate from '../utils/translate';
 
 const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   const [comments, setComments] = useState([]);
@@ -28,7 +29,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       setError('');
     } catch (err) {
       console.error('Error fetching comments:', err);
-      setError('Failed to load comments');
+      setError(translate('Failed to load comments'));
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     }
 
     if (!file.type.match('image.*')) {
-      setError('Please select an image file');
+      setError(translate('Please select an image file'));
       return;
     }
 
@@ -68,7 +69,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     if (!content.trim() || !eventId) {
-      setError('Comment cannot be empty');
+      setError(translate('Comment cannot be empty'));
       return;
     }
 
@@ -97,7 +98,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       fetchComments();
     } catch (err) {
       console.error('Error submitting comment:', err);
-      setError('Failed to submit comment');
+      setError(translate('Failed to submit comment'));
     } finally {
       setSubmitting(false);
     }
@@ -127,7 +128,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
 
   return (
     <div className="event-comments">
-      <h5 className="mb-3">Comments {commentsLength > 0 && `(${commentsLength})`}</h5>
+      <h5 className="mb-3">{translate('Comments')} {commentsLength > 0 && `(${commentsLength})`}</h5>
       
       {/* Comment Form */}
       <Card className="mb-4">
@@ -136,11 +137,11 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
           
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
-              <Form.Label>Add a Comment</Form.Label>
+              <Form.Label>{translate('Add a Comment')}</Form.Label>
               <MentionInput
                 value={content}
                 onChange={handleContentChange}
-                placeholder="Write your comment here... (use @ to mention users)"
+                placeholder={translate('Write your comment here... (use @ to mention users)')}
                 rows={3}
                 projectId={projectId}
                 id="comment-input"
@@ -149,7 +150,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
             
             <div className="d-flex justify-content-between align-items-start">
               <Form.Group className="mb-3">
-                <Form.Label className="text-muted small">Attach Image (optional)</Form.Label>
+                <Form.Label className="text-muted small">{translate('Attach Image (optional)')}</Form.Label>
                 <Form.Control
                   type="file"
                   accept="image/*"
@@ -162,7 +163,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                 <div className="comment-image-preview">
                   <Image 
                     src={previewUrl} 
-                    alt="Preview" 
+                    alt={translate('Preview')} 
                     thumbnail 
                     style={{ maxHeight: '80px' }} 
                   />
@@ -175,25 +176,33 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                       setPreviewUrl('');
                     }}
                   >
-                    Remove
+                    {translate('Remove')}
                   </Button>
                 </div>
               )}
             </div>
             
             <div className="d-flex justify-content-end">
-              <Button
-                variant="primary"
-                type="submit"
-                disabled={submitting || !content.trim()}
+              <Button 
+                variant="primary" 
+                type="submit" 
+                disabled={submitting}
+                className="d-flex align-items-center"
               >
                 {submitting ? (
                   <>
-                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                    <span className="ms-2">Submitting...</span>
+                    <Spinner
+                      as="span"
+                      animation="border"
+                      size="sm"
+                      role="status"
+                      aria-hidden="true"
+                      className="me-2"
+                    />
+                    {translate('Submitting...')}
                   </>
                 ) : (
-                  'Post Comment'
+                  translate('Submit Comment')
                 )}
               </Button>
             </div>
@@ -203,13 +212,12 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       
       {/* Comments List */}
       {loading ? (
-        <div className="text-center py-4">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading comments...</span>
-          </Spinner>
+        <div className="text-center">
+          <Spinner animation="border" />
+          <p>{translate('Loading comments...')}</p>
         </div>
       ) : commentsLength === 0 ? (
-        <p className="text-center text-muted">No comments yet. Be the first to comment!</p>
+        <p className="text-center text-muted">{translate('No comments yet. Be the first to comment!')}</p>
       ) : (
         <div className="comments-list">
           {comments.map(comment => {
@@ -233,7 +241,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                       <small className="text-muted">
                         {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
                         {comment.updated_at && comment.updated_at !== comment.created_at && (
-                          <span> (edited)</span>
+                          <span> ({translate('edited')})</span>
                         )}
                       </small>
                     </div>
@@ -244,38 +252,20 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                   {comment.image_url && (
                     <div className="comment-image mt-2">
                       <a 
-                        href={comment.image_url.startsWith('http') 
-                          ? comment.image_url 
-                          : `http://localhost:8000${comment.image_url}`
-                        } 
+                        href={comment.image_url} 
                         target="_blank" 
                         rel="noopener noreferrer"
+                        className="d-inline-block"
                       >
                         <Image 
-                          src={comment.image_url.startsWith('http') 
-                            ? comment.image_url 
-                            : `http://localhost:8000${comment.image_url}`
-                          } 
-                          alt="Comment attachment" 
+                          src={comment.image_url} 
+                          alt={translate('Comment attachment')} 
                           thumbnail 
-                          style={{ maxWidth: '100%', maxHeight: '200px' }}
-                          onError={(e) => {
-                            console.log('Image failed to load:', comment.image_url);
-                            // Attempt to display using a different URL format
-                            if (!e.target.dataset.retried) {
-                              e.target.dataset.retried = 'true';
-                              if (comment.image_url.startsWith('/uploads')) {
-                                // Try without the /uploads prefix
-                                e.target.src = `http://localhost:8000${comment.image_url.replace('/uploads', '')}`;
-                              } else {
-                                // Add /uploads prefix if it's missing
-                                e.target.src = `http://localhost:8000/uploads${comment.image_url.startsWith('/') ? comment.image_url : '/' + comment.image_url}`;
-                              }
-                            }
-                          }}
+                          style={{ maxHeight: '200px' }}
+                          className="cursor-pointer"
                         />
-                        <div className="mt-1">
-                          <small className="text-muted">Click to view full size</small>
+                        <div className="mt-1 text-center">
+                          <small className="text-muted">{translate('Click to view full size')}</small>
                         </div>
                       </a>
                     </div>
