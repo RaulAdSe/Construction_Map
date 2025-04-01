@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Form, Button, Card, Image, Alert, Spinner } from 'react-bootstrap';
 import { format } from 'date-fns';
 import api from '../api';
@@ -39,6 +39,11 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     if (eventId) {
       fetchComments();
     }
+    
+    // Reset content and image state when eventId changes
+    setContent('');
+    setImage(null);
+    setPreviewUrl('');
   }, [eventId, fetchComments]);
 
   // Handle file selection
@@ -97,9 +102,28 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       setSubmitting(false);
     }
   }, [content, eventId, image, fetchComments]);
+  
+  // Memoize the content update function
+  const handleContentChange = useCallback((newContent) => {
+    setContent(newContent);
+  }, []);
+
+  // Scroll to highlighted comment when comments are loaded
+  useEffect(() => {
+    if (highlightCommentId && !loading && comments.length > 0) {
+      setTimeout(() => {
+        const highlightedElement = document.getElementById(`comment-${highlightCommentId}`);
+        if (highlightedElement) {
+          highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [highlightCommentId, loading, comments]);
 
   // Safely get comments length with null check
-  const commentsLength = Array.isArray(comments) ? comments.length : 0;
+  const commentsLength = useMemo(() => 
+    Array.isArray(comments) ? comments.length : 0
+  , [comments]);
 
   return (
     <div className="event-comments">
@@ -115,7 +139,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
               <Form.Label>Add a Comment</Form.Label>
               <MentionInput
                 value={content}
-                onChange={setContent}
+                onChange={handleContentChange}
                 placeholder="Write your comment here... (use @ to mention users)"
                 rows={3}
                 projectId={projectId}
@@ -194,11 +218,13 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
             return (
               <Card 
                 key={comment.id} 
+                id={`comment-${comment.id}`}
                 className={`mb-3 ${isHighlighted ? 'highlighted-comment' : ''}`}
                 style={{
                   borderLeft: isHighlighted ? '4px solid #0d6efd' : 'none',
                   backgroundColor: isHighlighted ? 'rgba(13, 110, 253, 0.05)' : 'white'
                 }}
+                ref={isHighlighted ? highlightedCommentRef : null}
               >
                 <Card.Body>
                   <div className="d-flex justify-content-between align-items-start mb-2">
@@ -247,4 +273,4 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   );
 };
 
-export default EventComments;
+export default React.memo(EventComments);

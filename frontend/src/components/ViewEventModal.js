@@ -28,8 +28,19 @@ const ViewEventModal = ({
   // Memoize the event ID to avoid unnecessary re-renders
   const eventId = useMemo(() => event?.id, [event?.id]);
   
+  // Memoize the entire event object to prevent excessive re-renders
+  const memoizedEvent = useMemo(() => event, [event?.id]);
+  
+  // Use callback for the onHide function to prevent infinite loops
+  const handleHide = useCallback(() => {
+    if (onHide) {
+      onHide();
+    }
+  }, [onHide]);
+  
+  // Only update state when event changes or modal shows
   useEffect(() => {
-    if (event) {
+    if (event && show) {
       setCurrentStatus(event.status || 'open');
       setCurrentType(event.state || 'periodic check');
       
@@ -38,13 +49,13 @@ const ViewEventModal = ({
         setActiveTab('comments');
       }
     }
-  }, [event, highlightCommentId]);
+  }, [event?.id, show, highlightCommentId]);
 
   // Add an effect to handle keyboard escape
   useEffect(() => {
     const handleEscapeKey = (e) => {
       if (e.key === 'Escape' && show) {
-        onHide();
+        handleHide();
       }
     };
 
@@ -55,17 +66,17 @@ const ViewEventModal = ({
         document.removeEventListener('keydown', handleEscapeKey);
       };
     }
-  }, [show, onHide]);
+  }, [show, handleHide]);
 
-  if (!event) return null;
+  if (!memoizedEvent) return null;
   
   // Parse active maps configuration from event
   let activeMapSettings = {};
   try {
-    if (event.active_maps && typeof event.active_maps === 'string') {
-      activeMapSettings = JSON.parse(event.active_maps);
-    } else if (event.active_maps) {
-      activeMapSettings = event.active_maps;
+    if (memoizedEvent.active_maps && typeof memoizedEvent.active_maps === 'string') {
+      activeMapSettings = JSON.parse(memoizedEvent.active_maps);
+    } else if (memoizedEvent.active_maps) {
+      activeMapSettings = memoizedEvent.active_maps;
     }
   } catch (error) {
     console.error('Error parsing active maps settings:', error);
@@ -118,13 +129,13 @@ const ViewEventModal = ({
     
     try {
       setUpdating(true);
-      await updateEventStatus(event.id, newStatus);
+      await updateEventStatus(memoizedEvent.id, newStatus);
       if (onEventUpdated) {
-        onEventUpdated({...event, status: newStatus});
+        onEventUpdated({...memoizedEvent, status: newStatus});
       }
     } catch (error) {
       console.error('Failed to update status:', error);
-      setCurrentStatus(event.status); // Revert on error
+      setCurrentStatus(memoizedEvent.status); // Revert on error
       if (error.response && error.response.status === 403) {
         alert('Permission denied: Only admin users can modify event status.');
       }
@@ -146,13 +157,13 @@ const ViewEventModal = ({
     
     try {
       setUpdating(true);
-      await updateEventState(event.id, newType);
+      await updateEventState(memoizedEvent.id, newType);
       if (onEventUpdated) {
-        onEventUpdated({...event, state: newType});
+        onEventUpdated({...memoizedEvent, state: newType});
       }
     } catch (error) {
       console.error('Failed to update type:', error);
-      setCurrentType(event.state); // Revert on error
+      setCurrentType(memoizedEvent.state); // Revert on error
       if (error.response && error.response.status === 403) {
         alert('Permission denied: Only admin users can modify event type.');
       }
@@ -164,7 +175,7 @@ const ViewEventModal = ({
   return (
     <Modal
       show={show}
-      onHide={onHide}
+      onHide={handleHide}
       size="lg"
       centered
       dialogClassName="event-modal-dialog"
@@ -175,7 +186,7 @@ const ViewEventModal = ({
       <Modal.Header closeButton>
         <Modal.Title>
           <div className="d-flex align-items-center">
-            <span className="me-2">Event: {event.title}</span>
+            <span className="me-2">Event: {memoizedEvent.title}</span>
             {getTypeBadge()}
           </div>
         </Modal.Title>
@@ -188,23 +199,23 @@ const ViewEventModal = ({
         >
           <Tab eventKey="details" title="Details">
             <Row>
-              <Col md={event.image_url ? 8 : 12}>
+              <Col md={memoizedEvent.image_url ? 8 : 12}>
                 <div className="mb-3">
                   <h6>Description</h6>
-                  <p>{event.description ? parseAndHighlightMentions(event.description) : "No description provided."}</p>
+                  <p>{memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description) : "No description provided."}</p>
                 </div>
                 
                 <Row>
                   <Col md={6}>
                     <div className="mb-3">
                       <h6>Created By</h6>
-                      <p>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</p>
+                      <p>{memoizedEvent.created_by_user_name || `User ID: ${memoizedEvent.created_by_user_id}`}</p>
                     </div>
                   </Col>
                   <Col md={6}>
                     <div className="mb-3">
                       <h6>Created At</h6>
-                      <p>{format(new Date(event.created_at), 'PPPp')}</p>
+                      <p>{format(new Date(memoizedEvent.created_at), 'PPPp')}</p>
                     </div>
                   </Col>
                 </Row>
@@ -272,8 +283,8 @@ const ViewEventModal = ({
                 
                 <div className="mb-3">
                   <h6>Map Location</h6>
-                  <p>Map: {event.map_name || `ID: ${event.map_id}`}</p>
-                  <p>Coordinates: X: {event.x_coordinate.toFixed(2)}%, Y: {event.y_coordinate.toFixed(2)}%</p>
+                  <p>Map: {memoizedEvent.map_name || `ID: ${memoizedEvent.map_id}`}</p>
+                  <p>Coordinates: X: {memoizedEvent.x_coordinate.toFixed(2)}%, Y: {memoizedEvent.y_coordinate.toFixed(2)}%</p>
                 </div>
                 
                 {Object.keys(activeMapSettings).length > 0 && (
@@ -283,7 +294,7 @@ const ViewEventModal = ({
                       {Object.entries(activeMapSettings).map(([mapId, settings]) => (
                         <div key={mapId} className="d-flex justify-content-between align-items-center mb-1">
                           <span>
-                            {parseInt(mapId) === event.map_id ? (
+                            {parseInt(mapId) === memoizedEvent.map_id ? (
                               <strong>{getMapName(mapId)} (Main)</strong>
                             ) : (
                               getMapName(mapId)
@@ -296,11 +307,11 @@ const ViewEventModal = ({
                   </div>
                 )}
                 
-                {event.tags && event.tags.length > 0 && (
+                {memoizedEvent.tags && memoizedEvent.tags.length > 0 && (
                   <div className="mb-3">
                     <h6>Tags</h6>
                     <div className="d-flex flex-wrap">
-                      {event.tags.map(tag => (
+                      {memoizedEvent.tags.map(tag => (
                         <Badge key={tag} bg="info" className="me-1 mb-1" style={{ fontSize: '0.9rem', padding: '6px 10px' }}>
                           {tag}
                         </Badge>
@@ -310,21 +321,21 @@ const ViewEventModal = ({
                 )}
               </Col>
               
-              {event.image_url && (
+              {memoizedEvent.image_url && (
                 <Col md={4}>
                   <div className="event-image-container">
                     <h6 className="mb-2">Attached Image</h6>
                     <a 
-                      href={event.image_url} 
+                      href={memoizedEvent.image_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="image-link"
                       onClick={(e) => {
-                        if (!event.image_url.startsWith('http')) {
+                        if (!memoizedEvent.image_url.startsWith('http')) {
                           e.preventDefault();
                           
                           // Get just the filename without path
-                          const imageFilename = event.image_url.split('/').pop();
+                          const imageFilename = memoizedEvent.image_url.split('/').pop();
                           
                           // Use uploads/events path
                           const imageUrl = `http://localhost:8000/uploads/events/${imageFilename}`;
@@ -333,16 +344,16 @@ const ViewEventModal = ({
                       }}
                     >
                       <Image 
-                        src={event.image_url.startsWith('http') 
-                          ? event.image_url 
+                        src={memoizedEvent.image_url.startsWith('http') 
+                          ? memoizedEvent.image_url 
                           : (() => {
                               // Get just the filename without path
-                              const imageFilename = event.image_url.split('/').pop();
+                              const imageFilename = memoizedEvent.image_url.split('/').pop();
                               // Use uploads/events path
                               return `http://localhost:8000/uploads/events/${imageFilename}`;
                             })()
                         } 
-                        alt={event.title} 
+                        alt={memoizedEvent.title} 
                         thumbnail 
                         className="w-100 event-image" 
                         style={{ maxHeight: '300px', objectFit: 'contain' }}
@@ -358,7 +369,7 @@ const ViewEventModal = ({
           </Tab>
           <Tab 
             eventKey="comments" 
-            title={`Comments ${event.comment_count ? `(${event.comment_count})` : ''}`}
+            title={`Comments ${memoizedEvent.comment_count ? `(${memoizedEvent.comment_count})` : ''}`}
           >
             {/* Use memoized eventId to prevent unnecessary re-renders */}
             <EventComments 
@@ -372,7 +383,7 @@ const ViewEventModal = ({
       <Modal.Footer>
         <Button 
           variant="secondary" 
-          onClick={onHide}
+          onClick={handleHide}
           className="close-event-btn"
         >
           Close
@@ -382,4 +393,4 @@ const ViewEventModal = ({
   );
 };
 
-export default ViewEventModal; 
+export default React.memo(ViewEventModal); 

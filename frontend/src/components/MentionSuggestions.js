@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ListGroup, Spinner } from 'react-bootstrap';
 import { projectService } from '../services/api';
 
@@ -16,51 +16,55 @@ const MentionSuggestions = ({
   const [mentionQuery, setMentionQuery] = useState('');
   const [error, setError] = useState(null);
 
-  // Fetch project users when component mounts
-  useEffect(() => {
-    const fetchProjectUsers = async () => {
-      if (!projectId) return;
-      
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await projectService.getProjectMembers(projectId);
-        setUsers(response.data);
-      } catch (error) {
-        console.error('Error fetching project users:', error);
-        // Don't show error if it's just a 404 (project not found)
-        if (error.response && error.response.status === 404) {
-          // Project might not exist or user doesn't have access
-          setUsers([]);
-        } else {
-          setError('Could not load users');
-        }
-      } finally {
-        setLoading(false);
+  // Fetch project users when component mounts or becomes visible
+  const fetchProjectUsers = useCallback(async () => {
+    if (!projectId || !isVisible) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await projectService.getProjectMembers(projectId);
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching project users:', error);
+      // Don't show error if it's just a 404 (project not found)
+      if (error.response && error.response.status === 404) {
+        // Project might not exist or user doesn't have access
+        setUsers([]);
+      } else {
+        setError('Could not load users');
       }
-    };
-
-    if (isVisible) {
-      fetchProjectUsers();
+    } finally {
+      setLoading(false);
     }
   }, [projectId, isVisible]);
 
+  // Trigger fetch when visibility changes
+  useEffect(() => {
+    if (isVisible) {
+      fetchProjectUsers();
+    }
+  }, [isVisible, fetchProjectUsers]);
+
   // Extract query text after @ symbol
+  const getQueryFromText = useCallback(() => {
+    if (!text) return '';
+    
+    const lastAtSymbolIndex = text.lastIndexOf('@');
+    if (lastAtSymbolIndex === -1) return '';
+    
+    const textAfterAt = text.slice(lastAtSymbolIndex + 1);
+    // Extract everything until the next space or end of string
+    const match = /^(\w*)/.exec(textAfterAt);
+    return match ? match[0].toLowerCase() : '';
+  }, [text]);
+
+  // Update query when text changes
   useEffect(() => {
     if (!isVisible) return;
     
-    const getQueryFromText = () => {
-      const lastAtSymbolIndex = text.lastIndexOf('@');
-      if (lastAtSymbolIndex === -1) return '';
-      
-      const textAfterAt = text.slice(lastAtSymbolIndex + 1);
-      // Extract everything until the next space or end of string
-      const match = /^(\w*)/.exec(textAfterAt);
-      return match ? match[0].toLowerCase() : '';
-    };
-    
     setMentionQuery(getQueryFromText());
-  }, [text, isVisible]);
+  }, [text, isVisible, getQueryFromText]);
 
   // Filter users based on the query
   useEffect(() => {
@@ -76,19 +80,78 @@ const MentionSuggestions = ({
 
   // Hide suggestions when no matches and not loading
   useEffect(() => {
-    if (filteredUsers.length === 0 && !loading && isVisible && !error && mentionQuery.length > 0) {
+    if (!isVisible) return;
+    
+    let timer = null;
+    if (filteredUsers.length === 0 && !loading && !error && mentionQuery.length > 0) {
       // Don't hide immediately for better UX - wait a bit to see if user keeps typing
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         if (filteredUsers.length === 0 && mentionQuery.length > 0) {
           setIsVisible(false);
         }
       }, 1500);
-      
-      return () => clearTimeout(timer);
     }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [filteredUsers, loading, isVisible, setIsVisible, error, mentionQuery]);
 
+  // Don't render if not visible
   if (!isVisible) return null;
+  
+  // Memoize the list items to prevent rerenders
+  const suggestionItems = useMemo(() => {
+    if (loading) {
+      return (
+        <ListGroup.Item className="d-flex justify-content-center align-items-center py-3">
+          <Spinner animation="border" size="sm" className="me-2" />
+          <span>Loading users...</span>
+        </ListGroup.Item>
+      );
+    }
+    
+    if (error) {
+      return <ListGroup.Item className="text-danger">{error}</ListGroup.Item>;
+    }
+    
+    if (filteredUsers.length === 0) {
+      return (
+        <ListGroup.Item className="text-muted">
+          {mentionQuery.length > 0 
+            ? `No users matching '${mentionQuery}'` 
+            : 'Start typing to search for users'}
+        </ListGroup.Item>
+      );
+    }
+    
+    return filteredUsers.map(user => (
+      <ListGroup.Item 
+        key={user.id}
+        action
+        onClick={() => {
+          onSelectUser(user.username);
+          setIsVisible(false);
+        }}
+        className="d-flex align-items-center py-2"
+        style={{ cursor: 'pointer' }}
+      >
+        <div 
+          className="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center flex-shrink-0"
+          style={{ width: 28, height: 28, fontSize: '0.9rem' }}
+        >
+          {user.username ? user.username.charAt(0).toUpperCase() : '?'}
+        </div>
+        <div className="d-flex flex-column">
+          <span className="fw-bold">{user.username}</span>
+          {user.name && <small className="text-muted">{user.name}</small>}
+        </div>
+        {user.is_admin && (
+          <span className="badge bg-secondary ms-auto">admin</span>
+        )}
+      </ListGroup.Item>
+    ));
+  }, [loading, error, filteredUsers, mentionQuery, onSelectUser, setIsVisible]);
 
   return (
     <div 
@@ -121,50 +184,10 @@ const MentionSuggestions = ({
         }}
       />
       <ListGroup>
-        {loading ? (
-          <ListGroup.Item className="d-flex justify-content-center align-items-center py-3">
-            <Spinner animation="border" size="sm" className="me-2" />
-            <span>Loading users...</span>
-          </ListGroup.Item>
-        ) : error ? (
-          <ListGroup.Item className="text-danger">{error}</ListGroup.Item>
-        ) : filteredUsers.length === 0 ? (
-          <ListGroup.Item className="text-muted">
-            {mentionQuery.length > 0 
-              ? `No users matching '${mentionQuery}'` 
-              : 'Start typing to search for users'}
-          </ListGroup.Item>
-        ) : (
-          filteredUsers.map(user => (
-            <ListGroup.Item 
-              key={user.id}
-              action
-              onClick={() => {
-                onSelectUser(user.username);
-                setIsVisible(false);
-              }}
-              className="d-flex align-items-center py-2"
-              style={{ cursor: 'pointer' }}
-            >
-              <div 
-                className="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ width: 28, height: 28, fontSize: '0.9rem' }}
-              >
-                {user.username ? user.username.charAt(0).toUpperCase() : '?'}
-              </div>
-              <div className="d-flex flex-column">
-                <span className="fw-bold">{user.username}</span>
-                {user.name && <small className="text-muted">{user.name}</small>}
-              </div>
-              {user.is_admin && (
-                <span className="badge bg-secondary ms-auto">admin</span>
-              )}
-            </ListGroup.Item>
-          ))
-        )}
+        {suggestionItems}
       </ListGroup>
     </div>
   );
 };
 
-export default MentionSuggestions; 
+export default React.memo(MentionSuggestions); 

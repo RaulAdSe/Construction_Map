@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
 import MapList from '../components/MapList';
@@ -376,24 +376,26 @@ const MapViewer = ({ onLogout }) => {
     setShowAddEventModal(false);
   };
   
-  const handleViewEvent = (event) => {
+  const handleViewEvent = useCallback((event) => {
     // Only update state if we're actually changing events
     if (!selectedEvent || selectedEvent.id !== event.id) {
       // Reset highlight comment when manually selecting an event
       setHighlightCommentId(null);
       
-      // Use callback form of setState to prevent race conditions
+      // Update the selected event
       setSelectedEvent(event);
       
-      // Set show modal only after state is updated
-      setTimeout(() => {
-        setShowViewEventModal(true);
-      }, 0);
+      // Set show modal
+      setShowViewEventModal(true);
+      
+      // Reset user closed flag
+      setUserClosedModal(false);
     } else if (!showViewEventModal) {
       // If the same event, but modal is closed, just show the modal
       setShowViewEventModal(true);
+      setUserClosedModal(false);
     }
-  };
+  }, [selectedEvent, showViewEventModal]);
   
   const handleEditEvent = (event) => {
     setSelectedEvent(event);
@@ -557,12 +559,16 @@ const MapViewer = ({ onLogout }) => {
     }
   }, [events, maps, location.state, loading, userClosedModal]);
   
-  // Define a clean handler for closing the event modal
-  const handleCloseViewEventModal = () => {
-    // Reset state immediately
+  const handleCloseViewEventModal = useCallback(() => {
+    // Reset state
     setShowViewEventModal(false);
     setHighlightCommentId(null);
-    setSelectedEvent(null);
+    
+    // Only reset selected event after the modal is closed
+    // This prevents trying to render with a null event while the modal is still closing
+    setTimeout(() => {
+      setSelectedEvent(null);
+    }, 100);
     
     // Set user closed flag to prevent reopening
     setUserClosedModal(true);
@@ -575,7 +581,7 @@ const MapViewer = ({ onLogout }) => {
     } catch (error) {
       console.error('Failed to clean up location state:', error);
     }
-  };
+  }, [location.state]);
   
   // Add a global emergency escape handler
   useEffect(() => {
@@ -638,6 +644,29 @@ const MapViewer = ({ onLogout }) => {
       delete window.resetModalClosedFlag;
     };
   }, []);
+  
+  // Memoize the ViewEventModal props to prevent unnecessary rerenders
+  const viewEventModalProps = useMemo(() => ({
+    show: showViewEventModal,
+    onHide: handleCloseViewEventModal,
+    event: selectedEvent,
+    allMaps: maps,
+    onEventUpdated: handleEventUpdated,
+    currentUser: currentUser,
+    projectId: project?.id,
+    effectiveIsAdmin: effectiveIsAdmin,
+    highlightCommentId: highlightCommentId
+  }), [
+    showViewEventModal,
+    handleCloseViewEventModal,
+    selectedEvent,
+    maps,
+    handleEventUpdated,
+    currentUser,
+    project?.id,
+    effectiveIsAdmin,
+    highlightCommentId
+  ]);
   
   if (loading) {
     return (
@@ -879,15 +908,7 @@ const MapViewer = ({ onLogout }) => {
       />
       
       <ViewEventModal
-        show={showViewEventModal}
-        onHide={handleCloseViewEventModal}
-        event={selectedEvent}
-        allMaps={maps}
-        onEventUpdated={handleEventUpdated}
-        currentUser={currentUser}
-        projectId={project?.id}
-        effectiveIsAdmin={effectiveIsAdmin}
-        highlightCommentId={highlightCommentId}
+        {...viewEventModalProps}
       />
       
       <EditEventModal
