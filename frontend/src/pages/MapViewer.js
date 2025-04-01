@@ -18,6 +18,7 @@ import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapServi
 import { fetchEvents } from '../services/eventService';
 import { isUserAdmin } from '../utils/permissions';
 import '../assets/styles/MapViewer.css';
+import translate from '../utils/translate';
 
 const DEBUG = false;
 
@@ -86,7 +87,7 @@ const MapViewer = ({ onLogout }) => {
   // Handle role change from the RoleSwitcher
   const handleRoleChange = (newIsAdmin) => {
     setEffectiveIsAdmin(newIsAdmin);
-    showNotification(`Viewing as ${newIsAdmin ? 'Admin' : 'Member'}`, 'info');
+    showNotification(`${translate('Viewing as')} ${newIsAdmin ? translate('Admin') : translate('Member')}`, 'info');
     
     // If switching to member view and current tab is admin-only, switch to map view
     if (!newIsAdmin && (activeTab === 'project-maps' || activeTab === 'events')) {
@@ -252,48 +253,24 @@ const MapViewer = ({ onLogout }) => {
         
         allEvents.push(...eventsWithMapName);
       }
+      
+      // Attempt to find a main map (implantation type)
+      const mainMap = mapsData.find(map => map.map_type === 'implantation');
+      
+      // If no main map is found but we have other maps, use the first one
+      if (!mainMap && mapsData.length > 0) {
+        setSelectedMap(mapsData[0]);
+      } else if (mainMap) {
+        setSelectedMap(mainMap);
+      }
+      
+      // Set all events
       setEvents(allEvents);
       
-      // Select the main map (implantation type) if available, otherwise select the first map
-      if (mapsData.length > 0) {
-        const mainMap = mapsData.find(map => map.map_type === 'implantation');
-        if (mainMap) {
-          if (DEBUG) console.log('Found and selected main map:', mainMap.name);
-          setSelectedMap(mainMap);
-          
-          // Initialize visible maps with the main map ID
-          setVisibleMapIds([mainMap.id]);
-        } else {
-          if (DEBUG) console.log('No main map found, selecting first map');
-          setSelectedMap(mapsData[0]);
-          
-          // Initialize visible maps with the first map ID
-          setVisibleMapIds([mapsData[0].id]);
-        }
-      } else {
-        setSelectedMap(null);
-        setVisibleMapIds([]);
-      }
+      setLoading(false);
     } catch (error) {
       console.error('Error loading project data:', error);
-      showNotification('Error loading project data. Please try again.', 'error');
-    } finally {
       setLoading(false);
-    }
-  };
-  
-  // Add a function to window that can be called from anywhere to refresh maps data
-  window.refreshMapsData = async () => {
-    if (projectId) {
-      try {
-        // Only fetch maps, not the entire project data
-        const mapsData = await fetchMaps(parseInt(projectId, 10));
-        setMaps(mapsData);
-        showNotification('Maps updated successfully!', 'success');
-      } catch (error) {
-        console.error('Error refreshing maps:', error);
-        showNotification('Error refreshing maps data.', 'error');
-      }
     }
   };
   
@@ -303,123 +280,125 @@ const MapViewer = ({ onLogout }) => {
   
   const handleMapSelect = (mapId) => {
     const map = maps.find(m => m.id === mapId);
-    setSelectedMap(map);
+    if (map) setSelectedMap(map);
   };
   
   const handleAddMap = () => {
-    if (!project) {
-      showNotification('No project selected.', 'error');
-      return;
-    }
     setShowAddMapModal(true);
   };
   
   const handleMapAdded = (newMap) => {
-    // Check if the map already exists (update case)
-    const existingMapIndex = maps.findIndex(m => m.id === newMap.id);
-    
-    if (existingMapIndex >= 0) {
-      // Update existing map
-      const updatedMaps = [...maps];
-      updatedMaps[existingMapIndex] = newMap;
-      setMaps(updatedMaps);
-      
-      // If it was the selected map, update that too
-      if (selectedMap && selectedMap.id === newMap.id) {
-        setSelectedMap(newMap);
-      }
-      
-      showNotification('Map updated successfully!');
-    } else {
-      // Add new map
-      setMaps([...maps, newMap]);
-      setSelectedMap(newMap);
-      showNotification('Map added successfully!');
-    }
-    
     setShowAddMapModal(false);
+    
+    // Add the new map to our list
+    setMaps(prevMaps => [...prevMaps, newMap]);
+    
+    // Select the new map
+    setSelectedMap(newMap);
+    
+    // Add it to visible maps
+    setVisibleMapIds(prev => [...prev, newMap.id]);
+    
+    // Show a success notification
+    showNotification(translate('Map added successfully!'));
+    
+    // If this is the first map, let's switch to map-view tab
+    if (maps.length === 0) {
+      setActiveTab('map-view');
+    }
   };
   
   const handleMapDeleted = (mapId) => {
-    const updatedMaps = maps.filter(m => m.id !== mapId);
-    setMaps(updatedMaps);
+    // Remove the map from our list
+    setMaps(prevMaps => prevMaps.filter(m => m.id !== mapId));
     
-    // Also remove events associated with this map
-    const updatedEvents = events.filter(e => e.map_id !== mapId);
-    setEvents(updatedEvents);
-    
-    // If the deleted map was selected, select a different one
+    // If the deleted map was the selected map, select another map
     if (selectedMap && selectedMap.id === mapId) {
-      setSelectedMap(updatedMaps.length > 0 ? updatedMaps[0] : null);
+      const remainingMaps = maps.filter(m => m.id !== mapId);
+      if (remainingMaps.length > 0) {
+        // Prefer a main map if available
+        const mainMap = remainingMaps.find(m => m.map_type === 'implantation');
+        setSelectedMap(mainMap || remainingMaps[0]);
+      } else {
+        setSelectedMap(null);
+      }
     }
     
-    showNotification('Map deleted successfully!');
+    // Update visible maps
+    setVisibleMapIds(prev => prev.filter(id => id !== mapId));
+    
+    // Show a success notification
+    showNotification(translate('Map deleted successfully!'));
   };
   
   const handleAddEvent = () => {
-    if (!selectedMap) {
-      showNotification('Please select a map first before adding an event.', 'warning');
-      // Maybe direct them to map selection
-      setActiveTab('project-maps');
+    if (maps.length === 0) {
+      showNotification(translate('Please add a map first.'), 'warning');
       return;
     }
     
-    // Store reference to map and set selecting location mode
-    setMapForEvent(selectedMap);
-    
-    // Notify user to click on the map
-    showNotification('Click on the map to place your event.', 'info');
+    // If there's only one map, use it directly
+    if (maps.length === 1) {
+      setMapForEvent(maps[0]);
+      setShowAddEventModal(true);
+    } else {
+      // Otherwise show the map selection modal
+      setShowMapSelectionModal(true);
+    }
   };
   
   const handleMapSelected = (mapId) => {
-    const map = maps.find(m => m.id === mapId);
-    setMapForEvent(map);
     setShowMapSelectionModal(false);
-    showNotification('Click on the map to place your event.', 'info');
-  };
-  
-  const handleMapClick = (map, x, y) => {
-    if (mapForEvent && mapForEvent.id === map.id) {
-      setEventPosition({ x, y });
-      setMapForEvent(prev => ({
-        ...prev,
-        visibleMaps: map.visibleMaps || []
-      }));
+    const map = maps.find(m => m.id === mapId);
+    if (map) {
+      setMapForEvent(map);
       setShowAddEventModal(true);
     }
   };
   
-  const handleEventAdded = (newEvent) => {
-    // Add map name to the event for display
-    const mapName = maps.find(m => m.id === newEvent.map_id)?.name || '';
-    const eventWithMapName = { ...newEvent, map_name: mapName };
+  const handleMapClick = (map, x, y) => {
+    // Only allow adding events if we're in the map-view tab
+    if (activeTab !== 'map-view') return;
     
-    setEvents([...events, eventWithMapName]);
-    setMapForEvent(null);
-    showNotification('Event added successfully!');
-    setShowAddEventModal(false);
+    setMapForEvent(map);
+    setEventPosition({ x, y });
+    setShowAddEventModal(true);
   };
   
-  const handleViewEvent = useCallback((event) => {
-    // Only update state if we're actually changing events
-    if (!selectedEvent || selectedEvent.id !== event.id) {
-      // Reset highlight comment when manually selecting an event
-      setHighlightCommentId(null);
-      
-      // Update the selected event
-      setSelectedEvent(event);
-      
-      // Set show modal
-      setShowViewEventModal(true);
-      
-      // Reset user closed flag
-      setUserClosedModal(false);
-    } else if (!showViewEventModal) {
-      // If the same event, but modal is closed, just show the modal
-      setShowViewEventModal(true);
-      setUserClosedModal(false);
+  const handleEventAdded = (newEvent) => {
+    setShowAddEventModal(false);
+    
+    // Update our events list
+    setEvents(prevEvents => {
+      const eventWithMapName = {
+        ...newEvent,
+        map_name: maps.find(m => m.id === newEvent.map_id)?.name || translate('Unknown Map')
+      };
+      return [...prevEvents, eventWithMapName];
+    });
+    
+    // Show a success notification
+    showNotification(translate('Event added successfully!'));
+    
+    // After adding an event, refresh the data
+    loadProjectData(parseInt(projectId, 10));
+  };
+  
+  const handleEventClick = (event) => {
+    setSelectedEvent(event);
+    setShowViewEventModal(true);
+    setUserClosedModal(false);
+    
+    // Reset highlight comment ID when opening a new event
+    setHighlightCommentId(null);
+    
+    // Check if there's a comment ID in the URL to highlight
+    const urlParams = new URLSearchParams(location.search);
+    const commentId = urlParams.get('comment_id');
+    if (commentId) {
+      setHighlightCommentId(parseInt(commentId, 10));
     }
-  }, [selectedEvent, showViewEventModal]);
+  };
   
   const handleEditEvent = (event) => {
     setSelectedEvent(event);
@@ -427,518 +406,436 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleEventUpdated = (updatedEvent) => {
-    // Preserve the map_name field when updating the event
-    const mapName = events.find(e => e.id === updatedEvent.id)?.map_name || '';
-    const existingEvent = events.find(e => e.id === updatedEvent.id) || {};
+    setShowEditEventModal(false);
     
-    // Merge the updated event with existing data, preserving fields that might be missing
-    const eventWithMapName = { 
-      ...existingEvent,
-      ...updatedEvent, 
-      map_name: mapName 
-    };
+    // Update our events list
+    setEvents(prevEvents => {
+      return prevEvents.map(event => 
+        event.id === updatedEvent.id ? {
+          ...updatedEvent,
+          map_name: event.map_name // Preserve the map name
+        } : event
+      );
+    });
     
-    // Force a deep clone to ensure React detects the change
-    const updatedEventsCopy = JSON.parse(JSON.stringify(
-      events.map(event => event.id === updatedEvent.id ? eventWithMapName : event)
-    ));
+    // Show a success notification
+    showNotification(translate('Event updated successfully!'));
     
-    // Set the events state with the new array
-    setEvents(updatedEventsCopy);
-    
-    // Show notification about the update
-    showNotification('Event updated successfully!');
-    
-    // If we updated the currently selected event, also update it directly
-    // This ensures the ViewEventModal shows the updated values immediately
-    if (selectedEvent && selectedEvent.id === updatedEvent.id) {
-      // Create a new object to ensure React detects the change
-      const updatedSelectedEvent = { 
-        ...selectedEvent, 
-        ...updatedEvent,
-        status: updatedEvent.status, // Explicitly update these fields
-        state: updatedEvent.state 
-      };
-      setSelectedEvent(updatedSelectedEvent);
+    // Reopen the view modal if it was open before
+    if (showViewEventModal) {
+      setSelectedEvent(updatedEvent);
     }
     
-    // Force update visibleEvents to reflect changes
-    // This will trigger a rerender of the EventMarker components
-    const updatedVisibleEvents = visibleEvents.map(event => {
-      if (event.id === updatedEvent.id) {
-        return { ...event, ...updatedEvent };
-      }
-      return event;
-    });
-    setVisibleEvents(updatedVisibleEvents);
+    // After updating an event, refresh the data
+    loadProjectData(parseInt(projectId, 10));
+  };
+  
+  const handleEventDeleted = (eventId) => {
+    // Remove the event from our list
+    setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
+    
+    // Close the view modal if it's open
+    setShowViewEventModal(false);
+    
+    // Show a success notification
+    showNotification(translate('Event deleted successfully!'));
+  };
+  
+  const handleViewModalClose = () => {
+    setShowViewEventModal(false);
+    setUserClosedModal(true);
+    
+    // Remove the comment_id query parameter from the URL
+    if (location.search) {
+      navigate(`/project/${projectId}`, { replace: true });
+    }
   };
   
   const showNotification = (message, type = 'success') => {
     setNotification({ show: true, message, type });
+    
+    // Auto-hide after 5 seconds
     setTimeout(() => {
-      setNotification({ ...notification, show: false });
-    }, 3000);
+      setNotification(prev => ({ ...prev, show: false }));
+    }, 5000);
   };
   
-  // Add a debug function to check and fix admin status
-  window.debugAdmin = () => {
-    try {
-      // Check current localStorage
-      const token = localStorage.getItem('token');
-      const userJson = localStorage.getItem('user');
-      if (DEBUG) {
-        console.log('Current token:', token);
-        console.log('Current user data:', userJson);
-      }
+  // Function to handle tab changes and URL updates
+  const handleTabChange = (tabKey) => {
+    setActiveTab(tabKey);
+    // No need to navigate on tab changes as we're using a single route
+  };
+  
+  // Check for URL parameters on component mount
+  useEffect(() => {
+    if (location.pathname.includes('/project/')) {
+      const searchParams = new URLSearchParams(location.search);
       
-      // Try to decode the token
-      if (token) {
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-        if (DEBUG) {
-          console.log('Token payload:', tokenPayload);
-        }
-        
-        // If we have a token but no user data, create user data
-        if (!userJson) {
-          const username = tokenPayload.sub;
-          // Create a basic user object
-          const user = {
-            username: username,
-            is_admin: username === 'admin', // Assume username 'admin' is an admin
-            id: username
-          };
-          localStorage.setItem('user', JSON.stringify(user));
-          if (DEBUG) console.log('Created user data:', user);
-          alert('Added missing user data. Please refresh the page.');
-          return user;
+      // Handle event highlighting from URL params
+      const eventId = searchParams.get('event_id');
+      if (eventId && events.length > 0) {
+        const eventToShow = events.find(e => e.id === parseInt(eventId, 10));
+        if (eventToShow && !userClosedModal) {
+          setSelectedEvent(eventToShow);
+          setShowViewEventModal(true);
+          
+          // Check if there's a comment to highlight
+          const commentId = searchParams.get('comment_id');
+          if (commentId) {
+            setHighlightCommentId(parseInt(commentId, 10));
+          }
         }
       }
-      return JSON.parse(userJson || '{}');
-    } catch (e) {
-      console.error('Error in debugAdmin:', e);
-      return null;
     }
-  };
+  }, [location, events, projectId, userClosedModal]);
   
-  // Extract highlight info from location state or query parameters
+  // Set up a check for event_id when events are loaded
   useEffect(() => {
     const checkForHighlightedEvent = async () => {
-      // Skip if the user has manually closed the modal
-      if (userClosedModal) return;
-      
-      // Check if we have highlight info in location state (from programmatic navigation)
-      const highlightEventId = location.state?.highlightEventId;
-      const highlightCommentId = location.state?.highlightCommentId;
-      
-      // If we have an event to highlight from the state
-      if (highlightEventId && events.length > 0) {
-        if (DEBUG) console.log(`Highlighting event ${highlightEventId} from notification navigation`);
+      if (events.length > 0 && !loading) {
+        const searchParams = new URLSearchParams(location.search);
+        const eventId = searchParams.get('event_id');
         
-        // Find the event
-        const eventToHighlight = events.find(e => e.id === parseInt(highlightEventId, 10));
-        
-        if (eventToHighlight) {
-          // Select the event's map
-          const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
-          if (eventMap) {
-            setSelectedMap(eventMap);
+        if (eventId && !userClosedModal) {
+          const eventToShow = events.find(e => e.id === parseInt(eventId, 10));
+          if (eventToShow) {
+            setSelectedEvent(eventToShow);
+            setShowViewEventModal(true);
             
-            // Make sure this map is visible
-            if (!visibleMapIds.includes(eventMap.id)) {
-              setVisibleMapIds(prev => [...prev, eventMap.id]);
+            // Check if there's a comment to highlight
+            const commentId = searchParams.get('comment_id');
+            if (commentId) {
+              setHighlightCommentId(parseInt(commentId, 10));
             }
           }
-          
-          // Set the selected event and show the event modal
-          setSelectedEvent(eventToHighlight);
-          
-          // Store the comment ID for highlighting
-          if (highlightCommentId) {
-            // Store the highlight comment ID in a state variable
-            setHighlightCommentId(parseInt(highlightCommentId, 10));
-          }
-          
-          setShowViewEventModal(true);
-          
-          // Clear the highlight info from location state after processing
-          try {
-            window.history.replaceState({}, document.title);
-          } catch (error) {
-            console.error('Failed to clear history state:', error);
-          }
-        }
-      }
-      
-      // Check URL parameters (for direct links)
-      const urlParams = new URLSearchParams(window.location.search);
-      const eventIdFromUrl = urlParams.get('event');
-      const commentIdFromUrl = urlParams.get('comment');
-      
-      if (eventIdFromUrl && events.length > 0) {
-        if (DEBUG) console.log(`Highlighting event ${eventIdFromUrl} from URL parameters`);
-        
-        // Find the event
-        const eventToHighlight = events.find(e => e.id === parseInt(eventIdFromUrl, 10));
-        
-        if (eventToHighlight) {
-          // Select the event's map
-          const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
-          if (eventMap) {
-            setSelectedMap(eventMap);
-            
-            // Make sure this map is visible
-            if (!visibleMapIds.includes(eventMap.id)) {
-              setVisibleMapIds(prev => [...prev, eventMap.id]);
-            }
-          }
-          
-          // Set the selected event and show the event modal
-          setSelectedEvent(eventToHighlight);
-          setShowViewEventModal(true);
-          
-          // Remove the parameters from the URL to prevent issues on refresh
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
         }
       }
     };
     
-    // Only run this effect after events are loaded
-    if (events.length > 0 && !loading) {
-      checkForHighlightedEvent();
-    }
-  }, [events, maps, location.state, loading, userClosedModal]);
+    checkForHighlightedEvent();
+  }, [events, loading, location.search, userClosedModal]);
   
-  const handleCloseViewEventModal = useCallback(() => {
-    // Reset state
-    setShowViewEventModal(false);
-    setHighlightCommentId(null);
-    
-    // Only reset selected event after the modal is closed
-    // This prevents trying to render with a null event while the modal is still closing
-    setTimeout(() => {
-      setSelectedEvent(null);
-    }, 100);
-    
-    // Set user closed flag to prevent reopening
-    setUserClosedModal(true);
-    
-    // If we were navigated here from a notification, clear location state
-    try {
-      if (location.state?.highlightEventId) {
-        window.history.replaceState({}, document.title);
-      }
-    } catch (error) {
-      console.error('Failed to clean up location state:', error);
-    }
-  }, [location.state]);
+  const renderLoadingIndicator = () => (
+    <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+      <Spinner animation="border" role="status">
+        <span className="visually-hidden">{translate('Loading...')}</span>
+      </Spinner>
+    </div>
+  );
   
-  // Add a global emergency escape handler
+  // Create a keyboard handler for escape key
+  const escapeKeyRef = useRef(null);
+  
   useEffect(() => {
-    let escapeCount = 0;
-    let escapeTimer = null;
-
+    // Define the handler function
     const handleEmergencyEscape = (e) => {
       if (e.key === 'Escape') {
-        escapeCount++;
+        // Close all modals
+        setShowAddMapModal(false);
+        setShowAddEventModal(false);
+        setShowMapSelectionModal(false);
+        setShowViewEventModal(false);
+        setShowEditEventModal(false);
         
-        // If user presses Escape twice within 500ms, close any modals safely
-        if (escapeCount === 1) {
-          escapeTimer = setTimeout(() => {
-            escapeCount = 0;
-          }, 500);
-        } else if (escapeCount >= 2) {
-          if (DEBUG) console.log('EMERGENCY ESCAPE: Closing modals properly');
-          
-          // Close all modals using their React state handlers
-          setShowViewEventModal(false);
-          setHighlightCommentId(null);
-          setSelectedEvent(null);
-          setUserClosedModal(true);
-          setShowEditEventModal(false);
-          setShowAddMapModal(false);
-          setShowAddEventModal(false);
-          setShowMapSelectionModal(false);
-          
-          // Clear location state to prevent getting stuck in a highlight loop
-          window.history.replaceState({}, document.title);
-          
-          // Reset counter
-          escapeCount = 0;
-          clearTimeout(escapeTimer);
+        // Set userClosedModal to true to prevent reopening
+        setUserClosedModal(true);
+        
+        // Remove any URL parameters
+        if (location.search) {
+          navigate(`/project/${projectId}`, { replace: true });
         }
       }
     };
-
+    
+    // Store the handler reference
+    escapeKeyRef.current = handleEmergencyEscape;
+    
+    // Add the event listener
     document.addEventListener('keydown', handleEmergencyEscape);
     
+    // Clean up
     return () => {
       document.removeEventListener('keydown', handleEmergencyEscape);
-      clearTimeout(escapeTimer);
     };
-  }, []);
+  }, [projectId, location, navigate]);
   
-  // Reset the userClosedModal flag when project changes
-  useEffect(() => {
-    setUserClosedModal(false);
-  }, [projectId]);
+  // Use location to get the comment_id query parameter
+  const commentIdFromUrl = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const commentId = searchParams.get('comment_id');
+    return commentId ? parseInt(commentId, 10) : null;
+  }, [location.search]);
   
-  // Add a global function to reset the userClosedModal flag
-  useEffect(() => {
-    window.resetModalClosedFlag = () => {
-      if (DEBUG) console.log('Resetting userClosedModal flag for notification navigation');
-      setUserClosedModal(false);
-    };
+  // Function to calculate the percentage of events by status
+  const calculateEventStats = () => {
+    if (events.length === 0) {
+      return { open: 0, inProgress: 0, resolved: 0, closed: 0 };
+    }
     
-    return () => {
-      delete window.resetModalClosedFlag;
+    // Count events by status
+    const counts = events.reduce((acc, event) => {
+      const status = event.status.toLowerCase();
+      
+      if (status === 'open') acc.open++;
+      else if (status === 'in-progress') acc.inProgress++;
+      else if (status === 'resolved') acc.resolved++;
+      else if (status === 'closed') acc.closed++;
+      
+      return acc;
+    }, { open: 0, inProgress: 0, resolved: 0, closed: 0 });
+    
+    // Convert to percentages
+    const total = events.length;
+    return {
+      open: Math.round((counts.open / total) * 100),
+      inProgress: Math.round((counts.inProgress / total) * 100),
+      resolved: Math.round((counts.resolved / total) * 100),
+      closed: Math.round((counts.closed / total) * 100)
     };
-  }, []);
+  };
   
-  // Memoize the ViewEventModal props to prevent unnecessary rerenders
-  const viewEventModalProps = useMemo(() => ({
-    show: showViewEventModal,
-    onHide: handleCloseViewEventModal,
-    event: selectedEvent,
-    allMaps: maps,
-    onEventUpdated: handleEventUpdated,
-    currentUser: currentUser,
-    projectId: project?.id,
-    effectiveIsAdmin: effectiveIsAdmin,
-    highlightCommentId: highlightCommentId
-  }), [
-    showViewEventModal,
-    handleCloseViewEventModal,
-    selectedEvent,
-    maps,
-    handleEventUpdated,
-    currentUser,
-    project?.id,
-    effectiveIsAdmin,
-    highlightCommentId
-  ]);
-  
-  // Let's also fix the handleVisibleMapsChanged function to prevent unnecessary re-renders
-  // by memoizing the props passed to MapDetail
-  const mapDetailProps = useMemo(() => ({
-    map: selectedMap,
-    events,
-    onMapClick: handleMapClick,
-    isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap.id,
-    onEventClick: handleViewEvent,
-    allMaps: maps,
-    projectId: projectId,
-    onVisibleMapsChanged: handleVisibleMapsChanged
-  }), [selectedMap, events, handleMapClick, mapForEvent, handleViewEvent, maps, projectId, handleVisibleMapsChanged]);
+  const eventStats = calculateEventStats();
   
   if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
-    );
+    return renderLoadingIndicator();
   }
   
+  // Check if the project exists
   if (!project) {
     return (
-      <Container className="mt-5">
-        <Alert variant="danger">
-          Project not found or you don't have access.
-          <Button variant="link" onClick={handleBackToProjects}>
-            Back to Projects
-          </Button>
+      <Container>
+        <Alert variant="danger" className="mt-4">
+          {translate('Project not found')}. <Button variant="link" onClick={handleBackToProjects}>{translate('Back to Projects')}</Button>
         </Alert>
       </Container>
     );
   }
   
+  // Check if there are maps available
+  const noMaps = maps.length === 0;
+  
   return (
-    <div className="map-viewer">
-      <Navbar bg="dark" variant="dark" expand="lg">
-        <Container>
-          <Navbar.Brand onClick={handleBackToProjects} style={{ cursor: 'pointer' }}>
-            Construction Map Viewer
+    <div className="map-viewer-page">
+      <Navbar bg="dark" variant="dark" expand="lg" className="project-navbar">
+        <Container fluid>
+          <Navbar.Brand>
+            <Button variant="link" className="text-decoration-none text-light" onClick={handleBackToProjects}>
+              <i className="bi bi-arrow-left me-2"></i>
+              {translate('Construction Map Viewer')}
+            </Button>
           </Navbar.Brand>
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav">
+          <Navbar.Toggle aria-controls="project-navbar-nav" />
+          <Navbar.Collapse id="project-navbar-nav">
             <Nav className="me-auto">
-              <Nav.Item>
-                <Nav.Link onClick={handleBackToProjects}>
-                  &laquo; Back to Projects
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link active>
-                  Project: {project.name}
-                </Nav.Link>
-              </Nav.Item>
+              {project && (
+                <Nav.Item className="project-title">
+                  {project.name}
+                </Nav.Item>
+              )}
             </Nav>
             <div className="d-flex align-items-center">
-              {/* Debug message */}
-              {DEBUG && console.log('Rendering navbar, isAdmin:', isAdmin)}
-              
-              {/* RoleSwitcher component - always render but component will self-hide if not admin */}
-              <RoleSwitcher 
-                currentIsAdmin={effectiveIsAdmin}
-                onRoleChange={handleRoleChange}
-              />
-              
-              <NotificationBell />
-              <Button variant="outline-light" onClick={onLogout} className="ms-2">Logout</Button>
+              {isAdmin && (
+                <RoleSwitcher 
+                  isAdmin={effectiveIsAdmin} 
+                  onRoleChange={handleRoleChange}
+                />
+              )}
+              <NotificationBell projectId={projectId} />
+              <Button variant="outline-light" onClick={onLogout} className="ms-3">
+                {translate('Logout')}
+              </Button>
             </div>
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      
-      <Container className="mt-4">
-        <Tabs 
-          activeKey={activeTab} 
-          onSelect={setActiveTab} 
-          className="mb-4"
-          key={`tabs-${effectiveIsAdmin}`}
+
+      <Container fluid>
+        <Tabs
+          activeKey={activeTab}
+          onSelect={handleTabChange}
+          id="project-tabs"
+          className="mb-3 mt-3"
         >
-          {/* Build tabs array dynamically based on user role */}
-          {(() => {
-            // Define all potential tabs
-            const tabs = [
-              // Map View tab - available to all users
-              <Tab key="map-view" eventKey="map-view" title="Map View">
+          <Tab eventKey="map-view" title={translate('Map View')}>
+            <div className="map-view-container">
+              {noMaps ? (
+                <div className="text-center p-5 bg-light rounded">
+                  <h3>{translate('No Maps Available')}</h3>
+                  <p>{translate('This project doesn\'t have any maps yet. Add a map to get started!')}</p>
+                  <Button variant="primary" onClick={handleAddMap} disabled={!effectiveIsAdmin}>
+                    {translate('Add Map')}
+                  </Button>
+                </div>
+              ) : (
                 <Row>
-                  <Col md={3}>
-                    <div className="sidebar-panel">
-                      <h5 className="mb-3">Map Controls</h5>
-                      
-                      <div className="d-grid gap-2 mb-4">
-                        <Button
-                          variant="success"
+                  <Col md={9}>
+                    <div className="mb-3 d-flex justify-content-between align-items-center">
+                      <h2>{translate('Project Map')}: {project.name}</h2>
+                      <div className="d-flex gap-2">
+                        <Button 
+                          variant="outline-primary" 
                           onClick={handleAddEvent}
+                          disabled={!effectiveIsAdmin}
                         >
-                          <i className="bi bi-pin-map me-2"></i>Add Event
+                          <i className="bi bi-plus-circle me-1"></i> {translate('Add Event')}
+                        </Button>
+                        <Button 
+                          variant="outline-secondary" 
+                          onClick={handleAddMap}
+                          disabled={!effectiveIsAdmin}
+                        >
+                          <i className="bi bi-map me-1"></i> {translate('Add Map')}
                         </Button>
                       </div>
-                      
-                      <hr />
-                      
-                      <div className="map-info-section">
-                        <h6>Current View</h6>
-                        {selectedMap && (
-                          <div className="current-map-info mb-3">
-                            <p className="mb-1">
-                              <strong>Main Map:</strong> {selectedMap.name}
-                              {selectedMap.map_type === 'implantation' && (
-                                <span className="badge bg-success ms-2">Primary</span>
-                              )}
-                            </p>
-                            <p className="mb-1"><strong>Visible Layers:</strong> {visibleMapIds.length || 1}</p>
-                            <p className="mb-0">
-                              <strong>Events:</strong> {visibleEvents.length}
-                            </p>
-                          </div>
-                        )}
+                    </div>
+                    
+                    <div className="mt-2 mb-4 d-flex flex-wrap">
+                      <div className="status-badge me-3 mb-2">
+                        <span className="status-dot status-open"></span>
+                        <span className="status-label">{translate('Open')}: {events.filter(e => e.status === 'open').length}</span>
+                        <span className="status-percent">({eventStats.open}%)</span>
                       </div>
-                      
-                      <hr />
-                      
-                      <div className="events-summary mb-3">
-                        <h6>Event Categories</h6>
-                        <ul className="list-unstyled">
-                          {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
-                            <li key={tag} className="mb-1">
-                              <span className="badge bg-secondary me-2">{tag}</span>
-                              <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
-                            </li>
-                          ))}
-                        </ul>
+                      <div className="status-badge me-3 mb-2">
+                        <span className="status-dot status-in-progress"></span>
+                        <span className="status-label">{translate('In Progress')}: {events.filter(e => e.status === 'in-progress').length}</span>
+                        <span className="status-percent">({eventStats.inProgress}%)</span>
+                      </div>
+                      <div className="status-badge me-3 mb-2">
+                        <span className="status-dot status-resolved"></span>
+                        <span className="status-label">{translate('Resolved')}: {events.filter(e => e.status === 'resolved').length}</span>
+                        <span className="status-percent">({eventStats.resolved}%)</span>
+                      </div>
+                      <div className="status-badge mb-2">
+                        <span className="status-dot status-closed"></span>
+                        <span className="status-label">{translate('Closed')}: {events.filter(e => e.status === 'closed').length}</span>
+                        <span className="status-percent">({eventStats.closed}%)</span>
                       </div>
                     </div>
-                  </Col>
-                  <Col md={9}>
-                    {selectedMap ? (
-                      <MapDetail
-                        {...mapDetailProps}
-                      />
-                    ) : (
-                      <div className="text-center p-5 bg-light rounded">
-                        <h3>No map selected</h3>
-                        <p>Please select a map from the Project Maps tab or add a new one.</p>
+                    
+                    {selectedMap && (
+                      <div className="map-container mb-3">
+                        <MapDetail 
+                          map={selectedMap}
+                          visibleMapIds={visibleMapIds}
+                          allMaps={maps}
+                          events={visibleEvents}
+                          onMapClick={handleMapClick}
+                          onEventClick={handleEventClick}
+                          onVisibleMapsChanged={handleVisibleMapsChanged}
+                          visibilitySettings={mapVisibilitySettings}
+                          isAdmin={effectiveIsAdmin}
+                        />
                       </div>
                     )}
                   </Col>
+                  <Col md={3}>
+                    <div className="side-panel">
+                      <h4>{translate('Recent Events')}</h4>
+                      <div className="recent-events-list">
+                        {events.length === 0 ? (
+                          <p className="text-muted">{translate('No events yet')}</p>
+                        ) : (
+                          events
+                            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                            .slice(0, 5)
+                            .map(event => (
+                              <div 
+                                key={event.id} 
+                                className="event-item"
+                                onClick={() => handleEventClick(event)}
+                              >
+                                <div className="event-title">
+                                  <span className={`status-indicator status-${event.status}`}></span>
+                                  {event.title}
+                                </div>
+                                <div className="event-meta">
+                                  <small>{translate('Map')}: {event.map_name}</small>
+                                  <small>{new Date(event.created_at).toLocaleDateString()}</small>
+                                </div>
+                              </div>
+                            ))
+                        )}
+                      </div>
+                      
+                      <h4 className="mt-4">{translate('Available Maps')}</h4>
+                      <MapsManager 
+                        maps={maps} 
+                        selectedMapId={selectedMap?.id}
+                        onMapSelect={handleMapSelect}
+                        visibleMapIds={visibleMapIds}
+                        onVisibleMapsChanged={handleVisibleMapsChanged}
+                        visibilitySettings={mapVisibilitySettings}
+                      />
+                    </div>
+                  </Col>
                 </Row>
-              </Tab>,
-              
-              // Project Maps tab - admin only
-              <Tab key="project-maps" eventKey="project-maps" title="Project Maps">
-                <MapsManager 
-                  projectId={project.id}
-                  onMapUpdated={() => {
-                    // Force reload the maps data when a map is updated
-                    const refreshData = async () => {
-                      try {
-                        // Fetch fresh map data
-                        const mapsData = await fetchMaps(parseInt(projectId, 10));
-                        setMaps(mapsData);
-                        
-                        // Find and select the main map
-                        const mainMap = mapsData.find(map => map.map_type === 'implantation');
-                        if (mainMap) {
-                          setSelectedMap(mainMap);
-                          showNotification('Map updated successfully! Main map has been changed.', 'success');
-                        }
-                      } catch (error) {
-                        console.error('Error refreshing maps after update:', error);
-                        showNotification('Error updating maps. Please refresh the page.', 'error');
-                      }
-                    };
-                    
-                    refreshData();
-                  }}
-                />
-              </Tab>,
-              
-              // Events tab - admin only
-              <Tab key="events" eventKey="events" title="Events">
-                <div className="mb-3 d-flex justify-content-between">
-                  <h3>Project Events</h3>
+              )}
+            </div>
+          </Tab>
+          
+          {effectiveIsAdmin && (
+            <Tab eventKey="project-maps" title={translate('Maps Management')}>
+              <div className="map-list-container">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h2>{translate('Project Maps')}</h2>
+                  <Button variant="primary" onClick={handleAddMap}>
+                    <i className="bi bi-plus-lg"></i> {translate('Add New Map')}
+                  </Button>
                 </div>
-                
+                <MapList 
+                  maps={maps} 
+                  onMapSelect={handleMapSelect}
+                  onMapDeleted={handleMapDeleted}
+                  projectId={parseInt(projectId, 10)}
+                  isAdmin={effectiveIsAdmin}
+                />
+              </div>
+            </Tab>
+          )}
+          
+          {effectiveIsAdmin && (
+            <Tab eventKey="events" title={translate('Events')}>
+              <div className="events-container">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h2>{translate('Events')}</h2>
+                  <Button variant="primary" onClick={handleAddEvent}>
+                    <i className="bi bi-plus-lg"></i> {translate('Add New Event')}
+                  </Button>
+                </div>
                 <EventsTable 
-                  events={events} 
-                  onViewEvent={handleViewEvent}
-                  onEditEvent={handleEditEvent}
+                  events={events}
+                  maps={maps}
+                  onEventClick={handleEventClick}
                   onEventUpdated={handleEventUpdated}
-                  effectiveIsAdmin={effectiveIsAdmin}
+                  onEventDeleted={handleEventDeleted}
+                  projectId={parseInt(projectId, 10)}
+                  isAdmin={effectiveIsAdmin}
                 />
-              </Tab>,
-              
-              // Contacts tab - available to all users
-              <Tab key="contacts" eventKey="contacts" title="Contacts">
-                <ContactsTab 
-                  projectId={parseInt(projectId)} 
-                  effectiveIsAdmin={effectiveIsAdmin}
-                />
-              </Tab>
-            ];
-            
-            // For members, only return the tabs they should see
-            if (!effectiveIsAdmin) {
-              return [tabs[0], tabs[3]]; // Map View and Contacts only
-            }
-            
-            // For admins, return all tabs
-            return tabs;
-          })()}
+              </div>
+            </Tab>
+          )}
+          
+          <Tab eventKey="contacts" title={translate('Contacts')}>
+            <ContactsTab 
+              projectId={parseInt(projectId, 10)} 
+              isAdmin={effectiveIsAdmin} 
+            />
+          </Tab>
         </Tabs>
       </Container>
       
-      {/* Modals */}
+      <Notification 
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+      />
+      
       <AddMapModal 
-        show={showAddMapModal} 
-        onHide={() => setShowAddMapModal(false)} 
+        show={showAddMapModal}
+        onHide={() => setShowAddMapModal(false)}
+        projectId={parseInt(projectId, 10)}
         onMapAdded={handleMapAdded}
-        projectId={project?.id}
       />
       
       <MapSelectionModal 
@@ -948,39 +845,86 @@ const MapViewer = ({ onLogout }) => {
         onMapSelected={handleMapSelected}
       />
       
-      <AddEventModal
+      <AddEventModal 
         show={showAddEventModal}
-        onHide={() => {
-          setShowAddEventModal(false);
-          setMapForEvent(null);
-        }}
+        onHide={() => setShowAddEventModal(false)}
         mapId={mapForEvent?.id}
         position={eventPosition}
         onEventAdded={handleEventAdded}
-        projectId={project?.id}
+        projectId={parseInt(projectId, 10)}
         allMaps={maps}
         visibleMaps={getActiveMapSettings()}
       />
       
-      <ViewEventModal
-        {...viewEventModalProps}
-      />
-      
-      <EditEventModal
+      <EditEventModal 
         show={showEditEventModal}
         onHide={() => setShowEditEventModal(false)}
         event={selectedEvent}
         onEventUpdated={handleEventUpdated}
-        projectId={project?.id}
-        userRole={effectiveIsAdmin ? "ADMIN" : "MEMBER"}
+        projectId={parseInt(projectId, 10)}
+        allMaps={maps}
       />
       
-      {/* Notification */}
-      <Notification 
-        show={notification.show}
-        message={notification.message} 
-        type={notification.type}
+      <ViewEventModal 
+        show={showViewEventModal}
+        onHide={handleViewModalClose}
+        event={selectedEvent}
+        onEdit={handleEditEvent}
+        onDeleted={handleEventDeleted}
+        isAdmin={effectiveIsAdmin}
+        projectId={parseInt(projectId, 10)}
+        highlightCommentId={highlightCommentId}
+        onEventUpdated={handleEventUpdated}
+        maps={maps}
       />
+      
+      {/* Global event handler for refreshing data */}
+      <div className="d-none">
+        {(() => {
+          window.refreshMapViewerData = () => {
+            console.log("External refresh triggered");
+            
+            // Use a custom function to not show loading spinner
+            const refreshData = async () => {
+              try {
+                // Fetch the specific project by ID
+                const projectData = await fetchProjectById(parseInt(projectId, 10));
+                setProject(projectData);
+                
+                // Fetch maps for the project
+                const mapsData = await fetchMaps(parseInt(projectId, 10));
+                setMaps(mapsData);
+                
+                // Fetch events for each map
+                const allEvents = [];
+                for (const map of mapsData) {
+                  const mapEvents = await fetchEvents(map.id);
+                  
+                  // Add map name to each event for better display
+                  const eventsWithMapName = mapEvents.map(event => ({
+                    ...event,
+                    map_name: map.name
+                  }));
+                  
+                  allEvents.push(...eventsWithMapName);
+                }
+                
+                // Set all events
+                setEvents(allEvents);
+                
+                console.log("Data refreshed successfully");
+              } catch (error) {
+                console.error('Error refreshing data:', error);
+              }
+            };
+            
+            refreshData();
+            return true;
+          };
+          
+          return null;
+        })()}
+      </div>
     </div>
   );
 };

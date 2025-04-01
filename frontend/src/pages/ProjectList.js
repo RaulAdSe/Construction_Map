@@ -6,6 +6,7 @@ import { isUserAdmin } from '../utils/permissions';
 import MonitoringDashboard from '../components/monitoring/MonitoringDashboard';
 import NotificationBell from '../components/NotificationBell';
 import '../assets/styles/ProjectList.css';
+import translate from '../utils/translate';
 
 const ProjectList = ({ onLogout }) => {
   const [projects, setProjects] = useState([]);
@@ -26,12 +27,12 @@ const ProjectList = ({ onLogout }) => {
 
   // Helper function to format dates safely
   const formatDate = (dateString) => {
-    if (!dateString) return 'Date unavailable';
+    if (!dateString) return translate('Date unavailable');
     
     const date = new Date(dateString);
     
     // Check if date is valid
-    if (isNaN(date.getTime())) return 'Invalid date';
+    if (isNaN(date.getTime())) return translate('Invalid date');
     
     // Format the date
     return date.toLocaleDateString(undefined, { 
@@ -49,7 +50,7 @@ const ProjectList = ({ onLogout }) => {
       setError('');
     } catch (err) {
       console.error('Error loading projects:', err);
-      setError('Failed to load projects. Please try again.');
+      setError(translate('Failed to load projects. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ const ProjectList = ({ onLogout }) => {
 
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
-      setError('Project name is required');
+      setError(translate('Project name is required'));
       return;
     }
     
@@ -74,7 +75,7 @@ const ProjectList = ({ onLogout }) => {
       await loadProjects(); // Reload the projects list
     } catch (err) {
       console.error('Error creating project:', err);
-      setError('Failed to create project. Please try again.');
+      setError(translate('Failed to create project. Please try again.'));
     } finally {
       setCreating(false);
     }
@@ -99,7 +100,7 @@ const ProjectList = ({ onLogout }) => {
       await loadProjects();
     } catch (err) {
       console.error('Error deleting project:', err);
-      setError('Failed to delete project. Please try again.');
+      setError(translate('Failed to delete project. Please try again.'));
     } finally {
       setDeleting(false);
     }
@@ -116,7 +117,7 @@ const ProjectList = ({ onLogout }) => {
       return (
         <div className="text-center p-5">
           <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
+            <span className="visually-hidden">{translate('Loading...')}</span>
           </Spinner>
         </div>
       );
@@ -125,10 +126,10 @@ const ProjectList = ({ onLogout }) => {
     if (projects.length === 0) {
       return (
         <div className="text-center p-5 bg-light rounded">
-          <h3>No Projects Available</h3>
-          <p>There are no projects in the system yet. Create your first project to get started!</p>
+          <h3>{translate('No Projects Available')}</h3>
+          <p>{translate('There are no projects in the system yet. Create your first project to get started!')}</p>
           <Button variant="primary" size="lg" onClick={() => setShowModal(true)}>
-            Create Your First Project
+            {translate('Create Your First Project')}
           </Button>
         </div>
       );
@@ -144,19 +145,19 @@ const ProjectList = ({ onLogout }) => {
                 size="sm" 
                 className="delete-project-btn"
                 onClick={(e) => handleDeleteClick(e, project)}
-                aria-label={`Delete ${project.name} project`}
+                aria-label={`${translate('Delete')} ${project.name} ${translate('project')}`}
               >
                 <i className="bi bi-trash"></i>
               </Button>
               <Card.Body onClick={() => handleProjectSelect(project.id)}>
                 <Card.Title>{project.name}</Card.Title>
                 <Card.Text>
-                  {project.description || 'No description available'}
+                  {project.description || translate('No description available')}
                 </Card.Text>
               </Card.Body>
               <Card.Footer onClick={() => handleProjectSelect(project.id)}>
                 <small className="text-muted">
-                  Created: {formatDate(project.created_at)}
+                  {translate('Created')}: {formatDate(project.created_at)}
                 </small>
               </Card.Footer>
             </Card>
@@ -170,10 +171,10 @@ const ProjectList = ({ onLogout }) => {
     <div className="project-list-page">
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container>
-          <Navbar.Brand>Construction Map Viewer</Navbar.Brand>
+          <Navbar.Brand>{translate('Construction Map Viewer')}</Navbar.Brand>
           <div className="d-flex align-items-center">
             <NotificationBell />
-            <Button variant="outline-light" onClick={onLogout} className="ms-3">Logout</Button>
+            <Button variant="outline-light" onClick={onLogout} className="ms-3">{translate('Logout')}</Button>
           </div>
         </Container>
       </Navbar>
@@ -185,11 +186,11 @@ const ProjectList = ({ onLogout }) => {
           id="project-tabs"
           className="mb-4"
         >
-          <Tab eventKey="projects" title="Projects">
+          <Tab eventKey="projects" title={translate('Projects')}>
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h2>Select a Project</h2>
+              <h2>{translate('Select a Project')}</h2>
               <Button variant="primary" className="create-project-btn" onClick={() => setShowModal(true)}>
-                <i className="bi bi-plus-lg"></i>Create New Project
+                <i className="bi bi-plus-lg"></i>{translate('Create New Project')}
               </Button>
             </div>
             
@@ -203,7 +204,7 @@ const ProjectList = ({ onLogout }) => {
           </Tab>
           
           {isUserAdmin() && (
-            <Tab eventKey="monitoring" title="System Monitoring">
+            <Tab eventKey="monitoring" title={translate('System Monitoring')}>
               <MonitoringDashboard />
             </Tab>
           )}
@@ -213,26 +214,26 @@ const ProjectList = ({ onLogout }) => {
       {/* Create Project Modal */}
       <Modal show={showModal} onHide={() => { setShowModal(false); resetForm(); }}>
         <Modal.Header closeButton>
-          <Modal.Title>Create New Project</Modal.Title>
+          <Modal.Title>{translate('Create New Project')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form className="project-form">
             <Form.Group className="mb-3">
-              <Form.Label>Project Name <span className="text-danger">*</span></Form.Label>
+              <Form.Label>{translate('Project Name')} <span className="text-danger">*</span></Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Enter project name"
+                placeholder={translate('Enter project name')}
                 value={newProject.name}
                 onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                 required
               />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
+              <Form.Label>{translate('Description')}</Form.Label>
               <Form.Control
                 as="textarea"
                 rows={3}
-                placeholder="Enter project description (optional)"
+                placeholder={translate('Enter project description (optional)')}
                 value={newProject.description}
                 onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
               />
@@ -241,51 +242,38 @@ const ProjectList = ({ onLogout }) => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>
-            Cancel
+            {translate('Cancel')}
           </Button>
           <Button 
             variant="primary" 
             onClick={handleCreateProject}
             disabled={creating}
           >
-            {creating ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" className="me-2" />
-                Creating...
-              </>
-            ) : 'Create Project'}
+            {creating ? translate('Creating...') : translate('Create')}
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Delete Project Confirmation Modal */}
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Delete Project</Modal.Title>
+          <Modal.Title>{translate('Confirm Delete')}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Are you sure you want to delete project <strong>{projectToDelete?.name}</strong>?</p>
-          <Alert variant="warning">
-            <i className="bi bi-exclamation-triangle me-2"></i>
-            This action will permanently delete this project and all its associated maps and events. 
-            This cannot be undone.
-          </Alert>
+          {projectToDelete && (
+            <p>{translate('Are you sure you want to delete project')}: <strong>{projectToDelete.name}</strong>? {translate('This action cannot be undone')}.</p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-            Cancel
+            {translate('Cancel')}
           </Button>
           <Button 
             variant="danger" 
             onClick={handleDeleteProject}
             disabled={deleting}
           >
-            {deleting ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" className="me-2" />
-                Deleting...
-              </>
-            ) : 'Delete Project'}
+            {deleting ? translate('Deleting...') : translate('Delete')}
           </Button>
         </Modal.Footer>
       </Modal>
