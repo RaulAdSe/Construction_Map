@@ -26,19 +26,13 @@ const MapsManager = ({ projectId, onMapUpdated }) => {
     try {
       setLoading(true);
       const response = await fetchMaps(projectId);
-      setMaps(response);
       
-      // Check if we've already tried to fix maps this session
-      const fixAttempted = localStorage.getItem(refreshKey);
+      // Always check and fix maps to ensure consistency
+      await checkAndFixMaps(response);
       
-      if (!fixAttempted) {
-        // Only attempt to fix maps once per session
-        await checkAndFixMaps(response);
-        // Mark that we've attempted a fix
-        localStorage.setItem(refreshKey, 'true');
-      } else {
-        console.log('Map fix already attempted in this session, skipping check');
-      }
+      // Refresh maps after potential fixes
+      const updatedMaps = await fetchMaps(projectId);
+      setMaps(updatedMaps);
       
       setLoading(false);
     } catch (error) {
@@ -59,9 +53,7 @@ const MapsManager = ({ projectId, onMapUpdated }) => {
       try {
         const firstMap = mapsList[0];
         await updateMap(firstMap.id, { map_type: 'implantation' });
-        // Alert before refresh
-        alert('Setting first map as main map. Page will refresh once.');
-        window.location.reload();
+        return true; // Return true to indicate changes were made
       } catch (error) {
         console.error('Error setting main map:', error);
       }
@@ -77,18 +69,14 @@ const MapsManager = ({ projectId, onMapUpdated }) => {
         );
         
         await Promise.all(updatePromises);
-        
-        // Alert before refresh
-        alert(`Fixed ${mainMaps.length - 1} maps that were incorrectly set as main. Page will refresh once.`);
-        
-        // Use setTimeout to ensure the alert is seen before refresh
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
+        console.log(`Fixed ${mainMaps.length - 1} maps that were incorrectly set as main.`);
+        return true; // Return true to indicate changes were made
       } catch (error) {
         console.error('Error fixing main maps:', error);
       }
     }
+    
+    return false; // Return false to indicate no changes were needed
   };
 
   const handleDeleteMap = async (mapId) => {
