@@ -476,7 +476,11 @@ const MapViewer = ({ onLogout }) => {
           setShowViewEventModal(true);
           
           // Clear the highlight info from location state after processing
-          window.history.replaceState({}, document.title);
+          try {
+            window.history.replaceState({}, document.title);
+          } catch (error) {
+            console.error('Failed to clear history state:', error);
+          }
         }
       }
       
@@ -519,6 +523,17 @@ const MapViewer = ({ onLogout }) => {
       checkForHighlightedEvent();
     }
   }, [events, maps, location.state, loading]);
+  
+  // Define a clean handler for closing the event modal
+  const handleCloseViewEventModal = () => {
+    // Close the modal
+    setShowViewEventModal(false);
+    
+    // Reset the comment highlight only after the modal is closed
+    setTimeout(() => {
+      setHighlightCommentId(null);
+    }, 100);
+  };
   
   if (loading) {
     return (
@@ -761,10 +776,7 @@ const MapViewer = ({ onLogout }) => {
       
       <ViewEventModal
         show={showViewEventModal}
-        onHide={() => {
-          setShowViewEventModal(false);
-          setHighlightCommentId(null); // Reset highlight when closing
-        }}
+        onHide={handleCloseViewEventModal}
         event={selectedEvent}
         allMaps={maps}
         onEventUpdated={handleEventUpdated}

@@ -16,6 +16,8 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   
   // Reference to highlighted comment
   const highlightedCommentRef = useRef(null);
+  // Flag to track if we've already scrolled
+  const hasScrolledRef = useRef(false);
 
   // Load comments
   const fetchComments = async () => {
@@ -36,17 +38,27 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     if (eventId) {
       fetchComments();
     }
+    // Reset scroll flag when eventId changes
+    hasScrolledRef.current = false;
   }, [eventId]);
   
   // Scroll to highlighted comment if specified
   useEffect(() => {
-    if (highlightCommentId && !loading && comments.length > 0) {
+    // Only scroll if we haven't scrolled yet for this comment
+    if (highlightCommentId && !loading && comments.length > 0 && !hasScrolledRef.current) {
+      // Set flag immediately to prevent multiple scroll attempts
+      hasScrolledRef.current = true;
+      
       setTimeout(() => {
         if (highlightedCommentRef.current) {
-          highlightedCommentRef.current.scrollIntoView({ 
-            behavior: 'smooth',
-            block: 'center'
-          });
+          try {
+            highlightedCommentRef.current.scrollIntoView({ 
+              behavior: 'smooth',
+              block: 'center'
+            });
+          } catch (err) {
+            console.error('Error scrolling to comment:', err);
+          }
         }
       }, 300); // Small delay to ensure the component has properly rendered
     }

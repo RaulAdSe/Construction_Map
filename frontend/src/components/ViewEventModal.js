@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Modal, Button, Row, Col, Badge, Image, Tabs, Tab, Form } from 'react-bootstrap';
 import { format } from 'date-fns';
 import EventComments from './EventComments';
@@ -22,6 +22,13 @@ const ViewEventModal = ({
   const [currentType, setCurrentType] = useState('');
   const [activeTab, setActiveTab] = useState('details');
   
+  // Create a memoized handler to prevent recreation on each render
+  const handleClose = useCallback(() => {
+    if (typeof onHide === 'function') {
+      onHide();
+    }
+  }, [onHide]);
+  
   useEffect(() => {
     if (event) {
       setCurrentStatus(event.status || 'open');
@@ -33,6 +40,20 @@ const ViewEventModal = ({
       }
     }
   }, [event, highlightCommentId]);
+
+  // Add an effect to manage keyboard escape
+  useEffect(() => {
+    const handleEscapeKey = (e) => {
+      if (e.key === 'Escape' && show) {
+        handleClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [show, handleClose]);
 
   if (!event) return null;
   
@@ -141,7 +162,7 @@ const ViewEventModal = ({
   return (
     <Modal
       show={show}
-      onHide={onHide}
+      onHide={handleClose}
       size="lg"
       centered
       dialogClassName="event-modal-dialog"
@@ -343,7 +364,11 @@ const ViewEventModal = ({
         </Tabs>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
+        <Button 
+          variant="secondary" 
+          onClick={handleClose}
+          data-testid="close-event-modal-btn"
+        >
           Close
         </Button>
       </Modal.Footer>
