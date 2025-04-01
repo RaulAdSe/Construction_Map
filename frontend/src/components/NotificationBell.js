@@ -29,10 +29,20 @@ const NotificationBell = () => {
         },
         withCredentials: true
       });
-      setNotifications(response.data.notifications);
-      setUnreadCount(response.data.unread_count);
+      
+      console.log('Fetched notifications:', response.data);
+      
+      if (response.data && Array.isArray(response.data.notifications)) {
+        setNotifications(response.data.notifications);
+        setUnreadCount(response.data.unread_count || 0);
+      } else {
+        console.error('Unexpected response format:', response.data);
+        setNotifications([]);
+        setUnreadCount(0);
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +56,14 @@ const NotificationBell = () => {
         },
         withCredentials: true
       });
-      setUnreadCount(response.data);
+      
+      console.log('Fetched unread count:', response.data);
+      
+      if (typeof response.data === 'number') {
+        setUnreadCount(response.data);
+      } else {
+        console.error('Unexpected unread count format:', response.data);
+      }
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
@@ -124,13 +141,21 @@ const NotificationBell = () => {
   };
 
   const handleNotificationClick = async (notification) => {
+    console.log('Notification clicked:', notification);
+    
     // Mark as read if not already read
     if (!notification.read) {
       await markAsRead(notification.id);
     }
     
-    // Navigate to the link destination
-    navigate(notification.link);
+    // Navigate to the link destination if it exists
+    if (notification.link) {
+      console.log('Navigating to:', notification.link);
+      navigate(notification.link);
+    } else {
+      console.warn('Notification has no link to navigate to');
+    }
+    
     setIsOpen(false);
   };
 
