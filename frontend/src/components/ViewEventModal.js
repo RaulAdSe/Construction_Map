@@ -22,10 +22,44 @@ const ViewEventModal = ({
   const [currentType, setCurrentType] = useState('');
   const [activeTab, setActiveTab] = useState('details');
   
-  // Create a simpler handler that directly calls the provided onHide function
-  const handleClose = useCallback(() => {
+  // Add refs for the modal and buttons
+  const modalRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  
+  // Create a more aggressive close handler that will force the modal to close
+  const handleForceClose = useCallback(() => {
+    console.log('Force closing modal');
+    
+    // First try the regular onHide
     if (typeof onHide === 'function') {
       onHide();
+    }
+    
+    // As a backup, also try to click any close buttons directly using DOM
+    try {
+      // Find all close buttons in the modal and click them
+      const closeButtons = document.querySelectorAll('.modal .close, .modal .btn-close, .modal .close-event-btn');
+      if (closeButtons.length > 0) {
+        console.log('Found close buttons, clicking them');
+        closeButtons.forEach(button => {
+          button.click();
+        });
+      } else {
+        console.log('No close buttons found');
+      }
+      
+      // Finally, try removing the modal backdrop and show class
+      const modalBackdrops = document.querySelectorAll('.modal-backdrop');
+      modalBackdrops.forEach(backdrop => {
+        backdrop.remove();
+      });
+      
+      // Remove modal-open class from body
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    } catch (error) {
+      console.error('Error force closing modal:', error);
     }
   }, [onHide]);
   
@@ -45,17 +79,46 @@ const ViewEventModal = ({
   useEffect(() => {
     const handleEscapeKey = (e) => {
       if (e.key === 'Escape' && show) {
-        handleClose();
+        handleForceClose();
       }
     };
 
     if (show) {
       document.addEventListener('keydown', handleEscapeKey);
+      
+      // Add a timeout to check if modal is stuck
+      const checkModalStuckTimeout = setTimeout(() => {
+        if (show && document.querySelector('.modal.show')) {
+          console.log('Modal may be stuck, adding emergency close button');
+          
+          // Create emergency close button
+          const emergencyCloseBtn = document.createElement('button');
+          emergencyCloseBtn.innerHTML = 'EMERGENCY CLOSE';
+          emergencyCloseBtn.style.position = 'fixed';
+          emergencyCloseBtn.style.top = '10px';
+          emergencyCloseBtn.style.right = '10px';
+          emergencyCloseBtn.style.zIndex = '9999999';
+          emergencyCloseBtn.style.backgroundColor = 'red';
+          emergencyCloseBtn.style.color = 'white';
+          emergencyCloseBtn.style.padding = '10px';
+          emergencyCloseBtn.style.border = 'none';
+          emergencyCloseBtn.style.borderRadius = '5px';
+          emergencyCloseBtn.onclick = handleForceClose;
+          
+          document.body.appendChild(emergencyCloseBtn);
+        }
+      }, 5000);
+      
       return () => {
         document.removeEventListener('keydown', handleEscapeKey);
+        clearTimeout(checkModalStuckTimeout);
+        
+        // Remove any emergency close buttons
+        const emergencyBtns = document.querySelectorAll('button[innerHTML="EMERGENCY CLOSE"]');
+        emergencyBtns.forEach(btn => btn.remove());
       };
     }
-  }, [show, handleClose]);
+  }, [show, handleForceClose]);
 
   if (!event) return null;
   
@@ -164,12 +227,13 @@ const ViewEventModal = ({
   return (
     <Modal
       show={show}
-      onHide={handleClose}
+      onHide={handleForceClose}
       size="lg"
       centered
       dialogClassName="event-modal-dialog"
       backdropClassName="event-modal-backdrop"
       contentClassName="modal-content"
+      ref={modalRef}
     >
       <Modal.Header closeButton>
         <Modal.Title>
@@ -368,10 +432,20 @@ const ViewEventModal = ({
       <Modal.Footer>
         <Button 
           variant="secondary" 
-          onClick={handleClose}
-          className="close-event-btn"
+          onClick={handleForceClose}
+          className="close-event-btn emergency-close"
+          ref={closeButtonRef}
+          style={{ position: 'relative', zIndex: 9999 }}
         >
           Close
+        </Button>
+        <Button 
+          variant="danger" 
+          onClick={handleForceClose}
+          className="d-md-none"
+          style={{ marginLeft: '10px' }}
+        >
+          Force Close
         </Button>
       </Modal.Footer>
     </Modal>

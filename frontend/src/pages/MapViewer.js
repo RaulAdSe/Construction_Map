@@ -526,19 +526,86 @@ const MapViewer = ({ onLogout }) => {
   
   // Define a clean handler for closing the event modal
   const handleCloseViewEventModal = () => {
-    // Reset highlight and close modal immediately
-    setHighlightCommentId(null);
+    // Reset state immediately
     setShowViewEventModal(false);
+    setHighlightCommentId(null);
+    setSelectedEvent(null);
     
     // If we were navigated here from a notification, clear location state
-    if (location.state?.highlightEventId) {
-      try {
+    try {
+      if (location.state?.highlightEventId) {
         window.history.replaceState({}, document.title);
-      } catch (error) {
-        console.error('Failed to clear history state:', error);
       }
+      
+      // Also remove any stuck modal backdrops
+      const modalBackdrops = document.querySelectorAll('.modal-backdrop');
+      modalBackdrops.forEach(backdrop => {
+        backdrop.remove();
+      });
+      
+      // Fix body styling
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    } catch (error) {
+      console.error('Failed to clean up after modal:', error);
     }
   };
+  
+  // Add a global emergency escape handler
+  useEffect(() => {
+    let escapeCount = 0;
+    let escapeTimer = null;
+
+    const handleEmergencyEscape = (e) => {
+      if (e.key === 'Escape') {
+        escapeCount++;
+        
+        // If user presses Escape twice within 500ms, force close any modals
+        if (escapeCount === 1) {
+          escapeTimer = setTimeout(() => {
+            escapeCount = 0;
+          }, 500);
+        } else if (escapeCount >= 2) {
+          console.log('EMERGENCY ESCAPE: Force closing all modals');
+          
+          // Force close view event modal
+          setShowViewEventModal(false);
+          setHighlightCommentId(null);
+          setSelectedEvent(null);
+          
+          // Force close edit event modal
+          setShowEditEventModal(false);
+          
+          // Force close all other modals
+          setShowAddMapModal(false);
+          setShowAddEventModal(false);
+          setShowMapSelectionModal(false);
+          
+          // Remove backdrop and reset body
+          const modalBackdrops = document.querySelectorAll('.modal-backdrop');
+          modalBackdrops.forEach(backdrop => backdrop.remove());
+          document.body.classList.remove('modal-open');
+          document.body.style.overflow = '';
+          document.body.style.paddingRight = '';
+          
+          // Clear location state to prevent getting stuck in a highlight loop
+          window.history.replaceState({}, document.title);
+          
+          // Reset counter
+          escapeCount = 0;
+          clearTimeout(escapeTimer);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleEmergencyEscape);
+    
+    return () => {
+      document.removeEventListener('keydown', handleEmergencyEscape);
+      clearTimeout(escapeTimer);
+    };
+  }, []);
   
   if (loading) {
     return (

@@ -30,8 +30,6 @@ const NotificationBell = () => {
         withCredentials: true
       });
       
-      console.log('Fetched notifications:', response.data);
-      
       if (response.data && Array.isArray(response.data.notifications)) {
         // Ensure newest notifications are at the top (should be handled by backend)
         const sortedNotifications = response.data.notifications.sort((a, b) => 
@@ -60,8 +58,6 @@ const NotificationBell = () => {
         },
         withCredentials: true
       });
-      
-      console.log('Fetched unread count:', response.data);
       
       if (typeof response.data === 'number') {
         setUnreadCount(response.data);
@@ -145,8 +141,6 @@ const NotificationBell = () => {
   };
 
   const handleNotificationClick = async (notification) => {
-    console.log('Notification clicked:', notification);
-    
     // Mark as read if not already read
     if (!notification.read) {
       await markAsRead(notification.id);
@@ -157,8 +151,6 @@ const NotificationBell = () => {
     
     // Navigate to the link destination if it exists
     if (notification.link) {
-      console.log('Navigating to:', notification.link);
-      
       // Parse the link to extract parameters
       try {
         const linkUrl = new URL(notification.link, window.location.origin);
@@ -168,8 +160,6 @@ const NotificationBell = () => {
           const projectId = linkUrl.pathname.split('/').pop();
           const eventId = linkUrl.searchParams.get('event');
           const commentId = linkUrl.searchParams.get('comment');
-          
-          console.log(`Navigating to project ${projectId}, event ${eventId}, comment ${commentId}`);
           
           // Navigate and include any query parameters
           navigate(`/project/${projectId}`, { 
