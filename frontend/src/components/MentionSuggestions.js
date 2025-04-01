@@ -97,11 +97,10 @@ const MentionSuggestions = ({
     };
   }, [filteredUsers, loading, isVisible, setIsVisible, error, mentionQuery]);
 
-  // Don't render if not visible
-  if (!isVisible) return null;
-  
-  // Memoize the list items to prevent rerenders
+  // Memoize the list items to prevent rerenders - moved before conditional return
   const suggestionItems = useMemo(() => {
+    if (!isVisible) return null;
+    
     if (loading) {
       return (
         <ListGroup.Item className="d-flex justify-content-center align-items-center py-3">
@@ -151,7 +150,10 @@ const MentionSuggestions = ({
         )}
       </ListGroup.Item>
     ));
-  }, [loading, error, filteredUsers, mentionQuery, onSelectUser, setIsVisible]);
+  }, [loading, error, filteredUsers, mentionQuery, onSelectUser, setIsVisible, isVisible]);
+
+  // Don't render if not visible - moved after hooks
+  if (!isVisible) return null;
 
   return (
     <div 
