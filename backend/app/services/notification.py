@@ -144,7 +144,10 @@ class NotificationService:
     def extract_mentions(text: str) -> List[str]:
         """Extract @username mentions from text"""
         # Find all @username patterns
-        mentions = re.findall(r'@(\w+)', text)
+        # Updated regex to match a wider range of username formats
+        # Supports usernames with letters, numbers, underscores, dots and dashes
+        mentions = re.findall(r'@([\w\.-]+)', text)
+        print(f"Extracted mentions from text: {mentions}")
         return mentions
     
     @staticmethod
