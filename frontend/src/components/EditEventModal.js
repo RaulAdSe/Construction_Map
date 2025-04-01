@@ -1,17 +1,94 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Row, Col, Image, Alert } from 'react-bootstrap';
+import { Modal, Button, Form, Row, Col, Image, Alert, ListGroup, Badge } from 'react-bootstrap';
 import { updateEvent } from '../services/eventService';
 import MentionInput from './MentionInput';
+import axios from 'axios';
 
 const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER", projectId }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('periodic check');
   const [status, setStatus] = useState('open');
-  const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [canCloseEvent, setCanCloseEvent] = useState(false);
+  
+  // For tag suggestions
+  const [tagInput, setTagInput] = useState('');
+  const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [allProjectTags, setAllProjectTags] = useState([]);
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [selectedTags, setSelectedTags] = useState([]);
+  
+  // Fetch all existing tags for this project
+  useEffect(() => {
+    if (projectId) {
+      fetchProjectTags();
+    }
+  }, [projectId]);
+  
+  const fetchProjectTags = async () => {
+    try {
+      const response = await axios.get(`http://localhost:8000/api/v1/projects/${projectId}/tags`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data && Array.isArray(response.data)) {
+        setAllProjectTags(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching project tags:', error);
+    }
+  };
+  
+  // Handle tag input change
+  const handleTagInputChange = (e) => {
+    const input = e.target.value;
+    setTagInput(input);
+    
+    if (input.trim() === '') {
+      setShowTagSuggestions(false);
+      return;
+    }
+    
+    // Filter tags that match the current input
+    const matchingTags = allProjectTags
+      .filter(tag => tag.toLowerCase().includes(input.toLowerCase()))
+      .filter(tag => !selectedTags.includes(tag))
+      .slice(0, 3); // Limit to 3 suggestions
+    
+    setTagSuggestions(matchingTags);
+    setShowTagSuggestions(matchingTags.length > 0);
+  };
+  
+  // Add a tag from suggestions or from input
+  const addTag = (tag = null) => {
+    const tagToAdd = tag || tagInput.trim();
+    
+    if (tagToAdd && !selectedTags.includes(tagToAdd)) {
+      setSelectedTags([...selectedTags, tagToAdd]);
+      setTagInput('');
+      setShowTagSuggestions(false);
+    }
+  };
+  
+  // Remove a tag
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
+  };
+  
+  // Handle key press in tag input
+  const handleTagKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag();
+    } else if (e.key === ',') {
+      e.preventDefault();
+      addTag();
+    }
+  };
   
   useEffect(() => {
     if (event) {
@@ -19,7 +96,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
       setDescription(event.description || '');
       setType(event.state || 'periodic check');
       setStatus(event.status || 'open');
-      setTags(event.tags ? event.tags.join(', ') : '');
+      setSelectedTags(event.tags || []);
       setError('');
     }
   }, [event]);
@@ -62,17 +139,12 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     }
     
     try {
-      const tagsArray = tags
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
-      
       const updatedEvent = await updateEvent(event.id, {
         title,
         description,
         state: type,
         status,
-        tags: tagsArray
+        tags: selectedTags
       });
       
       onEventUpdated(updatedEvent);
@@ -177,15 +249,52 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
               </Row>
               
               <Form.Group className="mb-3">
-                <Form.Label>Tags (comma separated)</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="tag1, tag2, tag3"
-                />
+                <Form.Label>Tags</Form.Label>
+                <div className="selected-tags mb-2">
+                  {selectedTags.map(tag => (
+                    <Badge 
+                      key={tag} 
+                      bg="info" 
+                      className="me-1 mb-1"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => removeTag(tag)}
+                    >
+                      {tag} &times;
+                    </Badge>
+                  ))}
+                </div>
+                <div className="tag-input-container" style={{ position: 'relative' }}>
+                  <Form.Control
+                    type="text"
+                    value={tagInput}
+                    onChange={handleTagInputChange}
+                    onKeyPress={handleTagKeyPress}
+                    placeholder="Add tags (press Enter or comma to add)"
+                  />
+                  {showTagSuggestions && (
+                    <ListGroup style={{ 
+                      position: 'absolute', 
+                      width: '100%', 
+                      zIndex: 10,
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                    }}>
+                      {tagSuggestions.map(tag => (
+                        <ListGroup.Item 
+                          key={tag} 
+                          action 
+                          onClick={() => addTag(tag)}
+                          className="py-2"
+                        >
+                          {tag}
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
+                  )}
+                </div>
                 <Form.Text className="text-muted">
-                  Separate tags with commas
+                  Type to see suggestions from existing tags or create your own
                 </Form.Text>
               </Form.Group>
               

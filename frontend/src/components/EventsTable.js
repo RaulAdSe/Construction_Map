@@ -217,6 +217,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                 <th>Description</th>
                 <th>Status</th>
                 <th>Type</th>
+                <th>Tags</th>
                 <th>Created By</th>
                 <th>Created At</th>
                 <th>Comments</th>
@@ -276,6 +277,19 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                         {getTypeBadge(event.state)}
                       </div>
                     </OverlayTrigger>
+                  </td>
+                  <td>
+                    {event.tags && event.tags.length > 0 ? (
+                      <div className="event-tags">
+                        {event.tags.map(tag => (
+                          <Badge key={tag} bg="info" className="me-1 mb-1">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted">No tags</span>
+                    )}
                   </td>
                   <td>{event.created_by_user_name || `User ID: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>

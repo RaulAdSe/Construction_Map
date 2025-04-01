@@ -292,9 +292,11 @@ const ViewEventModal = ({
                 {event.tags && event.tags.length > 0 && (
                   <div className="mb-3">
                     <h6>Tags</h6>
-                    <div>
+                    <div className="d-flex flex-wrap">
                       {event.tags.map(tag => (
-                        <Badge key={tag} bg="info" className="me-1 mb-1">{tag}</Badge>
+                        <Badge key={tag} bg="info" className="me-1 mb-1" style={{ fontSize: '0.9rem', padding: '6px 10px' }}>
+                          {tag}
+                        </Badge>
                       ))}
                     </div>
                   </div>

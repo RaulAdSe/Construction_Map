@@ -363,3 +363,35 @@ def update_member_field(
     except Exception as e:
         print(f"Error in update_member_field: {str(e)}")
         raise 
+
+
+@router.get("/{project_id}/tags", response_model=List[str])
+def get_project_tags(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get all unique tags used in events for a specific project.
+    """
+    # Check if project exists
+    project = project_service.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check if user has access to project or is an admin
+    if not current_user.is_admin and not any(pu.user_id == current_user.id for pu in project.users):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Get all events for the project
+    events = db.query(project.events).all()
+    
+    # Extract all tags from events
+    all_tags = []
+    for event in events:
+        if event.tags and isinstance(event.tags, list):
+            all_tags.extend(event.tags)
+    
+    # Return unique tags
+    unique_tags = list(set(all_tags))
+    return unique_tags 
