@@ -269,8 +269,12 @@ const ViewEventModal = ({
                           style={{ width: 'auto' }}
                         >
                           <option value="open">{translate('Open')}</option>
-                          <option value="in-progress">{translate('In Progress')}</option>
-                          <option value="resolved">{translate('Resolved')}</option>
+                          {currentType !== 'periodic check' && (
+                            <>
+                              <option value="in-progress">{translate('In Progress')}</option>
+                              <option value="resolved">{translate('Resolved')}</option>
+                            </>
+                          )}
                           <option value="closed">{translate('Closed')}</option>
                         </Form.Select>
                       )}

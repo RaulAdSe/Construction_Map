@@ -227,8 +227,12 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
                       onChange={(e) => setStatus(e.target.value)}
                     >
                       <option value="open">{translate('Open')}</option>
-                      <option value="in-progress">{translate('In Progress')}</option>
-                      <option value="resolved">{translate('Resolved')}</option>
+                      {type !== 'periodic check' && (
+                        <>
+                          <option value="in-progress">{translate('In Progress')}</option>
+                          <option value="resolved">{translate('Resolved')}</option>
+                        </>
+                      )}
                       <option value="closed" disabled={!canCloseEvent}>{translate('Closed')} {!canCloseEvent && translate('(Admin Only)')}</option>
                     </Form.Select>
                     {!canCloseEvent && (

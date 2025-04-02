@@ -223,8 +223,8 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                 <th>{translate('#')}</th>
                 <th>{translate('Title')}</th>
                 <th>{translate('Description')}</th>
-                <th>{translate('Type')}</th>
                 <th>{translate('Status')}</th>
+                <th>{translate('Type')}</th>
                 <th>{translate('Tags')}</th>
                 <th>{translate('Created By')}</th>
                 <th>{translate('Created At')}</th>
@@ -247,6 +247,32 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                   <td>
                     <OverlayTrigger
                       placement="top"
+                      overlay={<Tooltip>{translate('Click to change status')}</Tooltip>}
+                    >
+                      <div>
+                        <Form.Select 
+                          size="sm"
+                          value={event.status || 'open'}
+                          onChange={(e) => handleStatusChange(event.id, e.target.value)}
+                          disabled={updatingEvent === event.id}
+                          style={{ marginBottom: '4px' }}
+                        >
+                          <option value="open">{translate('Open')}</option>
+                          {event.state !== 'periodic check' && (
+                            <>
+                              <option value="in-progress">{translate('In Progress')}</option>
+                              <option value="resolved">{translate('Resolved')}</option>
+                            </>
+                          )}
+                          {canEdit && <option value="closed">{translate('Closed')}</option>}
+                        </Form.Select>
+                        {getStatusBadge(event.status)}
+                      </div>
+                    </OverlayTrigger>
+                  </td>
+                  <td>
+                    <OverlayTrigger
+                      placement="top"
                       overlay={<Tooltip>{translate('Click to change type')}</Tooltip>}
                     >
                       <div>
@@ -261,28 +287,6 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                           <option value="incidence">{translate('Incidence')}</option>
                         </Form.Select>
                         {getTypeBadge(event.state)}
-                      </div>
-                    </OverlayTrigger>
-                  </td>
-                  <td>
-                    <OverlayTrigger
-                      placement="top"
-                      overlay={<Tooltip>{translate('Click to change status')}</Tooltip>}
-                    >
-                      <div>
-                        <Form.Select 
-                          size="sm"
-                          value={event.status || 'open'}
-                          onChange={(e) => handleStatusChange(event.id, e.target.value)}
-                          disabled={updatingEvent === event.id}
-                          style={{ marginBottom: '4px' }}
-                        >
-                          <option value="open">{translate('Open')}</option>
-                          <option value="in-progress">{translate('In Progress')}</option>
-                          <option value="resolved">{translate('Resolved')}</option>
-                          {canEdit && <option value="closed">{translate('Closed')}</option>}
-                        </Form.Select>
-                        {getStatusBadge(event.status)}
                       </div>
                     </OverlayTrigger>
                   </td>
