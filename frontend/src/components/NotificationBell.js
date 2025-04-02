@@ -173,6 +173,21 @@ const NotificationBell = () => {
               highlightCommentId: commentId
             }
           });
+        } else if (linkUrl.pathname.startsWith('/events/')) {
+          // Legacy format: extract event ID from path and convert to new format
+          const eventId = linkUrl.pathname.split('/').pop();
+          const commentId = linkUrl.searchParams.get('comment');
+          
+          // Find project ID from the event ID in the event store or re-fetch if needed
+          // For simplicity, we'll navigate directly to the event in the current project
+          const currentProjectId = window.location.pathname.split('/').pop();
+          
+          navigate(`/project/${currentProjectId}`, {
+            state: {
+              highlightEventId: eventId,
+              highlightCommentId: commentId
+            }
+          });
         } else {
           // For other links, navigate directly
           navigate(notification.link);

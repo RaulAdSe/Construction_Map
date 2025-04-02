@@ -3,9 +3,10 @@ import React from 'react';
 /**
  * Parse text and highlight @mentions
  * @param {string} text - The text to parse for mentions
+ * @param {function} onMentionClick - Optional callback when a mention is clicked
  * @returns {Array} Array of text and highlighted mentions elements
  */
-export const parseAndHighlightMentions = (text) => {
+export const parseAndHighlightMentions = (text, onMentionClick) => {
   if (!text) return [];
   
   // Regular expression to match @username
@@ -16,6 +17,7 @@ export const parseAndHighlightMentions = (text) => {
   return parts.map((part, index) => {
     // Check if this part is a mention
     if (part.match(regex)) {
+      const username = part.substring(1); // Extract username without @ symbol
       return (
         <span 
           key={index} 
@@ -25,9 +27,15 @@ export const parseAndHighlightMentions = (text) => {
             color: '#0d6efd',
             backgroundColor: 'rgba(13, 110, 253, 0.1)',
             padding: '1px 4px',
-            borderRadius: '3px'
+            borderRadius: '3px',
+            cursor: onMentionClick ? 'pointer' : 'default'
           }}
-          title={part.substring(1)} // Show username on hover without @ symbol
+          title={`View ${username}'s profile`}
+          onClick={() => {
+            if (onMentionClick) {
+              onMentionClick(username);
+            }
+          }}
         >
           {part}
         </span>

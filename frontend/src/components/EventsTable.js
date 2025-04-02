@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Badge, Form, OverlayTrigger, Tooltip, Modal, Spinner, Alert, Image } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
@@ -20,6 +20,14 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [filteredEvents, setFilteredEvents] = useState([]);
+  const [selectedTypes, setSelectedTypes] = useState(['incidence', 'periodic check', 'request']);
+
+  // Handle mention click
+  const handleMentionClick = useCallback((username) => {
+    // This could be updated to navigate to a user profile or perform a search
+    alert(`Clicked on user: ${username}`);
+    // TODO: Implement proper navigation or search for user profiles
+  }, []);
 
   // Filter events and update when events prop changes
   useEffect(() => {
@@ -44,14 +52,16 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   });
 
   // Get type badge
-  const getTypeBadge = (state) => {
-    switch (state) {
+  const getTypeBadge = (type) => {
+    switch (type) {
       case 'incidence':
         return <Badge bg="danger">{translate('Incidence')}</Badge>;
       case 'periodic check':
         return <Badge bg="info">{translate('Periodic Check')}</Badge>;
+      case 'request':
+        return <Badge bg="purple" style={{ backgroundColor: '#9966CC' }}>{translate('Request')}</Badge>;
       default:
-        return <Badge bg="secondary">{state ? translate(state) : translate('Unknown')}</Badge>;
+        return <Badge bg="secondary">{type}</Badge>;
     }
   };
 
@@ -72,9 +82,20 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   };
   
   const handleStatusChange = async (eventId, newStatus) => {
-    // Check if user is trying to close the event but isn't an admin
-    if (newStatus === 'closed' && !canPerformAdminAction('close event', effectiveIsAdmin)) {
+    const event = filteredEvents.find(e => e.id === eventId);
+    const currentStatus = event.status;
+    const isIncidence = event.state === 'incidence';
+    const isMember = !canPerformAdminAction('change event status', effectiveIsAdmin);
+    
+    // Restrict members from closing any events
+    if (newStatus === 'closed' && isMember) {
       alert(translate('Only admin users can close events.'));
+      return;
+    }
+    
+    // For non-incidence events, prevent members from resolving
+    if (!isIncidence && newStatus === 'resolved' && isMember) {
+      alert(translate('Only admin users can resolve non-incidence events.'));
       return;
     }
     
@@ -243,18 +264,69 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                       overlay={<Tooltip>{translate('Click to change status')}</Tooltip>}
                     >
                       <div>
-                        <Form.Select 
-                          size="sm"
-                          value={event.status || 'open'}
-                          onChange={(e) => handleStatusChange(event.id, e.target.value)}
-                          disabled={updatingEvent === event.id}
-                          style={{ marginBottom: '4px' }}
-                        >
-                          <option value="open">{translate('Open')}</option>
-                          <option value="in-progress">{translate('In Progress')}</option>
-                          <option value="resolved">{translate('Resolved')}</option>
-                          {canEdit && <option value="closed">{translate('Closed')}</option>}
-                        </Form.Select>
+                        {/* For admin users - full control */}
+                        {canPerformAdminAction('change event status', effectiveIsAdmin) ? (
+                          <Form.Select 
+                            size="sm"
+                            value={event.status || 'open'}
+                            onChange={(e) => handleStatusChange(event.id, e.target.value)}
+                            disabled={updatingEvent === event.id}
+                            style={{ marginBottom: '4px' }}
+                          >
+                            <option value="open">{translate('Open')}</option>
+                            {event.state !== 'periodic check' && event.state !== 'request' && (
+                              <>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                                <option value="resolved">{translate('Resolved')}</option>
+                              </>
+                            )}
+                            <option value="closed">{translate('Closed')}</option>
+                          </Form.Select>
+                        ) : (
+                          /* For members - simplified transitions for incidence events */
+                          event.state === 'incidence' ? (
+                            <Form.Select 
+                              size="sm"
+                              value={event.status || 'open'}
+                              onChange={(e) => handleStatusChange(event.id, e.target.value)}
+                              disabled={updatingEvent === event.id}
+                              style={{ marginBottom: '4px' }}
+                            >
+                              {/* Only show relevant next status */}
+                              {event.status === 'open' && (
+                                <>
+                                  <option value="open">{translate('Open')}</option>
+                                  <option value="in-progress">{translate('In Progress')}</option>
+                                </>
+                              )}
+                              {event.status === 'in-progress' && (
+                                <>
+                                  <option value="in-progress">{translate('In Progress')}</option>
+                                  <option value="resolved">{translate('Resolved')}</option>
+                                </>
+                              )}
+                              {event.status === 'resolved' && (
+                                <>
+                                  <option value="resolved">{translate('Resolved')}</option>
+                                  <option value="in-progress">{translate('In Progress')}</option>
+                                </>
+                              )}
+                              {event.status === 'closed' && (
+                                <option value="closed">{translate('Closed')}</option>
+                              )}
+                            </Form.Select>
+                          ) : (
+                            /* For non-incidence events, just show the current status */
+                            <Form.Select 
+                              size="sm"
+                              value={event.status || 'open'}
+                              disabled={true}
+                              style={{ marginBottom: '4px' }}
+                            >
+                              <option value={event.status}>{translate(event.status.charAt(0).toUpperCase() + event.status.slice(1))}</option>
+                            </Form.Select>
+                          )
+                        )}
                         {getStatusBadge(event.status)}
                       </div>
                     </OverlayTrigger>
@@ -274,6 +346,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                         >
                           <option value="periodic check">{translate('Periodic Check')}</option>
                           <option value="incidence">{translate('Incidence')}</option>
+                          <option value="request">{translate('Request')}</option>
                         </Form.Select>
                         {getTypeBadge(event.state)}
                       </div>
@@ -416,9 +489,9 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                           {format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}
                         </small>
                       </div>
-                      <div dangerouslySetInnerHTML={{ 
-                        __html: parseAndHighlightMentions(comment.content)
-                      }} />
+                      <div>
+                        {parseAndHighlightMentions(comment.content, handleMentionClick)}
+                      </div>
                       {comment.image_url && (
                         <div className="mt-2">
                           <Image 

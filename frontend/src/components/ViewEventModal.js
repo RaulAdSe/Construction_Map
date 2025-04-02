@@ -48,6 +48,13 @@ const ViewEventModal = ({
     }
   }, [onHide]);
   
+  // Handle mention click
+  const handleMentionClick = useCallback((username) => {
+    // This could be updated to navigate to a user profile or perform a search
+    alert(`Clicked on user: ${username}`);
+    // TODO: Implement proper navigation or search for user profiles
+  }, []);
+  
   // Initialize state values when a new event is loaded
   useEffect(() => {
     if (event) {
@@ -101,6 +108,8 @@ const ViewEventModal = ({
         return <Badge bg="danger">{translate('Incidence')}</Badge>;
       case 'periodic check':
         return <Badge bg="info">{translate('Periodic Check')}</Badge>;
+      case 'request':
+        return <Badge bg="purple" style={{ backgroundColor: '#9966CC' }}>{translate('Request')}</Badge>;
       default:
         return <Badge bg="secondary">{currentType}</Badge>;
     }
@@ -125,9 +134,22 @@ const ViewEventModal = ({
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
     
-    // Prevent members from closing or resolving events
-    if ((newStatus === 'closed' || newStatus === 'resolved') && !canPerformAdminAction('change event status', effectiveIsAdmin)) {
-      alert(translate('Only admin users can close or resolve events.'));
+    // For incidence events, allow members to make specific transitions
+    // - open → in-progress
+    // - in-progress → resolved
+    // - resolved → in-progress
+    const isIncidence = currentType === 'incidence';
+    const isMember = !canPerformAdminAction('change event status', effectiveIsAdmin);
+    
+    // Restrict members from closing any events
+    if (newStatus === 'closed' && isMember) {
+      alert(translate('Only admin users can close events.'));
+      return;
+    }
+    
+    // For non-incidence events, prevent members from resolving
+    if (!isIncidence && newStatus === 'resolved' && isMember) {
+      alert(translate('Only admin users can resolve non-incidence events.'));
       return;
     }
     
@@ -229,7 +251,7 @@ const ViewEventModal = ({
               <Col md={memoizedEvent.image_url ? 8 : 12}>
                 <div className="mb-3">
                   <h6>{translate('Description')}</h6>
-                  <p>{memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description) : translate("No description provided.")}</p>
+                  <p>{memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description, handleMentionClick) : translate("No description provided.")}</p>
                 </div>
                 
                 <Row>
@@ -249,27 +271,6 @@ const ViewEventModal = ({
                 
                 <Row className="mb-3">
                   <Col md={6}>
-                    <h6>{translate('Status')}</h6>
-                    <div className="d-flex align-items-center">
-                      {getStatusBadge()}
-                      {canPerformAdminAction('change event status', effectiveIsAdmin) && (
-                        <Form.Select 
-                          size="sm" 
-                          value={currentStatus}
-                          onChange={handleStatusChange}
-                          disabled={updating}
-                          className="ms-2 status-select"
-                          style={{ width: 'auto' }}
-                        >
-                          <option value="open">{translate('Open')}</option>
-                          <option value="in-progress">{translate('In Progress')}</option>
-                          <option value="resolved">{translate('Resolved')}</option>
-                          <option value="closed">{translate('Closed')}</option>
-                        </Form.Select>
-                      )}
-                    </div>
-                  </Col>
-                  <Col md={6}>
                     <h6>{translate('Type')}</h6>
                     <div className="d-flex align-items-center">
                       {getTypeBadge()}
@@ -284,7 +285,69 @@ const ViewEventModal = ({
                         >
                           <option value="periodic check">{translate('Periodic Check')}</option>
                           <option value="incidence">{translate('Incidence')}</option>
+                          <option value="request">{translate('Request')}</option>
                         </Form.Select>
+                      )}
+                    </div>
+                  </Col>
+                  <Col md={6}>
+                    <h6>{translate('Status')}</h6>
+                    <div className="d-flex align-items-center">
+                      {getStatusBadge()}
+                      {canPerformAdminAction('change event status', effectiveIsAdmin) ? (
+                        // Admin gets full control
+                        <Form.Select 
+                          size="sm" 
+                          value={currentStatus}
+                          onChange={handleStatusChange}
+                          disabled={updating}
+                          className="ms-2 status-select"
+                          style={{ width: 'auto' }}
+                        >
+                          <option value="open">{translate('Open')}</option>
+                          {currentType !== 'periodic check' && currentType !== 'request' && (
+                            <>
+                              <option value="in-progress">{translate('In Progress')}</option>
+                              <option value="resolved">{translate('Resolved')}</option>
+                            </>
+                          )}
+                          <option value="closed">{translate('Closed')}</option>
+                        </Form.Select>
+                      ) : (
+                        // Members get simplified transitions for incidence events
+                        currentType === 'incidence' && (
+                          <Form.Select 
+                            size="sm" 
+                            value={currentStatus}
+                            onChange={handleStatusChange}
+                            disabled={updating}
+                            className="ms-2 status-select"
+                            style={{ width: 'auto' }}
+                          >
+                            {/* Only show relevant next status */}
+                            {currentStatus === 'open' && (
+                              <>
+                                <option value="open">{translate('Open')}</option>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                              </>
+                            )}
+                            {currentStatus === 'in-progress' && (
+                              <>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                                <option value="resolved">{translate('Resolved')}</option>
+                              </>
+                            )}
+                            {currentStatus === 'resolved' && (
+                              <>
+                                <option value="resolved">{translate('Resolved')}</option>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                              </>
+                            )}
+                            {currentStatus === 'closed' && (
+                              <option value="closed">{translate('Closed')}</option>
+                            )}
+                          </Form.Select>
+                        )
                       )}
                     </div>
                   </Col>
@@ -318,31 +381,21 @@ const ViewEventModal = ({
                 <Col md={4}>
                   <div className="event-image-container">
                     <h6 className="mb-2">{translate('Attached Image')}</h6>
-                    <a 
-                      href={memoizedEvent.image_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="image-link"
-                      onClick={(e) => {
-                        if (!memoizedEvent.image_url.startsWith('http')) {
-                          e.preventDefault();
-                          
-                          // Get just the filename without path
-                          const imageFilename = memoizedEvent.image_url.split('/').pop();
-                          
-                          // Use uploads/events path
-                          const imageUrl = `http://localhost:8000/uploads/events/${imageFilename}`;
-                          window.open(imageUrl, '_blank');
-                        }
+                    <Image 
+                      src={memoizedEvent.image_url.startsWith('http') 
+                        ? memoizedEvent.image_url 
+                        : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`
+                      } 
+                      alt={memoizedEvent.title} 
+                      fluid
+                      style={{ cursor: 'pointer', maxHeight: '300px', width: 'auto' }}
+                      onClick={() => {
+                        const imageUrl = memoizedEvent.image_url.startsWith('http')
+                          ? memoizedEvent.image_url
+                          : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+                        window.open(imageUrl, '_blank');
                       }}
-                    >
-                      <Image 
-                        src={memoizedEvent.image_url} 
-                        alt={memoizedEvent.title} 
-                        thumbnail 
-                        className="w-100 cursor-pointer"
-                      />
-                    </a>
+                    />
                   </div>
                 </Col>
               )}

@@ -215,20 +215,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>{translate('Status')}</Form.Label>
-                <Form.Select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="open">{translate('Open')}</option>
-                  <option value="in-progress">{translate('In Progress')}</option>
-                  <option value="resolved">{translate('Resolved')}</option>
-                  <option value="closed">{translate('Closed')}</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
                 <Form.Label>{translate('Type')}</Form.Label>
                 <Form.Select
                   value={type}
@@ -236,10 +222,29 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                 >
                   <option value="periodic check">{translate('Periodic Check')}</option>
                   <option value="incidence">{translate('Incidence')}</option>
+                  <option value="request">{translate('Request')}</option>
                 </Form.Select>
                 <Form.Text className="text-muted">
                   {translate('Type defines the purpose and appearance of the event marker')}
                 </Form.Text>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>{translate('Status')}</Form.Label>
+                <Form.Select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="open">{translate('Open')}</option>
+                  {type !== 'periodic check' && type !== 'request' && (
+                    <>
+                      <option value="in-progress">{translate('In Progress')}</option>
+                      <option value="resolved">{translate('Resolved')}</option>
+                    </>
+                  )}
+                  <option value="closed">{translate('Closed')}</option>
+                </Form.Select>
               </Form.Group>
             </Col>
           </Row>
