@@ -165,6 +165,9 @@ async def create_event(
 ):
     """
     Create a new event.
+    
+    Accepts either image or PDF files as attachments.
+    Maximum file size: 10MB
     """
     # Check if project exists and user has access
     project = project_service.get_project(db, project_id)
@@ -280,7 +283,19 @@ def update_event(
         
         return updated_event
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Check if there's a transaction in progress that needs to be rolled back
+        try:
+            db.rollback()
+        except:
+            # If rollback fails, we can just proceed
+            pass
+            
+        # Log the error details
+        import traceback
+        print(f"Error updating event {event_id}: {str(e)}")
+        print(traceback.format_exc())
+        
+        raise HTTPException(status_code=500, detail=f"Failed to update event: {str(e)}")
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
