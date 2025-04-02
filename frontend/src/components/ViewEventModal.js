@@ -134,9 +134,22 @@ const ViewEventModal = ({
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
     
-    // Prevent members from closing or resolving events
-    if ((newStatus === 'closed' || newStatus === 'resolved') && !canPerformAdminAction('change event status', effectiveIsAdmin)) {
-      alert(translate('Only admin users can close or resolve events.'));
+    // For incidence events, allow members to make specific transitions
+    // - open → in-progress
+    // - in-progress → resolved
+    // - resolved → in-progress
+    const isIncidence = currentType === 'incidence';
+    const isMember = !canPerformAdminAction('change event status', effectiveIsAdmin);
+    
+    // Restrict members from closing any events
+    if (newStatus === 'closed' && isMember) {
+      alert(translate('Only admin users can close events.'));
+      return;
+    }
+    
+    // For non-incidence events, prevent members from resolving
+    if (!isIncidence && newStatus === 'resolved' && isMember) {
+      alert(translate('Only admin users can resolve non-incidence events.'));
       return;
     }
     
@@ -281,7 +294,8 @@ const ViewEventModal = ({
                     <h6>{translate('Status')}</h6>
                     <div className="d-flex align-items-center">
                       {getStatusBadge()}
-                      {canPerformAdminAction('change event status', effectiveIsAdmin) && (
+                      {canPerformAdminAction('change event status', effectiveIsAdmin) ? (
+                        // Admin gets full control
                         <Form.Select 
                           size="sm" 
                           value={currentStatus}
@@ -299,6 +313,41 @@ const ViewEventModal = ({
                           )}
                           <option value="closed">{translate('Closed')}</option>
                         </Form.Select>
+                      ) : (
+                        // Members get simplified transitions for incidence events
+                        currentType === 'incidence' && (
+                          <Form.Select 
+                            size="sm" 
+                            value={currentStatus}
+                            onChange={handleStatusChange}
+                            disabled={updating}
+                            className="ms-2 status-select"
+                            style={{ width: 'auto' }}
+                          >
+                            {/* Only show relevant next status */}
+                            {currentStatus === 'open' && (
+                              <>
+                                <option value="open">{translate('Open')}</option>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                              </>
+                            )}
+                            {currentStatus === 'in-progress' && (
+                              <>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                                <option value="resolved">{translate('Resolved')}</option>
+                              </>
+                            )}
+                            {currentStatus === 'resolved' && (
+                              <>
+                                <option value="resolved">{translate('Resolved')}</option>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                              </>
+                            )}
+                            {currentStatus === 'closed' && (
+                              <option value="closed">{translate('Closed')}</option>
+                            )}
+                          </Form.Select>
+                        )
                       )}
                     </div>
                   </Col>

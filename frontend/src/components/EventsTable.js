@@ -82,9 +82,20 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   };
   
   const handleStatusChange = async (eventId, newStatus) => {
-    // Check if user is trying to close the event but isn't an admin
-    if (newStatus === 'closed' && !canPerformAdminAction('close event', effectiveIsAdmin)) {
+    const event = filteredEvents.find(e => e.id === eventId);
+    const currentStatus = event.status;
+    const isIncidence = event.state === 'incidence';
+    const isMember = !canPerformAdminAction('change event status', effectiveIsAdmin);
+    
+    // Restrict members from closing any events
+    if (newStatus === 'closed' && isMember) {
       alert(translate('Only admin users can close events.'));
+      return;
+    }
+    
+    // For non-incidence events, prevent members from resolving
+    if (!isIncidence && newStatus === 'resolved' && isMember) {
+      alert(translate('Only admin users can resolve non-incidence events.'));
       return;
     }
     
@@ -253,22 +264,69 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                       overlay={<Tooltip>{translate('Click to change status')}</Tooltip>}
                     >
                       <div>
-                        <Form.Select 
-                          size="sm"
-                          value={event.status || 'open'}
-                          onChange={(e) => handleStatusChange(event.id, e.target.value)}
-                          disabled={updatingEvent === event.id}
-                          style={{ marginBottom: '4px' }}
-                        >
-                          <option value="open">{translate('Open')}</option>
-                          {event.state !== 'periodic check' && event.state !== 'request' && (
-                            <>
-                              <option value="in-progress">{translate('In Progress')}</option>
-                              <option value="resolved">{translate('Resolved')}</option>
-                            </>
-                          )}
-                          {canEdit && <option value="closed">{translate('Closed')}</option>}
-                        </Form.Select>
+                        {/* For admin users - full control */}
+                        {canPerformAdminAction('change event status', effectiveIsAdmin) ? (
+                          <Form.Select 
+                            size="sm"
+                            value={event.status || 'open'}
+                            onChange={(e) => handleStatusChange(event.id, e.target.value)}
+                            disabled={updatingEvent === event.id}
+                            style={{ marginBottom: '4px' }}
+                          >
+                            <option value="open">{translate('Open')}</option>
+                            {event.state !== 'periodic check' && event.state !== 'request' && (
+                              <>
+                                <option value="in-progress">{translate('In Progress')}</option>
+                                <option value="resolved">{translate('Resolved')}</option>
+                              </>
+                            )}
+                            <option value="closed">{translate('Closed')}</option>
+                          </Form.Select>
+                        ) : (
+                          /* For members - simplified transitions for incidence events */
+                          event.state === 'incidence' ? (
+                            <Form.Select 
+                              size="sm"
+                              value={event.status || 'open'}
+                              onChange={(e) => handleStatusChange(event.id, e.target.value)}
+                              disabled={updatingEvent === event.id}
+                              style={{ marginBottom: '4px' }}
+                            >
+                              {/* Only show relevant next status */}
+                              {event.status === 'open' && (
+                                <>
+                                  <option value="open">{translate('Open')}</option>
+                                  <option value="in-progress">{translate('In Progress')}</option>
+                                </>
+                              )}
+                              {event.status === 'in-progress' && (
+                                <>
+                                  <option value="in-progress">{translate('In Progress')}</option>
+                                  <option value="resolved">{translate('Resolved')}</option>
+                                </>
+                              )}
+                              {event.status === 'resolved' && (
+                                <>
+                                  <option value="resolved">{translate('Resolved')}</option>
+                                  <option value="in-progress">{translate('In Progress')}</option>
+                                </>
+                              )}
+                              {event.status === 'closed' && (
+                                <option value="closed">{translate('Closed')}</option>
+                              )}
+                            </Form.Select>
+                          ) : (
+                            /* For non-incidence events, just show the current status */
+                            <Form.Select 
+                              size="sm"
+                              value={event.status || 'open'}
+                              disabled={true}
+                              style={{ marginBottom: '4px' }}
+                            >
+                              <option value={event.status}>{translate(event.status.charAt(0).toUpperCase() + event.status.slice(1))}</option>
+                            </Form.Select>
+                          )
+                        )}
                         {getStatusBadge(event.status)}
                       </div>
                     </OverlayTrigger>

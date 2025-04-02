@@ -137,9 +137,40 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     setLoading(true);
     setError('');
     
+    const isIncidence = type === 'incidence';
+    const isMember = !canCloseEvent; // using canCloseEvent as proxy for admin status
+    
     // Check if a non-admin is trying to close an event
-    if (status === 'closed' && !canCloseEvent && event.status !== 'closed') {
+    if (status === 'closed' && isMember && event.status !== 'closed') {
       setError(translate('Only ADMIN users can close events.'));
+      setStatus(event.status); // Revert to original status
+      setLoading(false);
+      return;
+    }
+    
+    // For members, enforce allowed transitions for incidence events
+    if (isMember && isIncidence) {
+      // Only these transitions are allowed for members:
+      // - open → in-progress
+      // - in-progress → resolved
+      // - resolved → in-progress
+      const validTransition = 
+        (event.status === 'open' && status === 'in-progress') ||
+        (event.status === 'in-progress' && status === 'resolved') ||
+        (event.status === 'resolved' && status === 'in-progress') ||
+        (status === event.status); // No change is always valid
+        
+      if (!validTransition) {
+        setError(translate('Invalid status transition. Please use the dropdown to select a valid status.'));
+        setStatus(event.status); // Revert to original status
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // For non-incidence events, members can't change status at all
+    if (isMember && !isIncidence && status !== event.status) {
+      setError(translate('Members cannot change status for non-incidence events.'));
       setStatus(event.status); // Revert to original status
       setLoading(false);
       return;
@@ -169,6 +200,71 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
     } finally {
       setLoading(false);
     }
+  };
+  
+  const renderStatusOptions = () => {
+    const isIncidence = type === 'incidence';
+    
+    // Admin users get full control
+    if (canCloseEvent) {
+      return (
+        <Form.Select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          <option value="open">{translate('Open')}</option>
+          {type !== 'periodic check' && type !== 'request' && (
+            <>
+              <option value="in-progress">{translate('In Progress')}</option>
+              <option value="resolved">{translate('Resolved')}</option>
+            </>
+          )}
+          <option value="closed">{translate('Closed')}</option>
+        </Form.Select>
+      );
+    }
+    
+    // For members with incidence events, show simplified transitions
+    if (isIncidence) {
+      return (
+        <Form.Select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          {status === 'open' && (
+            <>
+              <option value="open">{translate('Open')}</option>
+              <option value="in-progress">{translate('In Progress')}</option>
+            </>
+          )}
+          {status === 'in-progress' && (
+            <>
+              <option value="in-progress">{translate('In Progress')}</option>
+              <option value="resolved">{translate('Resolved')}</option>
+            </>
+          )}
+          {status === 'resolved' && (
+            <>
+              <option value="resolved">{translate('Resolved')}</option>
+              <option value="in-progress">{translate('In Progress')}</option>
+            </>
+          )}
+          {status === 'closed' && (
+            <option value="closed">{translate('Closed')}</option>
+          )}
+        </Form.Select>
+      );
+    }
+    
+    // For members with non-incidence events, only show current status
+    return (
+      <Form.Select
+        value={status}
+        disabled={true}
+      >
+        <option value={status}>{translate(status.charAt(0).toUpperCase() + status.slice(1))}</option>
+      </Form.Select>
+    );
   };
   
   if (!event) return null;
@@ -238,19 +334,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>{translate('Status')}</Form.Label>
-                    <Form.Select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value)}
-                    >
-                      <option value="open">{translate('Open')}</option>
-                      {type !== 'periodic check' && type !== 'request' && (
-                        <>
-                          <option value="in-progress">{translate('In Progress')}</option>
-                          <option value="resolved">{translate('Resolved')}</option>
-                        </>
-                      )}
-                      <option value="closed" disabled={!canCloseEvent}>{translate('Closed')} {!canCloseEvent && translate('(Admin Only)')}</option>
-                    </Form.Select>
+                    {renderStatusOptions()}
                     {!canCloseEvent && (
                       <Form.Text className="text-muted">
                         {translate('Only ADMIN users can close events')}
