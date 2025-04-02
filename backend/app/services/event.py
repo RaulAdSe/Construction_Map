@@ -164,25 +164,43 @@ def get_events_with_comments_count(
     return events_with_counts
 
 
-async def save_event_image(file: UploadFile) -> str:
-    """Save event image to the upload directory and return the filename"""
-    # Check if file is an image
+async def save_event_attachment(file: UploadFile) -> str:
+    """Save event attachment (image or PDF) to the upload directory and return the filename with type info"""
+    # Check if file is an image or PDF
     content_type = file.content_type
-    if not content_type.startswith("image/"):
-        raise HTTPException(400, detail="Only image files are allowed")
+    if not (content_type.startswith("image/") or content_type == "application/pdf"):
+        raise HTTPException(400, detail="Only image and PDF files are allowed")
+    
+    # Check file size limit (10MB)
+    MAX_SIZE = 10 * 1024 * 1024  # 10MB in bytes
+    file_size = 0
+    
+    # Read content to check size and then seek back to start
+    content = await file.read()
+    file_size = len(content)
+    await file.seek(0)
+    
+    if file_size > MAX_SIZE:
+        raise HTTPException(400, detail=f"File size exceeds the limit of 10MB")
+    
+    # Determine file type prefix for the path
+    file_type_prefix = "pdf" if content_type == "application/pdf" else "img"
     
     # Ensure uploads directory exists
-    image_dir = os.path.join(settings.UPLOAD_FOLDER, "events")
-    os.makedirs(image_dir, exist_ok=True)
+    attachment_dir = os.path.join(settings.UPLOAD_FOLDER, "events")
+    os.makedirs(attachment_dir, exist_ok=True)
     
     # Generate a unique filename with appropriate extension
-    ext = content_type.split("/")[1]
-    filename = f"{uuid.uuid4()}.{ext}"
-    filepath = os.path.join(image_dir, filename)
+    if content_type == "application/pdf":
+        ext = "pdf"
+    else:
+        ext = content_type.split("/")[1]
+        
+    filename = f"{file_type_prefix}_{uuid.uuid4()}.{ext}"
+    filepath = os.path.join(attachment_dir, filename)
     
     # Save the file
     with open(filepath, "wb") as buffer:
-        content = await file.read()
         buffer.write(content)
     
     # Return the relative path for storing in the database
@@ -197,55 +215,80 @@ async def create_event(
     title: str,
     x_coordinate: float,
     y_coordinate: float,
-    status: str = "open",
-    state: str = "green",
-    active_maps: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
+    status: Optional[str] = "open",
+    state: Optional[str] = "green",
+    active_maps: Optional[str] = None,
     tags: Optional[List[str]] = None,
     image: Optional[UploadFile] = None
 ) -> Event:
     """Create a new event"""
-    # Save image if provided
-    image_url = None
-    if image:
-        image_url = await save_event_image(image)
+    # Process tags
+    tags_json = None
+    if tags:
+        # Ensure tags is a list of strings
+        if isinstance(tags, str):
+            try:
+                tags = json.loads(tags)
+            except json.JSONDecodeError:
+                tags = [tags]
+        tags_json = tags
     
     # Process active_maps if provided as a string
     if active_maps and isinstance(active_maps, str):
         try:
             active_maps = json.loads(active_maps)
-        except json.JSONDecodeError:
-            # If invalid JSON, store as is
-            pass
+        except Exception:
+            active_maps = {}
+    
+    # Check if map exists
+    event_count = db.query(func.count(Event.id)).filter(Event.map_id == map_id).scalar()
+    
+    # Handle image upload
+    image_url = None
+    file_type = None
+    if image:
+        image_url = await save_event_attachment(image)
+        # Determine file type
+        content_type = image.content_type
+        if content_type.startswith("image/"):
+            file_type = "image"
+        elif content_type == "application/pdf":
+            file_type = "pdf"
+    
+    # Get user for notification
+    user = db.query(User).filter(User.id == created_by_user_id).first()
+    username = user.username if user else f"User #{created_by_user_id}"
     
     # Create event
-    event = Event(
+    db_event = Event(
         project_id=project_id,
         map_id=map_id,
         created_by_user_id=created_by_user_id,
         title=title,
         description=description,
+        image_url=image_url,
+        file_type=file_type,
         status=status,
         state=state,
         active_maps=active_maps,
-        image_url=image_url,
-        tags=tags,
+        tags=tags_json,
         x_coordinate=x_coordinate,
         y_coordinate=y_coordinate
     )
     
-    db.add(event)
+    db.add(db_event)
     db.commit()
-    db.refresh(event)
+    db.refresh(db_event)
     
     # Create notifications for mentioned users
     if description:
-        link = f"/events/{event.id}"
+        link = f"/events/{db_event.id}"
         NotificationService.notify_mentions(
             db, 
             description, 
             created_by_user_id, 
-            event_id=event.id, 
+            event_id=db_event.id, 
             link=link
         )
     
@@ -254,11 +297,11 @@ async def create_event(
         db, 
         "created a new event", 
         created_by_user_id, 
-        event_id=event.id, 
-        link=f"/events/{event.id}"
+        event_id=db_event.id, 
+        link=f"/events/{db_event.id}"
     )
     
-    return event
+    return db_event
 
 
 def update_event(

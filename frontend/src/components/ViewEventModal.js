@@ -30,6 +30,17 @@ const ViewEventModal = ({
   // Memoize the event ID to avoid unnecessary re-renders
   const eventId = useMemo(() => event?.id, [event?.id]);
   
+  // Function to determine if a file is a PDF based on the URL
+  const isPdfFile = useCallback((url) => {
+    if (!url) return false;
+    
+    // Get the filename from the URL
+    const filename = url.split('/').pop();
+    
+    // Check if it's a PDF based on prefix or extension
+    return filename.startsWith('pdf_') || filename.toLowerCase().endsWith('.pdf');
+  }, []);
+  
   // Keep a memoized version of the event to avoid unintended re-renders
   // but update it when necessary status/type changes occur
   const memoizedEvent = useMemo(() => {
@@ -274,25 +285,51 @@ const ViewEventModal = ({
                 
                 {memoizedEvent.image_url && (
                   <Col md={4}>
-                    <h6 className="text-secondary mb-2">{translate('Attached Image')}</h6>
-                    <Image 
-                      src={memoizedEvent.image_url.startsWith('http') 
-                        ? memoizedEvent.image_url 
-                        : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`
-                      } 
-                      alt={memoizedEvent.title} 
-                      fluid
-                      className="mb-2 shadow-sm rounded"
-                      style={{ cursor: 'pointer', maxHeight: '200px', width: 'auto', display: 'block', margin: '0 auto' }}
-                      onClick={() => {
-                        const imageUrl = memoizedEvent.image_url.startsWith('http')
-                          ? memoizedEvent.image_url
-                          : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
-                        window.open(imageUrl, '_blank');
-                      }}
-                    />
-                    <div className="text-center">
-                      <small className="text-secondary">{translate('Click to view full size')}</small>
+                    <h6 className="text-secondary mb-2">{translate('Attached File')}</h6>
+                    {isPdfFile(memoizedEvent.image_url) ? (
+                      <div className="pdf-attachment">
+                        <div className="pdf-preview p-3 border rounded text-center">
+                          <i className="bi bi-file-pdf text-danger" style={{ fontSize: '3rem' }}></i>
+                          <div className="mt-2">
+                            <Button 
+                              variant="outline-primary" 
+                              size="sm"
+                              onClick={() => {
+                                const fileUrl = memoizedEvent.image_url.startsWith('http')
+                                  ? memoizedEvent.image_url
+                                  : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+                                window.open(fileUrl, '_blank');
+                              }}
+                            >
+                              <i className="bi bi-eye me-1"></i> {translate('View PDF')}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <Image 
+                        src={memoizedEvent.image_url.startsWith('http') 
+                          ? memoizedEvent.image_url 
+                          : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`
+                        } 
+                        alt={memoizedEvent.title} 
+                        fluid
+                        className="mb-2 shadow-sm rounded"
+                        style={{ cursor: 'pointer', maxHeight: '200px', width: 'auto', display: 'block', margin: '0 auto' }}
+                        onClick={() => {
+                          const imageUrl = memoizedEvent.image_url.startsWith('http')
+                            ? memoizedEvent.image_url
+                            : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+                          window.open(imageUrl, '_blank');
+                        }}
+                      />
+                    )}
+                    <div className="text-center mt-1">
+                      <small className="text-secondary">
+                        {isPdfFile(memoizedEvent.image_url) 
+                          ? translate('Click to open PDF') 
+                          : translate('Click to view full size')}
+                      </small>
                     </div>
                   </Col>
                 )}
