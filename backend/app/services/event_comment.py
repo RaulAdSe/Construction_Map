@@ -113,14 +113,18 @@ async def create_comment(
         db.refresh(db_comment)
         
         # Record comment creation in event history
-        event_history.create_event_history(
-            db=db,
-            event_id=event_id,
-            user_id=user_id,
-            action_type="comment",
-            new_value=content[:50] + ("..." if len(content) > 50 else ""),  # Truncate content for history
-            additional_data={"comment_id": db_comment.id}
-        )
+        try:
+            event_history.create_event_history(
+                db=db,
+                event_id=event_id,
+                user_id=user_id,
+                action_type="comment",
+                new_value=content[:50] + ("..." if len(content) > 50 else ""),  # Truncate content for history
+                additional_data={"comment_id": db_comment.id}
+            )
+        except Exception as history_error:
+            print(f"Error recording comment history (non-critical): {str(history_error)}")
+            # This is non-critical, the comment is already saved, so we continue
         
         # Create link to the event with comment
         link = f"/project/{event.project_id}?event={event_id}&comment={db_comment.id}"
