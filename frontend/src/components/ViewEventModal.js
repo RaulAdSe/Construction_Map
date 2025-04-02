@@ -108,6 +108,8 @@ const ViewEventModal = ({
         return <Badge bg="danger">{translate('Incidence')}</Badge>;
       case 'periodic check':
         return <Badge bg="info">{translate('Periodic Check')}</Badge>;
+      case 'request':
+        return <Badge bg="purple" style={{ backgroundColor: '#9966CC' }}>{translate('Request')}</Badge>;
       default:
         return <Badge bg="secondary">{currentType}</Badge>;
     }
@@ -270,6 +272,7 @@ const ViewEventModal = ({
                         >
                           <option value="periodic check">{translate('Periodic Check')}</option>
                           <option value="incidence">{translate('Incidence')}</option>
+                          <option value="request">{translate('Request')}</option>
                         </Form.Select>
                       )}
                     </div>
@@ -288,7 +291,7 @@ const ViewEventModal = ({
                           style={{ width: 'auto' }}
                         >
                           <option value="open">{translate('Open')}</option>
-                          {currentType !== 'periodic check' && (
+                          {currentType !== 'periodic check' && currentType !== 'request' && (
                             <>
                               <option value="in-progress">{translate('In Progress')}</option>
                               <option value="resolved">{translate('Resolved')}</option>

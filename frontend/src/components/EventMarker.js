@@ -3,7 +3,8 @@ import { OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
 
 // Define type colors
 const typeColors = {
-  'periodic check': '#3399FF'
+  'periodic check': '#3399FF',
+  'request': '#9966CC'  // Purple
 };
 
 // Define status colors for incidence type
@@ -99,6 +100,8 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
         return <Badge bg="danger">Incidence</Badge>;
       case 'periodic check':
         return <Badge bg="info">Periodic Check</Badge>;
+      case 'request':
+        return <Badge bg="purple">Request</Badge>;
       default:
         return <Badge bg="secondary">{currentState || 'Unknown'}</Badge>;
     }

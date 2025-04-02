@@ -222,6 +222,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                 >
                   <option value="periodic check">{translate('Periodic Check')}</option>
                   <option value="incidence">{translate('Incidence')}</option>
+                  <option value="request">{translate('Request')}</option>
                 </Form.Select>
                 <Form.Text className="text-muted">
                   {translate('Type defines the purpose and appearance of the event marker')}
@@ -236,7 +237,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                   onChange={(e) => setStatus(e.target.value)}
                 >
                   <option value="open">{translate('Open')}</option>
-                  {type !== 'periodic check' && (
+                  {type !== 'periodic check' && type !== 'request' && (
                     <>
                       <option value="in-progress">{translate('In Progress')}</option>
                       <option value="resolved">{translate('Resolved')}</option>

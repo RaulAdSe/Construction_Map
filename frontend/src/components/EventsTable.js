@@ -20,6 +20,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [filteredEvents, setFilteredEvents] = useState([]);
+  const [selectedTypes, setSelectedTypes] = useState(['incidence', 'periodic check', 'request']);
 
   // Handle mention click
   const handleMentionClick = useCallback((username) => {
@@ -51,14 +52,16 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   });
 
   // Get type badge
-  const getTypeBadge = (state) => {
-    switch (state) {
+  const getTypeBadge = (type) => {
+    switch (type) {
       case 'incidence':
         return <Badge bg="danger">{translate('Incidence')}</Badge>;
       case 'periodic check':
         return <Badge bg="info">{translate('Periodic Check')}</Badge>;
+      case 'request':
+        return <Badge bg="purple" style={{ backgroundColor: '#9966CC' }}>{translate('Request')}</Badge>;
       default:
-        return <Badge bg="secondary">{state ? translate(state) : translate('Unknown')}</Badge>;
+        return <Badge bg="secondary">{type}</Badge>;
     }
   };
 
@@ -258,7 +261,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                           style={{ marginBottom: '4px' }}
                         >
                           <option value="open">{translate('Open')}</option>
-                          {event.state !== 'periodic check' && (
+                          {event.state !== 'periodic check' && event.state !== 'request' && (
                             <>
                               <option value="in-progress">{translate('In Progress')}</option>
                               <option value="resolved">{translate('Resolved')}</option>
@@ -285,6 +288,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                         >
                           <option value="periodic check">{translate('Periodic Check')}</option>
                           <option value="incidence">{translate('Incidence')}</option>
+                          <option value="request">{translate('Request')}</option>
                         </Form.Select>
                         {getTypeBadge(event.state)}
                       </div>
