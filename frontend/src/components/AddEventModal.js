@@ -215,6 +215,21 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
+                <Form.Label>{translate('Type')}</Form.Label>
+                <Form.Select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="periodic check">{translate('Periodic Check')}</option>
+                  <option value="incidence">{translate('Incidence')}</option>
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  {translate('Type defines the purpose and appearance of the event marker')}
+                </Form.Text>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
                 <Form.Label>{translate('Status')}</Form.Label>
                 <Form.Select
                   value={status}
@@ -229,21 +244,6 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                   )}
                   <option value="closed">{translate('Closed')}</option>
                 </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>{translate('Type')}</Form.Label>
-                <Form.Select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                >
-                  <option value="periodic check">{translate('Periodic Check')}</option>
-                  <option value="incidence">{translate('Incidence')}</option>
-                </Form.Select>
-                <Form.Text className="text-muted">
-                  {translate('Type defines the purpose and appearance of the event marker')}
-                </Form.Text>
               </Form.Group>
             </Col>
           </Row>

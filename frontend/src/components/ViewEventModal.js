@@ -256,6 +256,25 @@ const ViewEventModal = ({
                 
                 <Row className="mb-3">
                   <Col md={6}>
+                    <h6>{translate('Type')}</h6>
+                    <div className="d-flex align-items-center">
+                      {getTypeBadge()}
+                      {canPerformAdminAction('change event type', effectiveIsAdmin) && (
+                        <Form.Select 
+                          size="sm" 
+                          value={currentType}
+                          onChange={handleTypeChange}
+                          disabled={updating}
+                          className="ms-2 type-select"
+                          style={{ width: 'auto' }}
+                        >
+                          <option value="periodic check">{translate('Periodic Check')}</option>
+                          <option value="incidence">{translate('Incidence')}</option>
+                        </Form.Select>
+                      )}
+                    </div>
+                  </Col>
+                  <Col md={6}>
                     <h6>{translate('Status')}</h6>
                     <div className="d-flex align-items-center">
                       {getStatusBadge()}
@@ -276,25 +295,6 @@ const ViewEventModal = ({
                             </>
                           )}
                           <option value="closed">{translate('Closed')}</option>
-                        </Form.Select>
-                      )}
-                    </div>
-                  </Col>
-                  <Col md={6}>
-                    <h6>{translate('Type')}</h6>
-                    <div className="d-flex align-items-center">
-                      {getTypeBadge()}
-                      {canPerformAdminAction('change event type', effectiveIsAdmin) && (
-                        <Form.Select 
-                          size="sm" 
-                          value={currentType}
-                          onChange={handleTypeChange}
-                          disabled={updating}
-                          className="ms-2 type-select"
-                          style={{ width: 'auto' }}
-                        >
-                          <option value="periodic check">{translate('Periodic Check')}</option>
-                          <option value="incidence">{translate('Incidence')}</option>
                         </Form.Select>
                       )}
                     </div>

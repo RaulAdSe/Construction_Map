@@ -221,6 +221,21 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
+                    <Form.Label>{translate('Type')}</Form.Label>
+                    <Form.Select
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                    >
+                      <option value="periodic check">{translate('Periodic Check')}</option>
+                      <option value="incidence">{translate('Incidence')}</option>
+                    </Form.Select>
+                    <Form.Text className="text-muted">
+                      {translate('Type defines the purpose and appearance of the event marker')}
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
                     <Form.Label>{translate('Status')}</Form.Label>
                     <Form.Select
                       value={status}
@@ -240,21 +255,6 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
                         {translate('Only ADMIN users can close events')}
                       </Form.Text>
                     )}
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>{translate('Type')}</Form.Label>
-                    <Form.Select
-                      value={type}
-                      onChange={(e) => setType(e.target.value)}
-                    >
-                      <option value="periodic check">{translate('Periodic Check')}</option>
-                      <option value="incidence">{translate('Incidence')}</option>
-                    </Form.Select>
-                    <Form.Text className="text-muted">
-                      {translate('Type defines the purpose and appearance of the event marker')}
-                    </Form.Text>
                   </Form.Group>
                 </Col>
               </Row>
