@@ -183,6 +183,14 @@ const MentionInput = ({
     setIsVisible: setShowMentions
   }), [value, mentionPosition, handleUserSelect, projectId, showMentions]);
 
+  // Handle mention click event
+  const handleMentionClick = useCallback((username) => {
+    // This could be updated to navigate to a user profile or perform a search
+    // For now, just alert the user
+    alert(`Clicked on user: ${username}`);
+    // TODO: Implement proper behavior for mention clicks
+  }, []);
+
   // Render a read-only version with highlighted mentions
   if (isReadOnly) {
     return (
@@ -194,7 +202,7 @@ const MentionInput = ({
           whiteSpace: 'pre-wrap'
         }}
       >
-        {parseAndHighlightMentions(value)}
+        {parseAndHighlightMentions(value, handleMentionClick)}
       </div>
     );
   }

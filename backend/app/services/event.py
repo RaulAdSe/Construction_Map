@@ -288,7 +288,7 @@ def update_event(
     db.refresh(event)
     
     # Create notifications for status/state changes
-    link = f"/events/{event.id}"
+    link = f"/project/{event.project_id}?event={event.id}"
     
     if 'status' in update_data and update_data['status'] != old_status:
         # Notify event creator if current user is not the creator

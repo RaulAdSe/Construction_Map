@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Badge, Form, OverlayTrigger, Tooltip, Modal, Spinner, Alert, Image } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { updateEventStatus, updateEventState } from '../services/eventService';
@@ -204,6 +204,13 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
 
   // Helper function to determine if user can edit/close events
   const canEdit = effectiveIsAdmin === true;
+
+  // Handle mention click
+  const handleMentionClick = useCallback((username) => {
+    // This could be updated to navigate to a user profile or perform a search
+    alert(`Clicked on user: ${username}`);
+    // TODO: Implement proper navigation or search for user profiles
+  }, []);
 
   return (
     <div className="events-table-container">
@@ -416,9 +423,9 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                           {format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}
                         </small>
                       </div>
-                      <div dangerouslySetInnerHTML={{ 
-                        __html: parseAndHighlightMentions(comment.content)
-                      }} />
+                      <div>
+                        {parseAndHighlightMentions(comment.content, handleMentionClick)}
+                      </div>
                       {comment.image_url && (
                         <div className="mt-2">
                           <Image 

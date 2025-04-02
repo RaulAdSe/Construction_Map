@@ -192,7 +192,7 @@ def update_comment(
     if content is not None and content != old_content:
         event = db.query(Event).filter(Event.id == db_comment.event_id).first()
         if event:
-            link = f"/events/{event.id}?comment={comment_id}"
+            link = f"/project/{event.project_id}?event={event.id}&comment={comment_id}"
             
             # Process mentions in updated comment
             NotificationService.notify_mentions(

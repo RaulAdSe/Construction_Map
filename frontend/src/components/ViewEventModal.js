@@ -48,6 +48,13 @@ const ViewEventModal = ({
     }
   }, [onHide]);
   
+  // Handle mention click
+  const handleMentionClick = useCallback((username) => {
+    // This could be updated to navigate to a user profile or perform a search
+    alert(`Clicked on user: ${username}`);
+    // TODO: Implement proper navigation or search for user profiles
+  }, []);
+  
   // Initialize state values when a new event is loaded
   useEffect(() => {
     if (event) {
@@ -229,7 +236,7 @@ const ViewEventModal = ({
               <Col md={memoizedEvent.image_url ? 8 : 12}>
                 <div className="mb-3">
                   <h6>{translate('Description')}</h6>
-                  <p>{memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description) : translate("No description provided.")}</p>
+                  <p>{memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description, handleMentionClick) : translate("No description provided.")}</p>
                 </div>
                 
                 <Row>

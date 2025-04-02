@@ -126,6 +126,13 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     Array.isArray(comments) ? comments.length : 0
   , [comments]);
 
+  // Handle mention click
+  const handleMentionClick = useCallback((username) => {
+    // This could be updated to navigate to a user profile or perform a search
+    alert(`Clicked on user: ${username}`);
+    // TODO: Implement proper navigation or search for user profiles
+  }, []);
+
   return (
     <div className="event-comments">
       <h5 className="mb-3">{translate('Comments')} {commentsLength > 0 && `(${commentsLength})`}</h5>
@@ -226,28 +233,21 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
             return (
               <Card 
                 key={comment.id} 
-                id={`comment-${comment.id}`}
-                className={`mb-3 ${isHighlighted ? 'highlighted-comment' : ''}`}
-                style={{
-                  borderLeft: isHighlighted ? '4px solid #0d6efd' : 'none',
-                  backgroundColor: isHighlighted ? 'rgba(13, 110, 253, 0.05)' : 'white'
-                }}
+                className={`mb-3 ${isHighlighted ? 'highlight-comment' : ''}`}
                 ref={isHighlighted ? highlightedCommentRef : null}
               >
-                <Card.Body>
-                  <div className="d-flex justify-content-between align-items-start mb-2">
-                    <div>
-                      <h6 className="mb-0">{comment.username}</h6>
-                      <small className="text-muted">
-                        {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                        {comment.updated_at && comment.updated_at !== comment.created_at && (
-                          <span> ({translate('edited')})</span>
-                        )}
-                      </small>
-                    </div>
+                <Card.Header className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>{comment.username || `User #${comment.user_id}`}</strong>
                   </div>
-                  
-                  <p className="mb-2">{parseAndHighlightMentions(comment.content)}</p>
+                  <small className="text-muted">
+                    {format(new Date(comment.created_at), 'PPpp')}
+                  </small>
+                </Card.Header>
+                <Card.Body>
+                  <div className="comment-content mb-2">
+                    {parseAndHighlightMentions(comment.content, handleMentionClick)}
+                  </div>
                   
                   {comment.image_url && (
                     <div className="comment-image mt-2">
