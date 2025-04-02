@@ -251,23 +251,21 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                   
                   {comment.image_url && (
                     <div className="comment-image mt-2">
-                      <a 
-                        href={comment.image_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="d-inline-block"
-                      >
-                        <Image 
-                          src={comment.image_url} 
-                          alt={translate('Comment attachment')} 
-                          thumbnail 
-                          style={{ maxHeight: '200px' }}
-                          className="cursor-pointer"
-                        />
-                        <div className="mt-1 text-center">
-                          <small className="text-muted">{translate('Click to view full size')}</small>
-                        </div>
-                      </a>
+                      <Image 
+                        src={comment.image_url.startsWith('http') 
+                          ? comment.image_url 
+                          : `http://localhost:8000/uploads/comments/${comment.image_url.split('/').pop()}`
+                        } 
+                        alt={translate('Comment attachment')} 
+                        fluid
+                        style={{ cursor: 'pointer', maxHeight: '200px', width: 'auto' }}
+                        onClick={() => {
+                          const imageUrl = comment.image_url.startsWith('http')
+                            ? comment.image_url
+                            : `http://localhost:8000/uploads/comments/${comment.image_url.split('/').pop()}`;
+                          window.open(imageUrl, '_blank');
+                        }}
+                      />
                     </div>
                   )}
                 </Card.Body>

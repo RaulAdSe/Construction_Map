@@ -381,31 +381,21 @@ const ViewEventModal = ({
                 <Col md={4}>
                   <div className="event-image-container">
                     <h6 className="mb-2">{translate('Attached Image')}</h6>
-                    <a 
-                      href={memoizedEvent.image_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="image-link"
-                      onClick={(e) => {
-                        if (!memoizedEvent.image_url.startsWith('http')) {
-                          e.preventDefault();
-                          
-                          // Get just the filename without path
-                          const imageFilename = memoizedEvent.image_url.split('/').pop();
-                          
-                          // Use uploads/events path
-                          const imageUrl = `http://localhost:8000/uploads/events/${imageFilename}`;
-                          window.open(imageUrl, '_blank');
-                        }
+                    <Image 
+                      src={memoizedEvent.image_url.startsWith('http') 
+                        ? memoizedEvent.image_url 
+                        : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`
+                      } 
+                      alt={memoizedEvent.title} 
+                      fluid
+                      style={{ cursor: 'pointer', maxHeight: '300px', width: 'auto' }}
+                      onClick={() => {
+                        const imageUrl = memoizedEvent.image_url.startsWith('http')
+                          ? memoizedEvent.image_url
+                          : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+                        window.open(imageUrl, '_blank');
                       }}
-                    >
-                      <Image 
-                        src={memoizedEvent.image_url} 
-                        alt={memoizedEvent.title} 
-                        thumbnail 
-                        className="w-100 cursor-pointer"
-                      />
-                    </a>
+                    />
                   </div>
                 </Col>
               )}
