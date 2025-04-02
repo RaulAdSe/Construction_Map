@@ -321,7 +321,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                   {hasImageAttachment && (
                     <div className="comment-attachment mt-3">
                       <Image 
-                        src={comment.image_url} 
+                        src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'http://localhost:8000'}${comment.image_url}`} 
                         alt={translate('Comment attachment')} 
                         fluid 
                         className="comment-image" 
