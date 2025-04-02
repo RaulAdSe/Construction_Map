@@ -10,6 +10,7 @@ from app.models.event import Event
 from app.models.user import User
 from app.core.config import settings
 from app.services.notification import NotificationService
+from app.services import event_history
 
 
 def get_comment(db: Session, comment_id: int) -> Optional[EventComment]:
@@ -62,18 +63,28 @@ async def create_comment(
             comment_data=metadata
         )
         
-        # Handle image upload if provided
+        # Handle file upload if provided
         if image:
             try:
-                print(f"Processing image upload: {image.filename}")
+                print(f"Processing file upload: {image.filename}")
                 
                 # Create uploads directory if it doesn't exist
                 upload_dir = os.path.join(settings.UPLOAD_FOLDER, "comments")
                 os.makedirs(upload_dir, exist_ok=True)
                 
-                # Generate unique filename
+                # Determine file type
+                is_pdf = False
+                if image.filename.lower().endswith('.pdf') or image.content_type == 'application/pdf':
+                    is_pdf = True
+                    print("Detected PDF file")
+                    file_prefix = "pdf_"
+                else:
+                    print("Detected image file")
+                    file_prefix = "img_"
+                
+                # Generate unique filename with appropriate prefix
                 file_extension = os.path.splitext(image.filename)[1]
-                unique_filename = f"{uuid.uuid4()}{file_extension}"
+                unique_filename = f"{file_prefix}{uuid.uuid4()}{file_extension}"
                 file_path = os.path.join(upload_dir, unique_filename)
                 
                 print(f"Saving file to: {file_path}")
@@ -82,23 +93,34 @@ async def create_comment(
                 with open(file_path, "wb") as buffer:
                     content = await image.read()
                     if not content:
-                        print("Warning: Image content is empty")
+                        print("Warning: File content is empty")
                     buffer.write(content)
                 
-                # Set image URL in database
+                # Set image URL and file type in database
                 # Store as /comments/{filename} - FastAPI serves this from the uploads directory
                 relative_path = f"/comments/{unique_filename}"
                 db_comment.image_url = relative_path
-                print(f"Image saved, URL set to: {relative_path}")
+                db_comment.file_type = "pdf" if is_pdf else "image"
+                print(f"File saved, URL set to: {relative_path}, type: {db_comment.file_type}")
             except Exception as img_error:
-                print(f"Error processing image: {str(img_error)}")
+                print(f"Error processing file: {str(img_error)}")
                 # Continue without image if there's an error
-                # This ensures the comment gets created even if image upload fails
+                # This ensures the comment gets created even if file upload fails
         
         # Save to database
         db.add(db_comment)
         db.commit()
         db.refresh(db_comment)
+        
+        # Record comment creation in event history
+        event_history.create_event_history(
+            db=db,
+            event_id=event_id,
+            user_id=user_id,
+            action_type="comment",
+            new_value=content[:50] + ("..." if len(content) > 50 else ""),  # Truncate content for history
+            additional_data={"comment_id": db_comment.id}
+        )
         
         # Create link to the event with comment
         link = f"/project/{event.project_id}?event={event_id}&comment={db_comment.id}"

@@ -16,7 +16,8 @@ class Event(Base):
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    image_url = Column(String, nullable=True)
+    image_url = Column(String, nullable=True)  # Renamed to attachment_url for backward compatibility
+    file_type = Column(String, nullable=True)  # 'image' or 'pdf'
     status = Column(String, default="open", nullable=False)
     state = Column(String, default="green", nullable=False)  # Values: red, yellow, green
     _active_maps = Column(JSON, nullable=True, name="active_maps")  # JSON data of active map layers when event was created
@@ -47,4 +48,5 @@ class Event(Base):
     map = relationship("Map", back_populates="events")
     created_by_user = relationship("User", back_populates="events")
     comments = relationship("EventComment", back_populates="event", cascade="all, delete-orphan")
-    notifications = relationship("Notification", back_populates="event") 
+    notifications = relationship("Notification", back_populates="event")
+    history = relationship("EventHistory", back_populates="event", cascade="all, delete-orphan") 

@@ -7,6 +7,7 @@ import { isUserAdmin, canPerformAdminAction } from '../utils/permissions';
 import MentionInput from './MentionInput';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
 import translate from '../utils/translate';
+import EventHistoryModal from './EventHistoryModal';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effectiveIsAdmin }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
@@ -21,6 +22,8 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const [commentError, setCommentError] = useState('');
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState(['incidence', 'periodic check', 'request']);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedEventTitle, setSelectedEventTitle] = useState('');
 
   // Handle mention click
   const handleMentionClick = useCallback((username) => {
@@ -226,6 +229,13 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   // Helper function to determine if user can edit/close events
   const canEdit = effectiveIsAdmin === true;
 
+  // Handle opening the history modal
+  const handleOpenHistory = (event) => {
+    setSelectedEventId(event.id);
+    setSelectedEventTitle(event.title);
+    setShowHistoryModal(true);
+  };
+
   return (
     <div className="events-table-container">
       {Object.keys(eventsByMap).map(mapId => (
@@ -243,6 +253,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                 <th>{translate('Created By')}</th>
                 <th>{translate('Created At')}</th>
                 <th>{translate('Comments')}</th>
+                <th>{translate('History')}</th>
                 <th>{translate('Actions')}</th>
               </tr>
             </thead>
@@ -387,6 +398,15 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                   </td>
                   <td>
                     <Button 
+                      variant="outline-info" 
+                      size="sm"
+                      onClick={() => handleOpenHistory(event)}
+                    >
+                      {translate('View History')}
+                    </Button>
+                  </td>
+                  <td>
+                    <Button 
                       variant="outline-primary" 
                       size="sm" 
                       className="me-1"
@@ -517,6 +537,14 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
           </Button>
         </Modal.Footer>
       </Modal>
+      
+      {/* Event History Modal */}
+      <EventHistoryModal
+        show={showHistoryModal}
+        onHide={() => setShowHistoryModal(false)}
+        eventId={selectedEventId}
+        eventTitle={selectedEventTitle}
+      />
     </div>
   );
 };
