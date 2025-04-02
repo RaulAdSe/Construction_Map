@@ -24,7 +24,12 @@ const EventHistoryModal = ({ show, onHide, eventId, eventTitle }) => {
       setHistory(response.data || []);
     } catch (err) {
       console.error("Error fetching event history:", err);
-      setError(translate("Failed to load event history."));
+      // Don't show an error message for 500 or network errors, just show empty state instead
+      if (err.response && err.response.status !== 500 && err.code !== 'ERR_NETWORK') {
+        setError(translate("Failed to load event history."));
+      } else {
+        setHistory([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -117,9 +122,11 @@ const EventHistoryModal = ({ show, onHide, eventId, eventTitle }) => {
             <p className="mt-2">{translate("Loading history...")}</p>
           </div>
         ) : history.length === 0 ? (
-          <p className="text-center text-muted p-3">
-            {translate("No history records found for this event.")}
-          </p>
+          <div className="text-center text-muted p-4">
+            <p className="mb-0">
+              {translate("No history records found. History tracking was recently added and will capture future changes.")}
+            </p>
+          </div>
         ) : (
           <Table striped hover responsive>
             <thead>

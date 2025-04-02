@@ -66,43 +66,58 @@ def get_event_history(
     Returns:
     - List of event history records with user information
     """
-    query = db.query(
-        EventHistory,
-        User.username,
-        Event.title.label("event_title")
-    ).join(
-        User, EventHistory.user_id == User.id
-    ).join(
-        Event, EventHistory.event_id == Event.id
-    ).filter(
-        EventHistory.event_id == event_id
-    )
-    
-    if newest_first:
-        query = query.order_by(desc(EventHistory.created_at))
-    else:
-        query = query.order_by(asc(EventHistory.created_at))
-    
-    results = query.offset(skip).limit(limit).all()
-    
-    # Format the results
-    formatted_results = []
-    for history, username, event_title in results:
-        history_dict = {
-            "id": history.id,
-            "event_id": history.event_id,
-            "user_id": history.user_id,
-            "username": username,
-            "event_title": event_title,
-            "action_type": history.action_type,
-            "previous_value": history.previous_value,
-            "new_value": history.new_value,
-            "additional_data": history.additional_data,
-            "created_at": history.created_at
-        }
-        formatted_results.append(history_dict)
-    
-    return formatted_results
+    try:
+        # First check if the event exists
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            return []
+        
+        # Check if there are any history records for this event
+        history_count = db.query(EventHistory).filter(EventHistory.event_id == event_id).count()
+        if history_count == 0:
+            return []
+        
+        query = db.query(
+            EventHistory,
+            User.username,
+            Event.title.label("event_title")
+        ).join(
+            User, EventHistory.user_id == User.id
+        ).join(
+            Event, EventHistory.event_id == Event.id
+        ).filter(
+            EventHistory.event_id == event_id
+        )
+        
+        if newest_first:
+            query = query.order_by(desc(EventHistory.created_at))
+        else:
+            query = query.order_by(asc(EventHistory.created_at))
+        
+        results = query.offset(skip).limit(limit).all()
+        
+        # Format the results
+        formatted_results = []
+        for history, username, event_title in results:
+            history_dict = {
+                "id": history.id,
+                "event_id": history.event_id,
+                "user_id": history.user_id,
+                "username": username,
+                "event_title": event_title,
+                "action_type": history.action_type,
+                "previous_value": history.previous_value,
+                "new_value": history.new_value,
+                "additional_data": history.additional_data,
+                "created_at": history.created_at
+            }
+            formatted_results.append(history_dict)
+        
+        return formatted_results
+    except Exception as e:
+        # Log the error but return an empty list to avoid crashing the client
+        print(f"Error retrieving event history for event {event_id}: {str(e)}")
+        return []
 
 
 def get_all_event_history(
@@ -125,43 +140,60 @@ def get_all_event_history(
     Returns:
     - List of event history records with user and event information
     """
-    query = db.query(
-        EventHistory,
-        User.username,
-        Event.title.label("event_title"),
-        Event.project_id
-    ).join(
-        User, EventHistory.user_id == User.id
-    ).join(
-        Event, EventHistory.event_id == Event.id
-    )
-    
-    if project_id is not None:
-        query = query.filter(Event.project_id == project_id)
-    
-    if newest_first:
-        query = query.order_by(desc(EventHistory.created_at))
-    else:
-        query = query.order_by(asc(EventHistory.created_at))
-    
-    results = query.offset(skip).limit(limit).all()
-    
-    # Format the results
-    formatted_results = []
-    for history, username, event_title, project_id in results:
-        history_dict = {
-            "id": history.id,
-            "event_id": history.event_id,
-            "user_id": history.user_id,
-            "username": username,
-            "event_title": event_title,
-            "project_id": project_id,
-            "action_type": history.action_type,
-            "previous_value": history.previous_value,
-            "new_value": history.new_value,
-            "additional_data": history.additional_data,
-            "created_at": history.created_at
-        }
-        formatted_results.append(history_dict)
-    
-    return formatted_results 
+    try:
+        # If filtering by project, check if project exists and if there are any records
+        if project_id is not None:
+            # Check if project has any events with history
+            history_count = db.query(EventHistory).join(
+                Event, EventHistory.event_id == Event.id
+            ).filter(
+                Event.project_id == project_id
+            ).count()
+            
+            if history_count == 0:
+                return []
+        
+        query = db.query(
+            EventHistory,
+            User.username,
+            Event.title.label("event_title"),
+            Event.project_id
+        ).join(
+            User, EventHistory.user_id == User.id
+        ).join(
+            Event, EventHistory.event_id == Event.id
+        )
+        
+        if project_id is not None:
+            query = query.filter(Event.project_id == project_id)
+        
+        if newest_first:
+            query = query.order_by(desc(EventHistory.created_at))
+        else:
+            query = query.order_by(asc(EventHistory.created_at))
+        
+        results = query.offset(skip).limit(limit).all()
+        
+        # Format the results
+        formatted_results = []
+        for history, username, event_title, project_id in results:
+            history_dict = {
+                "id": history.id,
+                "event_id": history.event_id,
+                "user_id": history.user_id,
+                "username": username,
+                "event_title": event_title,
+                "project_id": project_id,
+                "action_type": history.action_type,
+                "previous_value": history.previous_value,
+                "new_value": history.new_value,
+                "additional_data": history.additional_data,
+                "created_at": history.created_at
+            }
+            formatted_results.append(history_dict)
+        
+        return formatted_results
+    except Exception as e:
+        # Log the error but return an empty list to avoid crashing the client
+        print(f"Error retrieving event history for project {project_id}: {str(e)}")
+        return [] 
