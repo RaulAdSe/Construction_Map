@@ -47,6 +47,8 @@ async def create_comment(
     metadata: Optional[Dict[str, Any]] = None
 ) -> EventComment:
     """Create a new comment for an event"""
+    db_comment = None
+    
     try:
         # Get the event to validate and for linking
         event = db.query(Event).filter(Event.id == event_id).first()
@@ -62,6 +64,9 @@ async def create_comment(
             content=content,
             comment_data=metadata
         )
+        
+        # Remember the project_id for later use (to avoid DB access issues)
+        project_id = event.project_id
         
         # Handle file upload if provided
         if image:
@@ -107,76 +112,100 @@ async def create_comment(
                 # Continue without image if there's an error
                 # This ensures the comment gets created even if file upload fails
         
-        # Save to database
+        # Add comment to database (but don't commit yet)
         db.add(db_comment)
-        db.commit()
-        db.refresh(db_comment)
         
-        # Record comment creation in event history
+        # First try to flush the changes to get an ID
         try:
-            event_history.create_event_history(
-                db=db,
-                event_id=event_id,
-                user_id=user_id,
-                action_type="comment",
-                new_value=content[:50] + ("..." if len(content) > 50 else ""),  # Truncate content for history
-                additional_data={"comment_id": db_comment.id}
-            )
-        except Exception as history_error:
-            print(f"Error recording comment history (non-critical): {str(history_error)}")
-            # This is non-critical, the comment is already saved, so we continue
+            db.flush()
+            
+            # Now that we have an ID, we can try to create event history
+            # Try to record comment creation in event history (before commit)
+            # If this fails, we can still continue and commit the comment
+            try:
+                event_history.create_event_history(
+                    db=db,
+                    event_id=event_id,
+                    user_id=user_id,
+                    action_type="comment",
+                    new_value=content[:50] + ("..." if len(content) > 50 else ""),  # Truncate content for history
+                    additional_data={"comment_id": db_comment.id}
+                )
+            except Exception as history_error:
+                print(f"Error recording comment history (non-critical): {str(history_error)}")
+                # This error is non-critical, so we'll roll back just this part
+                # but still proceed with the comment creation
+                db.rollback()
+                
+                # Re-add the comment to the session after rollback
+                db.add(db_comment)
+            
+            # Now we can finally commit the comment
+            db.commit()
+            db.refresh(db_comment)
+        except Exception as db_error:
+            # If any database error occurs, roll back
+            db.rollback()
+            print(f"Database error: {str(db_error)}")
+            raise
         
-        # Create link to the event with comment
-        link = f"/project/{event.project_id}?event={event_id}&comment={db_comment.id}"
+        # Create link to the event with comment 
+        # (use stored project_id to avoid DB access issues)
+        link = f"/project/{project_id}?event={event_id}&comment={db_comment.id}"
         print(f"Generated notification link: {link}")
         
-        # Notify event creator about the new comment
-        print(f"Notifying event creator (id: {event.created_by_user_id}) about new comment")
+        # Notifications are also non-critical - wrap in try/except
         try:
-            NotificationService.notify_comment(
-                db, 
-                event_id, 
-                db_comment.id, 
-                user_id, 
-                event.created_by_user_id,
-                link
-            )
-        except Exception as notif_error:
-            print(f"Error sending notification to event creator: {str(notif_error)}")
-            # Continue even if notification fails
+            # Notify event creator about the new comment
+            print(f"Notifying event creator (id: {event.created_by_user_id}) about new comment")
+            try:
+                NotificationService.notify_comment(
+                    db, 
+                    event_id, 
+                    db_comment.id, 
+                    user_id, 
+                    event.created_by_user_id,
+                    link
+                )
+            except Exception as notif_error:
+                print(f"Error sending notification to event creator: {str(notif_error)}")
+                # Continue even if notification fails
+                
+            # Process mentions in comment
+            print(f"Processing mentions in comment: '{content}'")
+            try:
+                mention_notifications = NotificationService.notify_mentions(
+                    db, 
+                    content, 
+                    user_id, 
+                    event_id=event_id, 
+                    comment_id=db_comment.id,
+                    link=link
+                )
+                print(f"Created {len(mention_notifications)} mention notifications")
+            except Exception as mention_error:
+                print(f"Error processing mentions: {str(mention_error)}")
+                # Continue even if mention processing fails
             
-        # Process mentions in comment
-        print(f"Processing mentions in comment: '{content}'")
-        try:
-            mention_notifications = NotificationService.notify_mentions(
-                db, 
-                content, 
-                user_id, 
-                event_id=event_id, 
-                comment_id=db_comment.id,
-                link=link
-            )
-            print(f"Created {len(mention_notifications)} mention notifications")
-        except Exception as mention_error:
-            print(f"Error processing mentions: {str(mention_error)}")
-            # Continue even if mention processing fails
-        
-        # Notify admins about new comment
-        try:
-            user = db.query(User).filter(User.id == user_id).first()
-            user_name = user.username if user else "Someone"
-            
-            NotificationService.notify_admins(
-                db, 
-                f"commented on event", 
-                user_id, 
-                event_id=event_id, 
-                comment_id=db_comment.id,
-                link=link
-            )
-        except Exception as admin_notif_error:
-            print(f"Error notifying admins: {str(admin_notif_error)}")
-            # Continue even if admin notification fails
+            # Notify admins about new comment
+            try:
+                user = db.query(User).filter(User.id == user_id).first()
+                user_name = user.username if user else "Someone"
+                
+                NotificationService.notify_admins(
+                    db, 
+                    f"commented on event", 
+                    user_id, 
+                    event_id=event_id, 
+                    comment_id=db_comment.id,
+                    link=link
+                )
+            except Exception as admin_notif_error:
+                print(f"Error notifying admins: {str(admin_notif_error)}")
+                # Continue even if admin notification fails
+        except Exception as all_notif_error:
+            print(f"Error handling notifications (non-critical): {str(all_notif_error)}")
+            # Continue even if all notifications fail
         
         return db_comment
     except Exception as e:
@@ -184,7 +213,13 @@ async def create_comment(
         import traceback
         print(f"Error creating comment: {str(e)}")
         print(traceback.format_exc())
-        # Re-raise the exception to be caught by the endpoint
+        
+        # If the comment was created but we hit an error in notifications or other non-critical areas,
+        # we can still return the comment
+        if db_comment and db_comment.id:
+            return db_comment
+            
+        # Otherwise, re-raise the exception to be caught by the endpoint
         raise
 
 
