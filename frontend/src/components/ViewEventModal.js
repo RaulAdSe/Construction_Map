@@ -30,6 +30,17 @@ const ViewEventModal = ({
   // Memoize the event ID to avoid unnecessary re-renders
   const eventId = useMemo(() => event?.id, [event?.id]);
   
+  // Function to determine if a file is a PDF based on the URL
+  const isPdfFile = useCallback((url) => {
+    if (!url) return false;
+    
+    // Get the filename from the URL
+    const filename = url.split('/').pop();
+    
+    // Check if it's a PDF based on prefix or extension
+    return filename.startsWith('pdf_') || filename.toLowerCase().endsWith('.pdf');
+  }, []);
+  
   // Keep a memoized version of the event to avoid unintended re-renders
   // but update it when necessary status/type changes occur
   const memoizedEvent = useMemo(() => {
@@ -240,69 +251,127 @@ const ViewEventModal = ({
           </div>
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
+      <Modal.Body className="p-4">
         <Tabs 
           activeKey={activeTab}
           onSelect={(k) => setActiveTab(k)}
-          className="mb-3"
+          className="mb-4"
         >
           <Tab eventKey="details" title={translate('Details')}>
-            <Row>
-              <Col md={memoizedEvent.image_url ? 8 : 12}>
-                <div className="mb-3">
-                  <h6>{translate('Description')}</h6>
-                  <p>{memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description, handleMentionClick) : translate("No description provided.")}</p>
-                </div>
+            <div className="event-details">
+              {/* Image and Description Section */}
+              <Row className="mb-4">
+                <Col md={memoizedEvent.image_url ? 8 : 12}>
+                  <h6 className="text-secondary mb-2">{translate('Description')}</h6>
+                  <div className="mb-4 event-description">
+                    {memoizedEvent.description ? parseAndHighlightMentions(memoizedEvent.description, handleMentionClick) : translate("No description provided.")}
+                  </div>
+                  
+                  <Row className="mb-4">
+                    <Col md={6}>
+                      <h6 className="text-secondary mb-2">{translate('Created By')}</h6>
+                      <div className="mb-3">
+                        {memoizedEvent.created_by_user_name || `${translate('User ID')}: ${memoizedEvent.created_by_user_id}`}
+                      </div>
+                    </Col>
+                    <Col md={6}>
+                      <h6 className="text-secondary mb-2">{translate('Created At')}</h6>
+                      <div className="mb-3">
+                        {format(new Date(memoizedEvent.created_at), 'PPPp')}
+                      </div>
+                    </Col>
+                  </Row>
+                </Col>
                 
-                <Row>
-                  <Col md={6}>
-                    <div className="mb-3">
-                      <h6>{translate('Created By')}</h6>
-                      <p>{memoizedEvent.created_by_user_name || `${translate('User ID')}: ${memoizedEvent.created_by_user_id}`}</p>
+                {memoizedEvent.image_url && (
+                  <Col md={4}>
+                    <h6 className="text-secondary mb-2">{translate('Attached File')}</h6>
+                    {isPdfFile(memoizedEvent.image_url) ? (
+                      <div className="pdf-attachment">
+                        <div className="pdf-preview p-3 border rounded text-center">
+                          <i className="bi bi-file-pdf text-danger" style={{ fontSize: '3rem' }}></i>
+                          <div className="mt-2">
+                            <Button 
+                              variant="outline-primary" 
+                              size="sm"
+                              onClick={() => {
+                                const fileUrl = memoizedEvent.image_url.startsWith('http')
+                                  ? memoizedEvent.image_url
+                                  : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+                                window.open(fileUrl, '_blank');
+                              }}
+                            >
+                              <i className="bi bi-eye me-1"></i> {translate('View PDF')}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <Image 
+                        src={memoizedEvent.image_url.startsWith('http') 
+                          ? memoizedEvent.image_url 
+                          : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`
+                        } 
+                        alt={memoizedEvent.title} 
+                        fluid
+                        className="mb-2 shadow-sm rounded"
+                        style={{ cursor: 'pointer', maxHeight: '200px', width: 'auto', display: 'block', margin: '0 auto' }}
+                        onClick={() => {
+                          const imageUrl = memoizedEvent.image_url.startsWith('http')
+                            ? memoizedEvent.image_url
+                            : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+                          window.open(imageUrl, '_blank');
+                        }}
+                      />
+                    )}
+                    <div className="text-center mt-1">
+                      <small className="text-secondary">
+                        {isPdfFile(memoizedEvent.image_url) 
+                          ? translate('Click to open PDF') 
+                          : translate('Click to view full size')}
+                      </small>
                     </div>
                   </Col>
-                  <Col md={6}>
-                    <div className="mb-3">
-                      <h6>{translate('Created At')}</h6>
-                      <p>{format(new Date(memoizedEvent.created_at), 'PPPp')}</p>
-                    </div>
-                  </Col>
-                </Row>
-                
-                <Row className="mb-3">
-                  <Col md={6}>
-                    <h6>{translate('Type')}</h6>
-                    <div className="d-flex align-items-center">
+                )}
+              </Row>
+              
+              {/* Type and Status Section */}
+              <Row className="mb-4">
+                <Col md={6}>
+                  <h6 className="text-secondary mb-2">{translate('Type')}</h6>
+                  <div className="d-flex align-items-center gap-3">
+                    <div>
                       {getTypeBadge()}
-                      {canPerformAdminAction('change event type', effectiveIsAdmin) && (
+                    </div>
+                    {canPerformAdminAction('change event type', effectiveIsAdmin) && (
+                      <div className="ms-2" style={{ maxWidth: '180px' }}>
                         <Form.Select 
                           size="sm" 
                           value={currentType}
                           onChange={handleTypeChange}
                           disabled={updating}
-                          className="ms-2 type-select"
-                          style={{ width: 'auto' }}
                         >
                           <option value="periodic check">{translate('Periodic Check')}</option>
                           <option value="incidence">{translate('Incidence')}</option>
                           <option value="request">{translate('Request')}</option>
                         </Form.Select>
-                      )}
-                    </div>
-                  </Col>
-                  <Col md={6}>
-                    <h6>{translate('Status')}</h6>
-                    <div className="d-flex align-items-center">
+                      </div>
+                    )}
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <h6 className="text-secondary mb-2">{translate('Status')}</h6>
+                  <div className="d-flex align-items-center gap-3">
+                    <div>
                       {getStatusBadge()}
-                      {canPerformAdminAction('change event status', effectiveIsAdmin) ? (
-                        // Admin gets full control
+                    </div>
+                    {canPerformAdminAction('change event status', effectiveIsAdmin) ? (
+                      <div className="ms-2" style={{ maxWidth: '180px' }}>
                         <Form.Select 
                           size="sm" 
                           value={currentStatus}
                           onChange={handleStatusChange}
                           disabled={updating}
-                          className="ms-2 status-select"
-                          style={{ width: 'auto' }}
                         >
                           <option value="open">{translate('Open')}</option>
                           {currentType !== 'periodic check' && currentType !== 'request' && (
@@ -313,18 +382,16 @@ const ViewEventModal = ({
                           )}
                           <option value="closed">{translate('Closed')}</option>
                         </Form.Select>
-                      ) : (
-                        // Members get simplified transitions for incidence events
-                        currentType === 'incidence' && (
+                      </div>
+                    ) : (
+                      currentType === 'incidence' && (
+                        <div className="ms-2" style={{ maxWidth: '180px' }}>
                           <Form.Select 
                             size="sm" 
                             value={currentStatus}
                             onChange={handleStatusChange}
                             disabled={updating}
-                            className="ms-2 status-select"
-                            style={{ width: 'auto' }}
                           >
-                            {/* Only show relevant next status */}
                             {currentStatus === 'open' && (
                               <>
                                 <option value="open">{translate('Open')}</option>
@@ -347,59 +414,51 @@ const ViewEventModal = ({
                               <option value="closed">{translate('Closed')}</option>
                             )}
                           </Form.Select>
-                        )
-                      )}
-                    </div>
-                  </Col>
-                </Row>
-                
-                <div className="mb-3">
-                  <h6>{translate('Location')}</h6>
-                  <p>
-                    {translate('Map')}: {getMapName(memoizedEvent.map_id)}
-                  </p>
-                  <p>
-                    {translate('Coordinates')}: {memoizedEvent.x_coordinate.toFixed(2)}%, {memoizedEvent.y_coordinate.toFixed(2)}%
-                  </p>
-                </div>
-                
-                {memoizedEvent.tags && memoizedEvent.tags.length > 0 && (
-                  <div className="mb-3">
-                    <h6>{translate('Tags')}</h6>
-                    <div className="d-flex flex-wrap">
-                      {memoizedEvent.tags.map(tag => (
-                        <Badge key={tag} bg="info" className="me-1 mb-1" style={{ fontSize: '0.9rem', padding: '6px 10px' }}>
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Col>
-              
-              {memoizedEvent.image_url && (
-                <Col md={4}>
-                  <div className="event-image-container">
-                    <h6 className="mb-2">{translate('Attached Image')}</h6>
-                    <Image 
-                      src={memoizedEvent.image_url.startsWith('http') 
-                        ? memoizedEvent.image_url 
-                        : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`
-                      } 
-                      alt={memoizedEvent.title} 
-                      fluid
-                      style={{ cursor: 'pointer', maxHeight: '300px', width: 'auto' }}
-                      onClick={() => {
-                        const imageUrl = memoizedEvent.image_url.startsWith('http')
-                          ? memoizedEvent.image_url
-                          : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
-                        window.open(imageUrl, '_blank');
-                      }}
-                    />
+                        </div>
+                      )
+                    )}
                   </div>
                 </Col>
-              )}
-            </Row>
+              </Row>
+              
+              {/* Location Section */}
+              <div className="mb-4">
+                <h6 className="text-secondary mb-2">{translate('Location')}</h6>
+                <div>
+                  <p className="mb-1">
+                    <strong>{translate('Map')}:</strong> {getMapName(memoizedEvent.map_id)}
+                  </p>
+                  <p className="mb-0">
+                    <strong>{translate('Coordinates')}:</strong> {memoizedEvent.x_coordinate.toFixed(2)}%, {memoizedEvent.y_coordinate.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+              
+              {/* Tags Section */}
+              <div className="mb-2">
+                <h6 className="text-secondary mb-2">{translate('Tags')}</h6>
+                {Array.isArray(memoizedEvent.tags) && memoizedEvent.tags.length > 0 ? (
+                  <div className="d-flex flex-wrap gap-2 mt-2">
+                    {memoizedEvent.tags.map((tag, index) => (
+                      <Badge 
+                        key={`${tag}-${index}`} 
+                        bg="info" 
+                        className="py-2 px-3"
+                        style={{ 
+                          fontSize: '0.9rem',
+                          fontWeight: '500',
+                          opacity: '0.9'
+                        }}
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted">{translate('No tags added to this event.')}</p>
+                )}
+              </div>
+            </div>
           </Tab>
           <Tab eventKey="comments" title={translate('Comments')}>
             <EventComments

@@ -17,6 +17,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
+  const [fileType, setFileType] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   
   // For tag suggestions
   const [tagInput, setTagInput] = useState('');
@@ -160,6 +162,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     setTags('');
     setError('');
     setUploadFile(null);
+    setFileType(null);
+    setPreviewUrl('');
     setSelectedTags([]);
     setTagInput('');
   };
@@ -171,7 +175,39 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setUploadFile(e.target.files[0]);
+      const file = e.target.files[0];
+      
+      // Check file type
+      const isPdf = file.type === 'application/pdf';
+      const isImage = file.type.startsWith('image/');
+      
+      if (!isImage && !isPdf) {
+        setError(translate('Only image and PDF files are allowed'));
+        return;
+      }
+      
+      // Check file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (file.size > maxSize) {
+        setError(translate('File size exceeds the limit of 10MB'));
+        return;
+      }
+      
+      setError('');
+      setUploadFile(file);
+      setFileType(isPdf ? 'pdf' : 'image');
+      
+      // Create preview if it's an image
+      if (isImage) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewUrl(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // For PDFs, just clear the image preview
+        setPreviewUrl('');
+      }
     }
   };
   
@@ -297,12 +333,37 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           </Form.Group>
           
           <Form.Group className="mb-3">
-            <Form.Label>{translate('Upload Image')}</Form.Label>
+            <Form.Label>{translate('Upload Attachment')}</Form.Label>
             <Form.Control
               type="file"
               onChange={handleFileChange}
+              accept="image/*,application/pdf"
             />
+            <Form.Text className="text-muted">
+              {translate('Accepted file types: Images, PDF. Maximum size: 10MB')}
+            </Form.Text>
           </Form.Group>
+          
+          {previewUrl && fileType === 'image' && (
+            <div className="mb-3">
+              <p className="mb-1">{translate('Image preview')}:</p>
+              <img 
+                src={previewUrl} 
+                alt="Preview" 
+                style={{ maxWidth: '100%', maxHeight: '200px' }} 
+              />
+            </div>
+          )}
+          
+          {fileType === 'pdf' && uploadFile && (
+            <div className="mb-3">
+              <p className="mb-1">{translate('PDF file selected')}:</p>
+              <div className="pdf-preview p-2 border rounded">
+                <i className="bi bi-file-pdf text-danger me-2" style={{ fontSize: '1.5rem' }}></i>
+                <span>{uploadFile.name}</span>
+              </div>
+            </div>
+          )}
           
           {error && <Alert variant="danger">{error}</Alert>}
           
