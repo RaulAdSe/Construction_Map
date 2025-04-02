@@ -283,19 +283,24 @@ def update_event(
         
         return updated_event
     except Exception as e:
-        # Check if there's a transaction in progress that needs to be rolled back
+        # Always roll back the session on error to ensure it's clean for the next request
         try:
             db.rollback()
-        except:
-            # If rollback fails, we can just proceed
-            pass
+        except Exception as rollback_error:
+            # If rollback fails, log this too
+            print(f"Error during rollback: {str(rollback_error)}")
             
         # Log the error details
         import traceback
         print(f"Error updating event {event_id}: {str(e)}")
         print(traceback.format_exc())
         
-        raise HTTPException(status_code=500, detail=f"Failed to update event: {str(e)}")
+        # Return a more informative error
+        error_message = str(e)
+        if "event_history" in error_message and "does not exist" in error_message:
+            error_message = "Event update failed due to missing event_history table. This is a temporary issue being fixed."
+        
+        raise HTTPException(status_code=500, detail=f"Failed to update event: {error_message}")
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
