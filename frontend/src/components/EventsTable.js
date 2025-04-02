@@ -21,6 +21,13 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const [commentError, setCommentError] = useState('');
   const [filteredEvents, setFilteredEvents] = useState([]);
 
+  // Handle mention click
+  const handleMentionClick = useCallback((username) => {
+    // This could be updated to navigate to a user profile or perform a search
+    alert(`Clicked on user: ${username}`);
+    // TODO: Implement proper navigation or search for user profiles
+  }, []);
+
   // Filter events and update when events prop changes
   useEffect(() => {
     setFilteredEvents(events || []);
@@ -204,13 +211,6 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
 
   // Helper function to determine if user can edit/close events
   const canEdit = effectiveIsAdmin === true;
-
-  // Handle mention click
-  const handleMentionClick = useCallback((username) => {
-    // This could be updated to navigate to a user profile or perform a search
-    alert(`Clicked on user: ${username}`);
-    // TODO: Implement proper navigation or search for user profiles
-  }, []);
 
   return (
     <div className="events-table-container">
