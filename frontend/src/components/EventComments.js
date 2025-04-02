@@ -5,6 +5,7 @@ import api from '../api';
 import MentionInput from './MentionInput';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
 import translate from '../utils/translate';
+import { FaFilePdf } from 'react-icons/fa';
 
 const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   const [comments, setComments] = useState([]);
@@ -12,8 +13,9 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [content, setContent] = useState('');
-  const [image, setImage] = useState(null);
+  const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [fileType, setFileType] = useState(null); // 'image' or 'pdf'
   
   // Reference to highlighted comment
   const highlightedCommentRef = useRef(null);
@@ -41,28 +43,51 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       fetchComments();
     }
     
-    // Reset content and image state when eventId changes
+    // Reset state when eventId changes
     setContent('');
-    setImage(null);
+    setFile(null);
     setPreviewUrl('');
+    setFileType(null);
   }, [eventId, fetchComments]);
 
   // Handle file selection
   const handleFileChange = useCallback((e) => {
     const file = e.target.files[0];
     if (!file) {
-      setImage(null);
+      setFile(null);
       setPreviewUrl('');
+      setFileType(null);
       return;
     }
 
-    if (!file.type.match('image.*')) {
-      setError(translate('Please select an image file'));
+    // Check file type
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = file.type.startsWith('image/');
+    
+    if (!isImage && !isPdf) {
+      setError(translate('Please select an image or PDF file'));
+      return;
+    }
+    
+    // Check file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError(translate('File size cannot exceed 10MB'));
       return;
     }
 
-    setImage(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    setFile(file);
+    setError('');
+    
+    if (isImage) {
+      // Create preview for images
+      setFileType('image');
+      setPreviewUrl(URL.createObjectURL(file));
+    } else {
+      // For PDFs, don't create a preview, just set the type
+      setFileType('pdf');
+      setPreviewUrl(''); // Clear any existing preview
+    }
   }, []);
 
   // Handle comment submission
@@ -79,8 +104,8 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     try {
       const formData = new FormData();
       formData.append('content', content);
-      if (image) {
-        formData.append('image', image);
+      if (file) {
+        formData.append('attachment', file);
       }
 
       await api.post(`/events/${eventId}/comments`, formData, {
@@ -91,8 +116,9 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
 
       // Reset form
       setContent('');
-      setImage(null);
+      setFile(null);
       setPreviewUrl('');
+      setFileType(null);
       
       // Refresh comments
       fetchComments();
@@ -102,7 +128,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [content, eventId, image, fetchComments]);
+  }, [content, eventId, file, fetchComments]);
   
   // Memoize the content update function
   const handleContentChange = useCallback((newContent) => {
@@ -133,6 +159,22 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     // TODO: Implement proper navigation or search for user profiles
   }, []);
 
+  // Check if a file is a PDF based on the URL or file_type
+  const isPdfFile = useCallback((comment) => {
+    // Check the file_type property first (for newer comments)
+    if (comment.file_type === 'pdf') {
+      return true;
+    }
+    
+    // Fall back to checking the URL pattern (for older comments before file_type was added)
+    if (comment.image_url) {
+      const url = comment.image_url.toLowerCase();
+      return url.startsWith('/comments/pdf_') || url.endsWith('.pdf');
+    }
+    
+    return false;
+  }, []);
+
   return (
     <div className="event-comments">
       <h5 className="mb-3">{translate('Comments')} {commentsLength > 0 && `(${commentsLength})`}</h5>
@@ -157,16 +199,21 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
             
             <div className="d-flex justify-content-between align-items-start">
               <Form.Group className="mb-3">
-                <Form.Label className="text-muted small">{translate('Attach Image (optional)')}</Form.Label>
+                <Form.Label className="text-muted small">
+                  {translate('Attach File (optional)')}
+                </Form.Label>
                 <Form.Control
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.pdf,application/pdf"
                   onChange={handleFileChange}
                   disabled={submitting}
                 />
+                <Form.Text className="text-muted">
+                  {translate('Supports images and PDF files (max 10MB)')}
+                </Form.Text>
               </Form.Group>
               
-              {previewUrl && (
+              {fileType === 'image' && previewUrl && (
                 <div className="comment-image-preview">
                   <Image 
                     src={previewUrl} 
@@ -179,8 +226,27 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                     size="sm" 
                     className="text-danger p-0 ms-2"
                     onClick={() => {
-                      setImage(null);
+                      setFile(null);
                       setPreviewUrl('');
+                      setFileType(null);
+                    }}
+                  >
+                    {translate('Remove')}
+                  </Button>
+                </div>
+              )}
+              
+              {fileType === 'pdf' && (
+                <div className="comment-pdf-preview d-flex align-items-center">
+                  <FaFilePdf size={30} className="text-danger me-2" />
+                  <span className="text-truncate">{file?.name}</span>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="text-danger p-0 ms-2"
+                    onClick={() => {
+                      setFile(null);
+                      setFileType(null);
                     }}
                   >
                     {translate('Remove')}
@@ -229,10 +295,13 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
         <div className="comments-list">
           {comments.map(comment => {
             const isHighlighted = highlightCommentId && parseInt(highlightCommentId, 10) === comment.id;
+            const hasPdfAttachment = comment.image_url && isPdfFile(comment);
+            const hasImageAttachment = comment.image_url && !isPdfFile(comment);
             
             return (
               <Card 
                 key={comment.id} 
+                id={`comment-${comment.id}`}
                 className={`mb-3 ${isHighlighted ? 'highlight-comment' : ''}`}
                 ref={isHighlighted ? highlightedCommentRef : null}
               >
@@ -249,23 +318,36 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                     {parseAndHighlightMentions(comment.content, handleMentionClick)}
                   </div>
                   
-                  {comment.image_url && (
-                    <div className="comment-image mt-2">
+                  {hasImageAttachment && (
+                    <div className="comment-attachment mt-3">
                       <Image 
-                        src={comment.image_url.startsWith('http') 
-                          ? comment.image_url 
-                          : `http://localhost:8000/uploads/comments/${comment.image_url.split('/').pop()}`
-                        } 
+                        src={comment.image_url} 
                         alt={translate('Comment attachment')} 
-                        fluid
-                        style={{ cursor: 'pointer', maxHeight: '200px', width: 'auto' }}
-                        onClick={() => {
-                          const imageUrl = comment.image_url.startsWith('http')
-                            ? comment.image_url
-                            : `http://localhost:8000/uploads/comments/${comment.image_url.split('/').pop()}`;
-                          window.open(imageUrl, '_blank');
-                        }}
+                        fluid 
+                        className="comment-image" 
                       />
+                    </div>
+                  )}
+                  
+                  {hasPdfAttachment && (
+                    <div className="comment-attachment mt-3 border p-3">
+                      <div className="d-flex align-items-center">
+                        <FaFilePdf size={24} className="text-danger me-3" />
+                        <div>
+                          <div>{translate('PDF Attachment')}</div>
+                          <Button 
+                            variant="link" 
+                            onClick={() => {
+                              const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
+                              const fullUrl = `${baseUrl}${comment.image_url}`;
+                              window.open(fullUrl, '_blank');
+                            }}
+                            className="p-0"
+                          >
+                            {translate('View PDF')}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </Card.Body>
@@ -278,4 +360,4 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
   );
 };
 
-export default React.memo(EventComments);
+export default EventComments;
