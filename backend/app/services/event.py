@@ -282,14 +282,18 @@ async def create_event(
     db.commit()
     db.refresh(db_event)
     
-    # Create event history record for creation
-    event_history.create_event_history(
-        db=db,
-        event_id=db_event.id,
-        user_id=created_by_user_id,
-        action_type="create",
-        new_value=status
-    )
+    # Create event history record for creation (wrapped in try-except)
+    try:
+        event_history.create_event_history(
+            db=db,
+            event_id=db_event.id,
+            user_id=created_by_user_id,
+            action_type="create",
+            new_value=status
+        )
+    except Exception as e:
+        print(f"Error recording event creation history (non-critical): {str(e)}")
+        # This error is non-critical, the event has already been created
     
     # Create notifications for mentioned users
     if description:
@@ -334,94 +338,112 @@ def update_event(
     # Update fields if provided
     update_data = event_update.dict(exclude_unset=True)
     for field, value in update_data.items():
-        # Track status changes in history
-        if field == "status" and value != original_status:
-            event_history.create_event_history(
-                db=db,
-                event_id=event_id,
-                user_id=current_user_id,
-                action_type="status_change",
-                previous_value=original_status,
-                new_value=value
-            )
-        
-        # Track state/type changes in history
-        if field == "state" and value != original_state:
-            event_history.create_event_history(
-                db=db,
-                event_id=event_id,
-                user_id=current_user_id,
-                action_type="type_change",
-                previous_value=original_state,
-                new_value=value
-            )
-        
+        # Set the attribute first
         setattr(db_event, field, value)
+        
+        # Track status changes in history (wrapped in try-except)
+        if field == "status" and value != original_status:
+            try:
+                event_history.create_event_history(
+                    db=db,
+                    event_id=event_id,
+                    user_id=current_user_id,
+                    action_type="status_change",
+                    previous_value=original_status,
+                    new_value=value
+                )
+            except Exception as e:
+                print(f"Error recording status change history (non-critical): {str(e)}")
+                # This error is non-critical, continue with the update
+                
+        # Track state/type changes in history (wrapped in try-except)
+        if field == "state" and value != original_state:
+            try:
+                event_history.create_event_history(
+                    db=db,
+                    event_id=event_id,
+                    user_id=current_user_id,
+                    action_type="type_change",
+                    previous_value=original_state,
+                    new_value=value
+                )
+            except Exception as e:
+                print(f"Error recording state change history (non-critical): {str(e)}")
+                # This error is non-critical, continue with the update
     
     # Add a general "edit" history entry if fields other than status/state were updated
     other_fields_updated = [f for f in update_data.keys() if f not in ["status", "state"]]
     if other_fields_updated:
-        event_history.create_event_history(
-            db=db,
-            event_id=event_id,
-            user_id=current_user_id,
-            action_type="edit",
-            additional_data={"updated_fields": other_fields_updated}
-        )
+        try:
+            event_history.create_event_history(
+                db=db,
+                event_id=event_id,
+                user_id=current_user_id,
+                action_type="edit",
+                additional_data={"updated_fields": other_fields_updated}
+            )
+        except Exception as e:
+            print(f"Error recording edit history (non-critical): {str(e)}")
+            # This error is non-critical, continue with the update
     
+    # Now commit the changes
     db.commit()
     db.refresh(db_event)
     
     # Create notifications for status/state changes
     link = f"/project/{db_event.project_id}?event={db_event.id}"
     
-    if 'status' in update_data and update_data['status'] != original_status:
-        # Notify event creator if current user is not the creator
-        if db_event.created_by_user_id != current_user_id:
-            NotificationService.notify_event_interaction(
-                db, 
-                event_id, 
-                current_user_id, 
-                f"updated the status to '{db_event.status}'", 
-                link
-            )
-            
-    if 'state' in update_data and update_data['state'] != original_state:
-        # Notify event creator if current user is not the creator
-        if db_event.created_by_user_id != current_user_id:
-            NotificationService.notify_event_interaction(
-                db, 
-                event_id, 
-                current_user_id, 
-                f"changed the state to '{db_event.state}'", 
-                link
-            )
-    
-    # Check for new mentions if description was updated
-    if 'description' in update_data:
-        NotificationService.notify_mentions(
-            db, 
-            db_event.description, 
-            current_user_id, 
-            event_id=db_event.id, 
-            link=link
-        )
+    try:
+        if 'status' in update_data and update_data['status'] != original_status:
+            # Notify event creator if current user is not the creator
+            if db_event.created_by_user_id != current_user_id:
+                NotificationService.notify_event_interaction(
+                    db, 
+                    event_id, 
+                    current_user_id, 
+                    f"updated the status to '{db_event.status}'", 
+                    link
+                )
+                
+        if 'state' in update_data and update_data['state'] != original_state:
+            # Notify event creator if current user is not the creator
+            if db_event.created_by_user_id != current_user_id:
+                NotificationService.notify_event_interaction(
+                    db, 
+                    event_id, 
+                    current_user_id, 
+                    f"changed the state to '{db_event.state}'", 
+                    link
+                )
         
-    # Notify admins about the update
-    if current_user_id != db_event.created_by_user_id:
-        action = "updated an event"
-        if 'status' in update_data:
-            action = f"changed event status to '{db_event.status}'"
-        elif 'state' in update_data:
-            action = f"changed event state to '{db_event.state}'"
+        # Check for new mentions if description was updated
+        if 'description' in update_data:
+            NotificationService.notify_mentions(
+                db, 
+                db_event.description, 
+                current_user_id, 
+                event_id=db_event.id, 
+                link=link
+            )
             
-        NotificationService.notify_admins(
-            db, 
-            action, 
-            current_user_id, 
-            event_id=db_event.id, 
-            link=link
-        )
+        # Notify admins about the update
+        if current_user_id != db_event.created_by_user_id:
+            action = "updated an event"
+            if 'status' in update_data:
+                action = f"changed event status to '{db_event.status}'"
+            elif 'state' in update_data:
+                action = f"changed event state to '{db_event.state}'"
+                
+            NotificationService.notify_admins(
+                db, 
+                action, 
+                current_user_id, 
+                event_id=db_event.id, 
+                link=link
+            )
+    except Exception as notif_error:
+        print(f"Error sending notifications (non-critical): {str(notif_error)}")
+        # Notifications are non-critical, continue with the update
     
     return db_event
 
@@ -519,15 +541,19 @@ def update_event_status(db: Session, event_id: int, new_status: str, user_id: in
     db.commit()
     db.refresh(db_event)
     
-    # Record in history
-    event_history.create_event_history(
-        db=db,
-        event_id=event_id,
-        user_id=user_id,
-        action_type="status_change",
-        previous_value=previous_status,
-        new_value=new_status
-    )
+    # Record in history (wrapped in try-except)
+    try:
+        event_history.create_event_history(
+            db=db,
+            event_id=event_id,
+            user_id=user_id,
+            action_type="status_change",
+            previous_value=previous_status,
+            new_value=new_status
+        )
+    except Exception as e:
+        print(f"Error recording status change history (non-critical): {str(e)}")
+        # This error is non-critical, the status has already been updated
     
     return db_event
 
@@ -546,14 +572,18 @@ def update_event_state(db: Session, event_id: int, new_state: str, user_id: int)
     db.commit()
     db.refresh(db_event)
     
-    # Record in history
-    event_history.create_event_history(
-        db=db,
-        event_id=event_id,
-        user_id=user_id,
-        action_type="type_change",
-        previous_value=previous_state,
-        new_value=new_state
-    )
+    # Record in history (wrapped in try-except)
+    try:
+        event_history.create_event_history(
+            db=db,
+            event_id=event_id,
+            user_id=user_id,
+            action_type="type_change",
+            previous_value=previous_state,
+            new_value=new_state
+        )
+    except Exception as e:
+        print(f"Error recording state change history (non-critical): {str(e)}")
+        # This error is non-critical, the state has already been updated
     
     return db_event 
