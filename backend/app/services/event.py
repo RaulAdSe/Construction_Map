@@ -390,7 +390,8 @@ def update_event(
                     print(f"Error during rollback after history error: {str(rollback_error)}")
         
         # Add a general "edit" history entry if fields other than status/state were updated
-        other_fields_updated = [f for f in update_data.keys() if f not in ["status", "state"]]
+        excluded_fields = ["status", "state", "is_admin_request"]
+        other_fields_updated = [f for f in update_data.keys() if f not in excluded_fields]
         if other_fields_updated:
             try:
                 event_history.create_event_history(

@@ -97,6 +97,7 @@ const EventHistoryModal = ({ show, onHide, eventId, eventTitle }) => {
     onHide();
     // Create a URL with the event and comment IDs
     const url = `/project?event=${eventId}&comment=${commentId}`;
+    // Navigate to the project page and highlight the specific comment
     window.location.href = url;
   };
 
