@@ -5,13 +5,17 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 import os
 import io
 import logging
+from datetime import datetime
 
 from app.api.v1.api import api_router
 # Import the db_monitoring module to activate SQLAlchemy event listeners
 import app.core.db_monitoring
 from app.core.storage import storage_service
+from app.core.metrics import MetricsMiddleware
+from app.core.middleware import LoggingMiddleware
+from app.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="Construction Map API",
@@ -19,11 +23,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Configure CORS - more direct approach
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000"
-]
+# Configure CORS - read from environment variables for production
+origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+
+# Log the configured origins
+logger.info("Configuring CORS with allowed origins", origins=origins)
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +41,12 @@ app.add_middleware(
                     "X-Total-Count", "Access-Control-Allow-Origin"],
     max_age=600,  # Cache preflight requests for 10 minutes
 )
+
+# Add logging middleware
+app.add_middleware(LoggingMiddleware)
+
+# Add metrics middleware
+app.add_middleware(MetricsMiddleware, exclude_paths=["/metrics", "/health"])
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
@@ -71,6 +81,15 @@ if not os.path.exists(comments_dir):
 # Also mount them directly to support both path formats
 app.mount("/events", StaticFiles(directory=events_dir), name="events")
 app.mount("/comments", StaticFiles(directory=comments_dir), name="comments")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Cloud Run and load balancers"""
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.get("/")
 def read_root():

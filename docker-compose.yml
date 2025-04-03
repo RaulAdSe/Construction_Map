@@ -1,48 +1,67 @@
 version: '3.8'
 
 services:
-  backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - POSTGRES_SERVER=db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=construction_map
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-for-development}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
-      - UPLOAD_FOLDER=/app/uploads
-    volumes:
-      - uploaded_files:/app/uploads
-    depends_on:
-      - db
-    restart: unless-stopped
-    
-  frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-      
-  db:
+  postgres:
     image: postgres:15-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    container_name: servitec-map-db
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=construction_map
+      - POSTGRES_DB=servitec_map
     ports:
       - "5432:5432"
-    restart: unless-stopped
-    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: servitec-map-api
+    volumes:
+      - ./backend:/app
+      - uploads_data:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/servitec_map
+      - DATABASE_SYNC_URL=postgresql://postgres:postgres@postgres:5432/servitec_map
+      - SECRET_KEY=dev_secret_key_change_in_production
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - LOG_PATH=/app/logs
+      - UPLOAD_FOLDER=/app/uploads
+    command: >
+      bash -c "alembic upgrade head && 
+              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: servitec-map-ui
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    command: npm start
+
 volumes:
   postgres_data:
-  uploaded_files: 
+  uploads_data: 

@@ -5,6 +5,8 @@ import logging
 import os
 
 from app.core.config import settings
+# Import metrics module
+from app.core.metrics import record_database_query, update_database_metrics
 
 # Set up logger for database monitoring
 logger = logging.getLogger("db_monitoring")
@@ -34,6 +36,10 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
     total_time = time.time() - conn.info['query_start_time'].pop(-1)
     
+    # Record metrics for this query
+    operation_type = get_operation_type(statement)
+    record_database_query(operation_type, total_time)
+    
     # Log all queries if in debug mode
     if settings.DEBUG:
         logger.debug(f"Query: {statement}")
@@ -47,7 +53,7 @@ def after_cursor_execute(conn, cursor, statement, parameters, context, executema
             "query": statement,
             "parameters": str(parameters),
             "duration": total_time,
-            "operation_type": get_operation_type(statement)
+            "operation_type": operation_type
         }
         
         # Add to global list for in-memory access
@@ -92,5 +98,15 @@ def get_slow_queries_from_log(limit=50):
     # In a real implementation, this would parse the log file
     # For simplicity, we'll just return an empty list
     return []
+
+def get_database_metrics():
+    """Return summary metrics about database operations"""
+    # Update metrics in the Prometheus registry
+    update_database_metrics(len(slow_queries))
+    return {
+        "slow_queries_count": len(slow_queries),
+        "recent_slow_queries": get_slow_queries(5),
+        "slow_query_threshold": SLOW_QUERY_THRESHOLD
+    }
 
 print("Database monitoring initialized: SQLAlchemy event listeners are active") 

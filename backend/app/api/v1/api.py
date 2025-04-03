@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, projects, maps, events, map_events, event_comments, users, monitoring, notifications, event_history
+from app.api.v1.endpoints import auth, projects, maps, events, map_events, event_comments, users, monitoring, notifications, event_history, health, metrics
 
 api_router = APIRouter()
 
@@ -16,4 +16,6 @@ api_router.include_router(event_comments.router, prefix="/events", tags=["event-
 api_router.include_router(event_history.router, prefix="/events", tags=["event-history"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(monitoring.router, prefix="/monitoring", tags=["monitoring"])
-api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"]) 
+api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+api_router.include_router(health.router, prefix="/health", tags=["health"])
+api_router.include_router(metrics.router, prefix="/metrics", tags=["metrics"]) 

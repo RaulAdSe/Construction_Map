@@ -1,262 +1,142 @@
-# Construction Map Application
+# Servitec Construction Map Application
 
-A comprehensive web application for construction project management that enables real-time collaboration through interactive map overlays, event tracking, and team communication.
+A comprehensive web application for monitoring construction sites and events on a map interface.
 
-## Core Features
+## Architecture
 
-### Map Management
-- Multi-layer map visualization with opacity controls
-- Support for PDF and image-based maps (JPG, PNG, SVG)
-- Dynamic map overlay system
-- Intelligent content scaling and positioning
+The application consists of:
 
-### Event Management
-- Create and track events/issues on specific map locations
-- Rich event details with status tracking
-- File attachments and image support
-- Event categorization with dynamic tags
-- Event filtering and search capabilities
+- **Frontend**: React-based single-page application
+- **Backend**: FastAPI-based REST API
+- **Database**: PostgreSQL for data storage
+- **Storage**: Local file storage with Google Cloud Storage option for production
 
-### Team Collaboration
-- Real-time notifications system
-- @mention functionality in comments and descriptions
-- Comment threads on events with file attachments
-- User role management (Admin/Member)
-- Project-based access control
-
-### Project Administration
-- Project creation and management
-- Team member management
-- Map layer configuration
-- Export capabilities for project data
-
-## Tech Stack
-
-### Backend
-- Python 3.9+
-- FastAPI framework
-- PostgreSQL 13+
-- SQLAlchemy ORM
-- Alembic migrations
-
-### Frontend
-- React 19
-- Bootstrap 5
-- React Router v7
-- Axios for API communication
-- Modern ES6+ JavaScript
-
-## Getting Started
+## Development Setup
 
 ### Prerequisites
-- Python 3.9 or higher
-- PostgreSQL 13 or higher
-- Node.js 16 or higher
-- npm or yarn package manager
 
-### Local Development Setup
+- Docker and Docker Compose
+- Git
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/your-repo/construction-map.git
-   cd construction-map
+### Local Development
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/your-organization/servitec-map.git
+   cd servitec-map
    ```
 
-2. **Backend Setup**
-   ```bash
-   # Create and activate virtual environment
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   
-   # Install dependencies
-   cd backend
-   pip install -r requirements.txt
-   
-   # Configure environment
-   cp .env.example .env
-   # Edit .env with your database credentials and settings
-   
-   # Run migrations
-   alembic upgrade head
+2. Create a `.env` file in the backend directory:
+   ```
+   cp backend/.env.example backend/.env
    ```
 
-3. **Frontend Setup**
-   ```bash
-   cd frontend
-   npm install
+3. Start the development environment:
+   ```
+   docker-compose up -d
    ```
 
-4. **Start Development Servers**
-   ```bash
-   # Start backend server (from backend directory)
-   uvicorn app.main:app --reload --port 8000
-   
-   # Start frontend server (from frontend directory)
-   npm start
-   ```
-
-5. **Access the Application**
+4. Access the application:
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
 
-### Environment Configuration
-
-Create a `.env` file in the backend directory with the following variables:
-```env
-# Database
-POSTGRES_SERVER=localhost
-POSTGRES_USER=your_username
-POSTGRES_PASSWORD=your_password
-POSTGRES_DB=construction_map
-
-# Security
-SECRET_KEY=your_secret_key
-ACCESS_TOKEN_EXPIRE_MINUTES=1440  # 24 hours
-
-# File Storage
-UPLOAD_FOLDER=./uploads
-```
-
-## Project Structure
-
-```
-construction-map/
-├── backend/
-│   ├── app/
-│   │   ├── api/          # API endpoints and routing
-│   │   ├── core/         # Core configuration
-│   │   ├── models/       # Database models
-│   │   ├── schemas/      # Pydantic schemas
-│   │   └── services/     # Business logic
-│   ├── migrations/       # Database migrations
-│   └── uploads/          # File storage
-└── frontend/
-    ├── public/
-    └── src/
-        ├── components/   # React components
-        ├── services/     # API services
-        ├── utils/        # Utility functions
-        └── assets/       # Static assets
-```
-
-## Key Features in Detail
-
-### Notification System
-- Real-time notifications for event updates
-- @mention functionality in comments
-- Notification badge with unread count
-- One-click navigation to referenced content
-
-### Map Visualization
-- Support for multiple map formats (PDF, JPG, PNG, SVG)
-- Layer management with opacity controls
-- Consistent scaling across different viewport sizes
-- Event marker placement and visualization
-
-### Event Management
-- Status tracking (Open, In Progress, Resolved, Closed)
-- Category/tag system
-- File attachments
-- Comment threads
-- Location marking on maps
-
-## Development Guidelines
-
-1. **Code Organization**
-   - Keep components focused and single-responsibility
-   - Use services for API communication
-   - Implement proper error handling
-   - Follow established naming conventions
-
-2. **State Management**
-   - Use React hooks for local state
-   - Implement proper data fetching patterns
-   - Handle loading and error states
-
-3. **Security**
-   - Implement proper authentication checks
-   - Validate user permissions
-   - Sanitize user inputs
-   - Secure file uploads
-
-## Deployment Considerations
-
-The application is ready for deployment with the following considerations:
-
-1. **Database Setup**
-   - Configure production PostgreSQL instance
-   - Run migrations before deployment
-   - Set up regular backups
-
-2. **File Storage**
-   - Configure secure file storage system
-   - Set up CDN for static files (optional)
-   - Implement backup strategy for uploaded files
-
-3. **Security**
-   - Configure HTTPS
-   - Set up proper CORS policies
-   - Implement rate limiting
-   - Configure secure session handling
-
-4. **Monitoring**
-   - Set up application logging
-   - Configure performance monitoring
-   - Implement error tracking
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
-### Docker Setup (For Testing)
-
-The application can be quickly tested using Docker containers. This method doesn't require installing any dependencies locally except Docker and Docker Compose.
-
-1. **Prerequisites**
-   - Docker
-   - Docker Compose
-
-2. **Quick Start**
-   ```bash
-   # Clone the repository
-   git clone https://github.com/your-repo/construction-map.git
-   cd construction-map
-
-   # Start all services
-   docker-compose up -d
-
-   # The application will be available at:
-   # Frontend: http://localhost:3000
-   # Backend API: http://localhost:8000
-   # API Documentation: http://localhost:8000/docs
+5. Stop the development environment:
    ```
-
-3. **View Logs**
-   ```bash
-   # View all logs
-   docker-compose logs -f
-
-   # View specific service logs
-   docker-compose logs -f backend
-   docker-compose logs -f frontend
-   docker-compose logs -f db
-   ```
-
-4. **Stop the Application**
-   ```bash
    docker-compose down
    ```
 
-5. **Reset Everything**
-   ```bash
-   # This will remove all containers and volumes
-   docker-compose down -v
+### Development Commands
+
+- Run backend tests:
+  ```
+  docker-compose exec backend pytest
+  ```
+
+- Apply database migrations:
+  ```
+  docker-compose exec backend alembic upgrade head
+  ```
+
+- Create a new migration:
+  ```
+  docker-compose exec backend alembic revision --autogenerate -m "description"
+  ```
+
+## Production Deployment
+
+The application includes comprehensive production deployment options with monitoring capabilities. 
+
+For detailed instructions, see the [Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md).
+
+### Key Features
+
+- **Docker Compose Deployment**: For single-server deployments
+- **Cloud Run Deployment**: For serverless deployments on GCP
+- **Health Checks**: Multiple endpoints for monitoring application health
+- **Metrics Collection**: Prometheus metrics for request, database, and system monitoring
+- **Structured Logging**: JSON-formatted logs for better analysis
+- **Connection Pooling**: Optimized database connections for better performance
+
+### Quick Production Start
+
+1. Create production environment file:
+   ```
+   cp backend/.env.example backend/.env.production
    ```
 
-The Docker setup includes:
-- PostgreSQL database
-- Backend API with FastAPI
-- Frontend React application
-- Automatic database migrations
-- Persistent storage for uploads and database 
+2. Edit production configuration for your environment.
+
+3. Start production deployment:
+   ```
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
+
+## Monitoring and Maintenance
+
+The application includes built-in observability features:
+
+### Health Checks
+
+The application includes built-in health check endpoints:
+- `/health`: Basic health check
+- `/api/v1/health/full`: Comprehensive health check with database status
+
+### Prometheus Metrics
+
+Metrics are exposed at:
+- `/api/v1/metrics`: Prometheus-compatible metrics endpoint
+
+### Logs
+
+The application uses structured logging with the following paths:
+- Application logs: `/app/logs/app.log`
+- Database query logs: `/app/logs/db_queries.log`
+
+## Configuration Options
+
+### Environment Variables
+
+#### Backend
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| DATABASE_URL | PostgreSQL connection string | postgresql://postgres:postgres@postgres:5432/servitec_map |
+| SECRET_KEY | JWT secret key | development_key |
+| CORS_ORIGINS | Allowed CORS origins | http://localhost:3000,http://127.0.0.1:3000 |
+| DEBUG | Enable debug mode | false |
+| LOG_LEVEL | Logging level | INFO |
+| LOG_PATH | Path for log files | /app/logs |
+| UPLOAD_FOLDER | Path for file uploads | /app/uploads |
+| GCP_STORAGE_BUCKET | GCS bucket name | None |
+| GCP_PROJECT_ID | GCP project ID | None |
+
+#### Frontend
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| REACT_APP_API_URL | Backend API URL | http://localhost:8000/api/v1 |
+
+## License
+
+This project is proprietary and confidential. 

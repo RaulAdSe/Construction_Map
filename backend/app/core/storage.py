@@ -26,28 +26,31 @@ class StorageService:
     
     def __init__(self):
         """Initialize the storage service based on environment configuration."""
-        self.cloud_storage_enabled = False
-        self.bucket_name = os.getenv("GOOGLE_CLOUD_STORAGE_BUCKET", "")
+        self.cloud_storage_enabled = settings.storage.CLOUD_STORAGE_ENABLED
+        self.bucket_name = settings.storage.GCP_STORAGE_BUCKET
+        self.project_id = settings.storage.GCP_PROJECT_ID
         self.client = None
         self.bucket = None
         
         # Check if we're running in Google Cloud and storage is configured
-        if (os.getenv("GOOGLE_CLOUD_PROJECT") and 
+        if (self.cloud_storage_enabled and 
+            self.project_id and 
             self.bucket_name and 
             GOOGLE_CLOUD_AVAILABLE):
             try:
-                self.client = storage.Client()
+                self.client = storage.Client(project=self.project_id)
                 self.bucket = self.client.bucket(self.bucket_name)
-                self.cloud_storage_enabled = True
                 logger.info(f"Using Google Cloud Storage with bucket: {self.bucket_name}")
             except Exception as e:
                 logger.error(f"Failed to initialize Google Cloud Storage: {str(e)}")
                 self.cloud_storage_enabled = False
+        else:
+            self.cloud_storage_enabled = False
         
         # Always ensure local uploads directory exists as fallback
-        os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
+        os.makedirs(settings.storage.UPLOAD_FOLDER, exist_ok=True)
         if not self.cloud_storage_enabled:
-            logger.info(f"Using local storage with directory: {settings.UPLOAD_FOLDER}")
+            logger.info(f"Using local storage with directory: {settings.storage.UPLOAD_FOLDER}")
     
     async def save_file(self, file: UploadFile, folder: str = "") -> str:
         """
@@ -114,7 +117,7 @@ class StorageService:
         """Save file to local filesystem."""
         try:
             # Create directory if it doesn't exist
-            full_path = os.path.join(settings.UPLOAD_FOLDER, rel_path)
+            full_path = os.path.join(settings.storage.UPLOAD_FOLDER, rel_path)
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             
             # Write file
@@ -159,7 +162,7 @@ class StorageService:
     def _delete_local(self, file_path: str) -> bool:
         """Delete file from local filesystem."""
         try:
-            full_path = os.path.join(settings.UPLOAD_FOLDER, file_path)
+            full_path = os.path.join(settings.storage.UPLOAD_FOLDER, file_path)
             if os.path.exists(full_path):
                 os.remove(full_path)
                 logger.info(f"Deleted local file: {file_path}")

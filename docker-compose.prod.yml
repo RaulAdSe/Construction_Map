@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: servitec-map-api-prod
+    restart: always
+    environment:
+      - PORT=8000
+      # These will be overridden by production .env file
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_SERVER}:5432/${POSTGRES_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - LOG_LEVEL=INFO
+      - LOG_PATH=/app/logs
+      - UPLOAD_FOLDER=/app/uploads
+      - GCP_STORAGE_BUCKET=${GCP_STORAGE_BUCKET}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+    env_file:
+      - ./backend/.env.production
+    volumes:
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: servitec-map-ui-prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=/api/v1
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/health.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  uploads_data:
+  logs_data: 

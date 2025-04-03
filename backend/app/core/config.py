@@ -1,7 +1,35 @@
 from pydantic_settings import BaseSettings
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+class DatabaseSettings(BaseSettings):
+    """Database connection settings"""
+    SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
+    PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    USER: str = os.getenv("POSTGRES_USER", "postgres")
+    PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
+    DB: str = os.getenv("POSTGRES_DB", "servitec_map")
+    
+    # Connection pool settings
+    POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "5"))
+    POOL_OVERFLOW: int = int(os.getenv("DB_POOL_OVERFLOW", "10"))
+    POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+    POOL_RECYCLE: int = int(os.getenv("DB_POOL_RECYCLE", "1800"))  # 30 minutes
+    
+    # Direct URL from environment (overrides individual settings if provided)
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Set the connection URL if not directly provided
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = f"postgresql://{self.USER}:{self.PASSWORD}@{self.SERVER}:{self.PORT}/{self.DB}"
+        
+        logger.info(f"Database configured with pool size {self.POOL_SIZE}, max overflow {self.POOL_OVERFLOW}")
 
 
 class CloudDatabaseSettings(BaseSettings):
@@ -23,38 +51,48 @@ class MonitoringSettings(BaseSettings):
     MAX_ACTIVITIES_PER_USER: int = int(os.getenv("MAX_ACTIVITIES_PER_USER", "1000"))
     MAX_SLOW_QUERIES: int = int(os.getenv("MAX_SLOW_QUERIES", "100"))
     LOG_PATH: str = os.getenv("LOG_PATH", "./logs")
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+
+
+class SecuritySettings(BaseSettings):
+    """Security specific settings"""
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-for-development-only")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "11520"))  # 8 days
+    ALGORITHM: str = "HS256"
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Check if we're in production with a weak default key
+        if os.getenv("ENVIRONMENT") == "production" and self.SECRET_KEY == "your-secret-key-for-development-only":
+            logger.warning("WARNING: Using default SECRET_KEY in production environment!")
+
+
+class StorageSettings(BaseSettings):
+    """File storage settings"""
+    UPLOAD_FOLDER: str = os.getenv("UPLOAD_FOLDER", "./uploads")
+    MAX_CONTENT_LENGTH: int = int(os.getenv("MAX_CONTENT_LENGTH", "16777216"))  # 16MB limit for file uploads
+    CLOUD_STORAGE_ENABLED: bool = os.getenv("CLOUD_STORAGE_ENABLED", "false").lower() == "true"
+    GCP_PROJECT_ID: Optional[str] = os.getenv("GCP_PROJECT_ID")
+    GCP_STORAGE_BUCKET: Optional[str] = os.getenv("GCP_STORAGE_BUCKET")
 
 
 class Settings(BaseSettings):
     # Base
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Construction Map API"
-    DEBUG: bool = False
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    VERSION: str = "1.0.0"
     
-    # Database
-    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "construction_map")
-    SQLALCHEMY_DATABASE_URI: Optional[str] = None
-    
-    # Cloud Database Settings
+    # Modular settings
+    database: DatabaseSettings = DatabaseSettings()
     cloud_db: CloudDatabaseSettings = CloudDatabaseSettings()
-    
-    # Monitoring Settings
     monitoring: MonitoringSettings = MonitoringSettings()
+    security: SecuritySettings = SecuritySettings()
+    storage: StorageSettings = StorageSettings()
     
-    # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-for-development-only")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
-    
-    # File Storage
-    UPLOAD_FOLDER: str = os.getenv("UPLOAD_FOLDER", "./uploads")
-    MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024  # 16MB limit for file uploads
-    
-    # Additional engine configuration
-    ENGINE_ARGS: Dict[str, Any] = {}
+    # CORS settings
+    CORS_ORIGINS: List[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
     
     class Config:
         env_file = ".env"
@@ -66,37 +104,37 @@ class Settings(BaseSettings):
         # Create logs directory if it doesn't exist
         os.makedirs(self.monitoring.LOG_PATH, exist_ok=True)
         
-        # Configure SQLAlchemy engine arguments
-        self.ENGINE_ARGS = {
-            "pool_pre_ping": True,  # Test connections before using them
-            "pool_size": 5,         # Default connection pool size
-            "max_overflow": 10,     # Max number of connections beyond pool_size
-            "pool_timeout": 30,     # Seconds to wait for a connection from the pool
-            "pool_recycle": 1800,   # Recycle connections after 30 minutes
-        }
+        # Create uploads directory if it doesn't exist
+        os.makedirs(self.storage.UPLOAD_FOLDER, exist_ok=True)
         
-        # Configure database URI based on whether cloud database is enabled
-        if self.cloud_db.CLOUD_ENABLED and self.cloud_db.CONNECTION_STRING:
-            self.SQLALCHEMY_DATABASE_URI = self.cloud_db.CONNECTION_STRING
-            # Update engine args with cloud-specific settings
-            self.ENGINE_ARGS.update({
-                "pool_size": self.cloud_db.POOL_SIZE,
-                "max_overflow": self.cloud_db.MAX_OVERFLOW,
-                "pool_timeout": self.cloud_db.POOL_TIMEOUT,
-                "pool_recycle": self.cloud_db.POOL_RECYCLE,
-            })
-            
-            # Add SSL configuration if provided
-            if self.cloud_db.SSL_MODE:
-                self.ENGINE_ARGS["connect_args"] = {
-                    "sslmode": self.cloud_db.SSL_MODE
-                }
-                
-                if self.cloud_db.SSL_CA_CERT:
-                    self.ENGINE_ARGS["connect_args"]["sslrootcert"] = self.cloud_db.SSL_CA_CERT
-        else:
-            # Standard database connection
-            self.SQLALCHEMY_DATABASE_URI = f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        # Log configuration summary
+        logger.info(f"Application initialized in {self.ENVIRONMENT} environment")
+        logger.info(f"Debug mode: {self.DEBUG}")
+        
+        if self.ENVIRONMENT == "production":
+            # Validate production configuration
+            self._validate_production_config()
+    
+    def _validate_production_config(self):
+        """Validate that production configuration meets requirements"""
+        warnings = []
+        
+        # Check for weak secret key
+        if self.security.SECRET_KEY == "your-secret-key-for-development-only":
+            warnings.append("Using default SECRET_KEY in production")
+        
+        # Check for proper database configuration
+        if "localhost" in self.database.DATABASE_URL or "127.0.0.1" in self.database.DATABASE_URL:
+            warnings.append("Using localhost database in production")
+        
+        # Check for proper CORS configuration
+        if any(origin in ["http://localhost:3000", "http://127.0.0.1:3000"] for origin in self.CORS_ORIGINS):
+            warnings.append("Using development CORS origins in production")
+        
+        # Log any warnings
+        if warnings:
+            for warning in warnings:
+                logger.warning(f"PRODUCTION WARNING: {warning}")
 
 
 settings = Settings() 

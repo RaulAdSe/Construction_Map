@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local development files
+.env
+.env.local
+.env.development
+
+# Logs
+logs/
+*.log
+
+# Upload directory for local dev
+uploads/
+
+# Documentation
+docs/
+README.md
+
+# Tests
+tests/
+pytest.ini
+.coverage
+htmlcov/
+
+# Keep the production env file (but not other env files)
+!.env.production 
