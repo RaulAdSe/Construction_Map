@@ -52,8 +52,11 @@ for var in "${ESSENTIAL_VARS[@]}"; do
     # Get the line containing the variable
     line=$(grep "^$var=" $SOURCE_ENV)
     if [ ! -z "$line" ]; then
+        # Extract just the variable name and value, removing any comments
+        clean_line=$(echo "$line" | sed 's/#.*$//')
+        
         # Add to the destination file
-        echo "$line" >> $DEST_ENV
+        echo "$clean_line" >> $DEST_ENV
     fi
 done
 

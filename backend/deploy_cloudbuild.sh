@@ -66,20 +66,20 @@ gcloud config set project $PROJECT_ID
 echo "Enabling required services..."
 gcloud services enable cloudbuild.googleapis.com run.googleapis.com
 
-# Prepare environment variables with a simpler approach
-echo "Preparing environment variables..."
-ENV_VARS=""
+# Generate a temporary YAML file for environment variables
+ENV_YAML_FILE=".env.yaml"
+echo "# Generated environment variables in YAML format" > $ENV_YAML_FILE
 
-# Read each line and build comma-separated list
-while IFS= read -r line || [[ -n "$line" ]]; do
+# Convert .env format to YAML format
+while IFS='=' read -r key value || [[ -n "$key" ]]; do
     # Skip comments and empty lines
-    if [[ ! $line =~ ^#.*$ ]] && [[ -n "$line" ]]; then
-        # Add this line to our env vars, with comma if not first
-        if [ -z "$ENV_VARS" ]; then
-            ENV_VARS="$line"
-        else
-            ENV_VARS="$ENV_VARS,$line"
-        fi
+    if [[ ! $key =~ ^#.*$ ]] && [[ -n "$key" ]] && [[ -n "$value" ]]; then
+        # Remove any trailing spaces
+        key=$(echo "$key" | tr -d ' ')
+        # Escape special characters for YAML
+        value=$(echo "$value" | sed 's/"/\\"/g')
+        # Add to YAML file
+        echo "$key: \"$value\"" >> $ENV_YAML_FILE
     fi
 done < "$ENV_VARS_FILE"
 
@@ -103,10 +103,10 @@ gcloud run deploy $SERVICE_NAME \
     --concurrency $CONCURRENCY \
     --service-account $SERVICE_ACCOUNT \
     --add-cloudsql-instances $CLOUDSQL_INSTANCE \
-    --set-env-vars "$ENV_VARS"
+    --env-vars-file $ENV_YAML_FILE
 
 # Clean up
-rm -f "$ENV_VARS_FILE"
+rm -f "$ENV_VARS_FILE" "$ENV_YAML_FILE"
 
 # Get URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
