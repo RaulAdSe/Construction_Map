@@ -74,7 +74,7 @@ gcloud services enable cloudbuild.googleapis.com run.googleapis.com
 
 # Build and deploy using Cloud Build
 echo "Building and deploying minimal application..."
-gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME-minimal --config - << EOF
+gcloud builds submit --config - << EOF
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/$SERVICE_NAME-minimal', '-f', 'Dockerfile.minimal', '.']
