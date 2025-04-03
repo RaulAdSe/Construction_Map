@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
+import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab, Offcanvas } from 'react-bootstrap';
 import MapList from '../components/MapList';
 import MapDetail from '../components/MapDetail';
 import MapsManager from '../components/MapsManager';
@@ -16,6 +16,7 @@ import RoleSwitcher from '../components/RoleSwitcher';
 import ContactsTab from '../components/ContactsTab';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import MobileSwitcher from '../components/common/MobileSwitcher';
+import { useMobile } from '../components/common/MobileProvider';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
 import { isUserAdmin } from '../utils/permissions';
@@ -29,6 +30,7 @@ const MapViewer = ({ onLogout }) => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isMobile } = useMobile();
   
   const [maps, setMaps] = useState([]);
   const [events, setEvents] = useState([]);
@@ -64,6 +66,9 @@ const MapViewer = ({ onLogout }) => {
   
   // Add a state to track if user has manually closed the modal
   const [userClosedModal, setUserClosedModal] = useState(false);
+  
+  // Add a state for mobile sidebar visibility
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   
   // Fetch current user info from token and get their admin status
   useEffect(() => {
@@ -749,31 +754,44 @@ const MapViewer = ({ onLogout }) => {
     onVisibleMapsChanged: handleVisibleMapsChanged
   }), [selectedMap, events, handleMapClick, mapForEvent, handleViewEvent, maps, projectId, handleVisibleMapsChanged]);
   
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">{translate('Loading...')}</span>
-        </Spinner>
-      </div>
-    );
-  }
+  // Create a toggle function for the mobile sidebar
+  const toggleMobileSidebar = () => {
+    setShowMobileSidebar(!showMobileSidebar);
+  };
   
-  if (!project) {
+  // Render a mobile-optimized navbar
+  const renderNavbar = () => {
+    if (isMobile) {
+      return (
+        <Navbar bg="dark" variant="dark" expand="lg" className="mobile-navbar py-2">
+          <Container fluid>
+            <Button 
+              variant="outline-light" 
+              className="me-2 mobile-menu-btn" 
+              onClick={toggleMobileSidebar}
+              aria-label="Toggle sidebar"
+            >
+              <i className="bi bi-list"></i>
+            </Button>
+            <Navbar.Brand onClick={handleBackToProjects} style={{ cursor: 'pointer', fontSize: '1rem' }}>
+              {project?.name || translate('Construction Map Viewer')}
+            </Navbar.Brand>
+            <div className="d-flex align-items-center">
+              <RoleSwitcher 
+                currentIsAdmin={effectiveIsAdmin}
+                onRoleChange={handleRoleChange}
+              />
+              <NotificationBell />
+              <LanguageSwitcher />
+              <MobileSwitcher />
+            </div>
+          </Container>
+        </Navbar>
+      );
+    }
+    
+    // Default desktop navbar
     return (
-      <Container className="mt-5">
-        <Alert variant="danger">
-          {translate('Project not found or you don\'t have access.')}
-          <Button variant="link" onClick={handleBackToProjects}>
-            {translate('Back to Projects')}
-          </Button>
-        </Alert>
-      </Container>
-    );
-  }
-  
-  return (
-    <div className="map-viewer">
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container>
           <Navbar.Brand onClick={handleBackToProjects} style={{ cursor: 'pointer' }}>
@@ -794,15 +812,10 @@ const MapViewer = ({ onLogout }) => {
               </Nav.Item>
             </Nav>
             <div className="d-flex align-items-center">
-              {/* Debug message */}
-              {DEBUG && console.log('Rendering navbar, isAdmin:', isAdmin)}
-              
-              {/* RoleSwitcher component - always render but component will self-hide if not admin */}
               <RoleSwitcher 
                 currentIsAdmin={effectiveIsAdmin}
                 onRoleChange={handleRoleChange}
               />
-              
               <NotificationBell />
               <LanguageSwitcher />
               <MobileSwitcher />
@@ -811,86 +824,89 @@ const MapViewer = ({ onLogout }) => {
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      
-      <Container className="mt-4">
-        <Tabs 
-          activeKey={activeTab} 
-          onSelect={setActiveTab} 
-          className="mb-4"
-          key={`tabs-${effectiveIsAdmin}`}
-        >
-          {/* Build tabs array dynamically based on user role */}
-          {(() => {
-            // Define all potential tabs
-            const tabs = [
-              // Map View tab - available to all users
-              <Tab key="map-view" eventKey="map-view" title={translate('Map View')}>
-                <Row>
-                  <Col md={3}>
-                    <div className="sidebar-panel">
-                      <h5 className="mb-3">{translate('Map Controls')}</h5>
-                      
-                      <div className="d-grid gap-2 mb-4">
-                        <Button
-                          variant="success"
-                          onClick={handleAddEvent}
-                        >
-                          <i className="bi bi-pin-map me-2"></i>{translate('Add Event')}
-                        </Button>
-                      </div>
-                      
-                      <hr />
-                      
-                      <div className="map-info-section">
-                        <h6>{translate('Current View')}</h6>
-                        {selectedMap && (
-                          <div className="current-map-info mb-3">
-                            <p className="mb-1">
-                              <strong>{translate('Main Map')}:</strong> {selectedMap.name}
-                              {selectedMap.map_type === 'implantation' && (
-                                <span className="badge bg-success ms-2">{translate('Primary')}</span>
-                              )}
-                            </p>
-                            <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
-                            <p className="mb-0">
-                              <strong>{translate('Events')}:</strong> {visibleEvents.length}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <hr />
-                      
-                      <div className="events-summary mb-3">
-                        <h6>{translate('Event Categories')}</h6>
-                        <ul className="list-unstyled">
-                          {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
-                            <li key={tag} className="mb-1">
-                              <span className="badge bg-secondary me-2">{tag}</span>
-                              <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </Col>
-                  <Col md={9}>
-                    {selectedMap ? (
-                      <MapDetail
-                        {...mapDetailProps}
-                      />
-                    ) : (
-                      <div className="text-center p-5 bg-light rounded">
-                        <h3>{translate('No map selected')}</h3>
-                        <p>{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
-                      </div>
-                    )}
-                  </Col>
-                </Row>
-              </Tab>,
+    );
+  };
+  
+  // Render the mobile sidebar with controls
+  const renderMobileSidebar = () => {
+    return (
+      <Offcanvas 
+        show={showMobileSidebar} 
+        onHide={() => setShowMobileSidebar(false)} 
+        placement="start"
+        className="mobile-sidebar"
+      >
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>{translate('Map Controls')}</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          <Tabs 
+            activeKey={activeTab} 
+            onSelect={(key) => {
+              setActiveTab(key);
+              if (isMobile) setShowMobileSidebar(false);
+            }} 
+            className="mb-3"
+          >
+            <Tab eventKey="map-view" title={translate('Map')}>
+              <div className="d-grid gap-2 mb-3">
+                <Button
+                  variant="success"
+                  onClick={() => {
+                    handleAddEvent();
+                    setShowMobileSidebar(false);
+                  }}
+                >
+                  <i className="bi bi-pin-map me-2"></i>{translate('Add Event')}
+                </Button>
+              </div>
               
-              // Project Maps tab - admin only
-              <Tab key="project-maps" eventKey="project-maps" title={translate('Project Maps')}>
+              <hr />
+              
+              <div className="map-info-section">
+                <h6>{translate('Current View')}</h6>
+                {selectedMap && (
+                  <div className="current-map-info mb-3">
+                    <p className="mb-1">
+                      <strong>{translate('Main Map')}:</strong> {selectedMap.name}
+                      {selectedMap.map_type === 'implantation' && (
+                        <span className="badge bg-success ms-2">{translate('Primary')}</span>
+                      )}
+                    </p>
+                    <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
+                    <p className="mb-0">
+                      <strong>{translate('Events')}:</strong> {visibleEvents.length}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <hr />
+              
+              <div className="events-summary mb-3">
+                <h6>{translate('Event Categories')}</h6>
+                <ul className="list-unstyled">
+                  {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
+                    <li key={tag} className="mb-1">
+                      <span className="badge bg-secondary me-2">{tag}</span>
+                      <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <hr />
+              
+              <Button variant="secondary" onClick={handleBackToProjects} className="w-100 mb-2">
+                {translate('Back to Projects')}
+              </Button>
+              <Button variant="outline-danger" onClick={onLogout} className="w-100">
+                {translate('Logout')}
+              </Button>
+            </Tab>
+            
+            {effectiveIsAdmin && (
+              <Tab eventKey="project-maps" title={translate('Maps')}>
                 <MapsManager 
                   projectId={project.id}
                   onMapUpdated={() => {
@@ -916,10 +932,224 @@ const MapViewer = ({ onLogout }) => {
                     refreshData();
                   }}
                 />
-              </Tab>,
-              
-              // Events tab - admin only
-              <Tab key="events" eventKey="events" title={translate('Events')}>
+              </Tab>
+            )}
+            
+            {effectiveIsAdmin && (
+              <Tab eventKey="events" title={translate('Events')}>
+                <div className="mb-3 d-flex justify-content-between">
+                  <h5>{translate('Project Events')}</h5>
+                </div>
+                
+                <EventsTable 
+                  events={events} 
+                  onViewEvent={(event) => {
+                    handleViewEvent(event);
+                    setShowMobileSidebar(false);
+                  }}
+                  onEditEvent={(event) => {
+                    handleEditEvent(event);
+                    setShowMobileSidebar(false);
+                  }}
+                  onEventUpdated={handleEventUpdated}
+                  effectiveIsAdmin={effectiveIsAdmin}
+                />
+              </Tab>
+            )}
+            
+            <Tab eventKey="contacts" title={translate('Contacts')}>
+              <ContactsTab 
+                projectId={parseInt(projectId)} 
+                effectiveIsAdmin={effectiveIsAdmin}
+              />
+            </Tab>
+          </Tabs>
+        </Offcanvas.Body>
+      </Offcanvas>
+    );
+  };
+  
+  // Render map view content
+  const renderMapViewContent = () => {
+    // For mobile, use full width
+    if (isMobile) {
+      return (
+        <div className="mobile-map-container">
+          {selectedMap ? (
+            <MapDetail
+              {...mapDetailProps}
+            />
+          ) : (
+            <div className="text-center p-3 bg-light rounded">
+              <h5>{translate('No map selected')}</h5>
+              <p className="small">{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
+              <Button size="sm" variant="primary" onClick={toggleMobileSidebar}>
+                {translate('Open Maps')}
+              </Button>
+            </div>
+          )}
+          
+          {/* Floating action button for adding events on mobile */}
+          {selectedMap && (
+            <Button 
+              className="mobile-fab"
+              variant="success"
+              size="lg"
+              onClick={handleAddEvent}
+              aria-label={translate('Add Event')}
+            >
+              <i className="bi bi-plus-lg"></i>
+            </Button>
+          )}
+        </div>
+      );
+    }
+    
+    // For desktop, use the sidebar layout
+    return (
+      <Row>
+        <Col md={3}>
+          <div className="sidebar-panel">
+            <h5 className="mb-3">{translate('Map Controls')}</h5>
+            
+            <div className="d-grid gap-2 mb-4">
+              <Button
+                variant="success"
+                onClick={handleAddEvent}
+              >
+                <i className="bi bi-pin-map me-2"></i>{translate('Add Event')}
+              </Button>
+            </div>
+            
+            <hr />
+            
+            <div className="map-info-section">
+              <h6>{translate('Current View')}</h6>
+              {selectedMap && (
+                <div className="current-map-info mb-3">
+                  <p className="mb-1">
+                    <strong>{translate('Main Map')}:</strong> {selectedMap.name}
+                    {selectedMap.map_type === 'implantation' && (
+                      <span className="badge bg-success ms-2">{translate('Primary')}</span>
+                    )}
+                  </p>
+                  <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
+                  <p className="mb-0">
+                    <strong>{translate('Events')}:</strong> {visibleEvents.length}
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <hr />
+            
+            <div className="events-summary mb-3">
+              <h6>{translate('Event Categories')}</h6>
+              <ul className="list-unstyled">
+                {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
+                  <li key={tag} className="mb-1">
+                    <span className="badge bg-secondary me-2">{tag}</span>
+                    <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Col>
+        <Col md={9}>
+          {selectedMap ? (
+            <MapDetail
+              {...mapDetailProps}
+            />
+          ) : (
+            <div className="text-center p-5 bg-light rounded">
+              <h3>{translate('No map selected')}</h3>
+              <p>{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
+            </div>
+          )}
+        </Col>
+      </Row>
+    );
+  };
+  
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">{translate('Loading...')}</span>
+        </Spinner>
+      </div>
+    );
+  }
+  
+  if (!project) {
+    return (
+      <Container className="mt-5">
+        <Alert variant="danger">
+          {translate('Project not found or you don\'t have access.')}
+          <Button variant="link" onClick={handleBackToProjects}>
+            {translate('Back to Projects')}
+          </Button>
+        </Alert>
+      </Container>
+    );
+  }
+  
+  return (
+    <div className={`map-viewer ${isMobile ? 'mobile-view' : ''}`}>
+      {renderNavbar()}
+      
+      {/* For mobile, render the sidebar as an offcanvas */}
+      {isMobile && renderMobileSidebar()}
+      
+      <Container fluid={isMobile} className={isMobile ? "p-0 mt-0" : "mt-4"}>
+        {/* For desktop, render tabs as normal */}
+        {!isMobile && (
+          <Tabs 
+            activeKey={activeTab} 
+            onSelect={setActiveTab} 
+            className="mb-4"
+            key={`tabs-${effectiveIsAdmin}`}
+          >
+            {/* Map View tab - available to all users */}
+            <Tab eventKey="map-view" title={translate('Map View')}>
+              {renderMapViewContent()}
+            </Tab>
+            
+            {/* Project Maps tab - admin only */}
+            {effectiveIsAdmin && (
+              <Tab eventKey="project-maps" title={translate('Project Maps')}>
+                <MapsManager 
+                  projectId={project.id}
+                  onMapUpdated={() => {
+                    // Force reload the maps data when a map is updated
+                    const refreshData = async () => {
+                      try {
+                        // Fetch fresh map data
+                        const mapsData = await fetchMaps(parseInt(projectId, 10));
+                        setMaps(mapsData);
+                        
+                        // Find and select the main map
+                        const mainMap = mapsData.find(map => map.map_type === 'implantation');
+                        if (mainMap) {
+                          setSelectedMap(mainMap);
+                          showNotification(translate('Map updated successfully! Main map has been changed.'), 'success');
+                        }
+                      } catch (error) {
+                        console.error('Error refreshing maps after update:', error);
+                        showNotification(translate('Error updating maps. Please refresh the page.'), 'error');
+                      }
+                    };
+                    
+                    refreshData();
+                  }}
+                />
+              </Tab>
+            )}
+            
+            {/* Events tab - admin only */}
+            {effectiveIsAdmin && (
+              <Tab eventKey="events" title={translate('Events')}>
                 <div className="mb-3 d-flex justify-content-between">
                   <h3>{translate('Project Events')}</h3>
                 </div>
@@ -931,26 +1161,21 @@ const MapViewer = ({ onLogout }) => {
                   onEventUpdated={handleEventUpdated}
                   effectiveIsAdmin={effectiveIsAdmin}
                 />
-              </Tab>,
-              
-              // Contacts tab - available to all users
-              <Tab key="contacts" eventKey="contacts" title={translate('Contacts')}>
-                <ContactsTab 
-                  projectId={parseInt(projectId)} 
-                  effectiveIsAdmin={effectiveIsAdmin}
-                />
               </Tab>
-            ];
+            )}
             
-            // For members, only return the tabs they should see
-            if (!effectiveIsAdmin) {
-              return [tabs[0], tabs[3]]; // Map View and Contacts only
-            }
-            
-            // For admins, return all tabs
-            return tabs;
-          })()}
-        </Tabs>
+            {/* Contacts tab - available to all users */}
+            <Tab eventKey="contacts" title={translate('Contacts')}>
+              <ContactsTab 
+                projectId={parseInt(projectId)} 
+                effectiveIsAdmin={effectiveIsAdmin}
+              />
+            </Tab>
+          </Tabs>
+        )}
+        
+        {/* For mobile, render content directly */}
+        {isMobile && renderMapViewContent()}
       </Container>
       
       {/* Modals */}
@@ -959,6 +1184,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowAddMapModal(false)} 
         onMapAdded={handleMapAdded}
         projectId={project?.id}
+        fullscreen={isMobile}
       />
       
       <MapSelectionModal 
@@ -966,6 +1192,7 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowMapSelectionModal(false)}
         maps={maps}
         onMapSelected={handleMapSelected}
+        fullscreen={isMobile}
       />
       
       <AddEventModal
@@ -980,10 +1207,12 @@ const MapViewer = ({ onLogout }) => {
         projectId={project?.id}
         allMaps={maps}
         visibleMaps={getActiveMapSettings()}
+        fullscreen={isMobile}
       />
       
       <ViewEventModal
         {...viewEventModalProps}
+        fullscreen={isMobile}
       />
       
       <EditEventModal
@@ -993,6 +1222,7 @@ const MapViewer = ({ onLogout }) => {
         onEventUpdated={handleEventUpdated}
         projectId={project?.id}
         userRole={effectiveIsAdmin ? "ADMIN" : "MEMBER"}
+        fullscreen={isMobile}
       />
       
       {/* Notification */}

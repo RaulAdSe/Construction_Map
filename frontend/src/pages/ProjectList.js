@@ -7,6 +7,7 @@ import MonitoringDashboard from '../components/monitoring/MonitoringDashboard';
 import NotificationBell from '../components/NotificationBell';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import MobileSwitcher from '../components/common/MobileSwitcher';
+import { useMobile } from '../components/common/MobileProvider';
 import '../assets/styles/ProjectList.css';
 import translate from '../utils/translate';
 
@@ -22,6 +23,7 @@ const ProjectList = ({ onLogout }) => {
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState('projects');
   const navigate = useNavigate();
+  const { isMobile } = useMobile();
 
   useEffect(() => {
     loadProjects();
@@ -137,40 +139,92 @@ const ProjectList = ({ onLogout }) => {
       );
     }
     
-    return (
-      <Row xs={1} md={2} lg={3} className="g-4">
-        {projects.map(project => (
-          <Col key={project.id}>
-            <Card className="project-card h-100">
-              <Button 
-                variant="danger" 
-                size="sm" 
-                className="delete-project-btn"
-                onClick={(e) => handleDeleteClick(e, project)}
-                aria-label={`${translate('Delete')} ${project.name} ${translate('project')}`}
-              >
-                <i className="bi bi-trash"></i>
-              </Button>
+    // Different card layout for mobile and desktop
+    if (isMobile) {
+      // Mobile layout - stack cards vertically, full width
+      return (
+        <div className="mobile-projects-list">
+          {projects.map(project => (
+            <Card key={project.id} className="project-card mb-3">
               <Card.Body onClick={() => handleProjectSelect(project.id)}>
-                <Card.Title>{project.name}</Card.Title>
-                <Card.Text>
+                <div className="d-flex justify-content-between align-items-center">
+                  <Card.Title>{project.name}</Card.Title>
+                  <Button 
+                    variant="danger" 
+                    size="sm"
+                    onClick={(e) => handleDeleteClick(e, project)}
+                    aria-label={`${translate('Delete')} ${project.name} ${translate('project')}`}
+                  >
+                    <i className="bi bi-trash"></i>
+                  </Button>
+                </div>
+                <Card.Text className="mt-2">
                   {project.description || translate('No description available')}
                 </Card.Text>
+                <div className="text-muted mt-2">
+                  <small>{translate('Created')}: {formatDate(project.created_at)}</small>
+                </div>
               </Card.Body>
-              <Card.Footer onClick={() => handleProjectSelect(project.id)}>
-                <small className="text-muted">
-                  {translate('Created')}: {formatDate(project.created_at)}
-                </small>
-              </Card.Footer>
             </Card>
-          </Col>
-        ))}
-      </Row>
-    );
+          ))}
+        </div>
+      );
+    } else {
+      // Desktop layout - grid of cards
+      return (
+        <Row xs={1} md={2} lg={3} className="g-4">
+          {projects.map(project => (
+            <Col key={project.id}>
+              <Card className="project-card h-100">
+                <Button 
+                  variant="danger" 
+                  size="sm" 
+                  className="delete-project-btn"
+                  onClick={(e) => handleDeleteClick(e, project)}
+                  aria-label={`${translate('Delete')} ${project.name} ${translate('project')}`}
+                >
+                  <i className="bi bi-trash"></i>
+                </Button>
+                <Card.Body onClick={() => handleProjectSelect(project.id)}>
+                  <Card.Title>{project.name}</Card.Title>
+                  <Card.Text>
+                    {project.description || translate('No description available')}
+                  </Card.Text>
+                </Card.Body>
+                <Card.Footer onClick={() => handleProjectSelect(project.id)}>
+                  <small className="text-muted">
+                    {translate('Created')}: {formatDate(project.created_at)}
+                  </small>
+                </Card.Footer>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      );
+    }
   };
 
-  return (
-    <div className="project-list-page">
+  // Mobile navbar is more compact
+  const renderNavbar = () => {
+    if (isMobile) {
+      return (
+        <Navbar bg="dark" variant="dark" expand="lg">
+          <Container fluid>
+            <Navbar.Brand>{translate('Construction Map Viewer')}</Navbar.Brand>
+            <div className="d-flex align-items-center">
+              <NotificationBell />
+              <LanguageSwitcher />
+              <MobileSwitcher />
+              <Button variant="outline-light" onClick={onLogout} size="sm" className="ms-2">
+                <i className="bi bi-box-arrow-right"></i>
+              </Button>
+            </div>
+          </Container>
+        </Navbar>
+      );
+    }
+    
+    return (
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container>
           <Navbar.Brand>{translate('Construction Map Viewer')}</Navbar.Brand>
@@ -182,19 +236,31 @@ const ProjectList = ({ onLogout }) => {
           </div>
         </Container>
       </Navbar>
+    );
+  };
 
-      <Container className="mt-4">
+  return (
+    <div className={`project-list-page ${isMobile ? 'mobile-view' : ''}`}>
+      {renderNavbar()}
+
+      <Container className={isMobile ? "mt-2 px-2" : "mt-4"}>
         <Tabs
           activeKey={activeTab}
           onSelect={setActiveTab}
           id="project-tabs"
-          className="mb-4"
+          className="mb-3"
         >
           <Tab eventKey="projects" title={translate('Projects')}>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h2>{translate('Select a Project')}</h2>
-              <Button variant="primary" className="create-project-btn" onClick={() => setShowModal(true)}>
-                <i className="bi bi-plus-lg"></i>{translate('Create New Project')}
+            <div className={`d-flex justify-content-between align-items-center ${isMobile ? 'mb-2' : 'mb-4'}`}>
+              <h2 className={isMobile ? "h4" : "h2"}>{translate('Select a Project')}</h2>
+              <Button 
+                variant="primary" 
+                className="create-project-btn" 
+                onClick={() => setShowModal(true)}
+                size={isMobile ? "sm" : "md"}
+              >
+                <i className="bi bi-plus-lg"></i>
+                {isMobile ? '' : translate('Create New Project')}
               </Button>
             </div>
             
@@ -216,7 +282,7 @@ const ProjectList = ({ onLogout }) => {
       </Container>
 
       {/* Create Project Modal */}
-      <Modal show={showModal} onHide={() => { setShowModal(false); resetForm(); }}>
+      <Modal show={showModal} onHide={() => { setShowModal(false); resetForm(); }} fullscreen={isMobile}>
         <Modal.Header closeButton>
           <Modal.Title>{translate('Create New Project')}</Modal.Title>
         </Modal.Header>
@@ -259,7 +325,7 @@ const ProjectList = ({ onLogout }) => {
       </Modal>
 
       {/* Delete Project Confirmation Modal */}
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} fullscreen={isMobile}>
         <Modal.Header closeButton>
           <Modal.Title>{translate('Confirm Delete')}</Modal.Title>
         </Modal.Header>

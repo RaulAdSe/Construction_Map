@@ -996,4 +996,276 @@ iframe[src*=".pdf"] {
 :root .pdfjs-viewer {
   --pdfjs-toolbar-visible: none !important;
   --pdfjs-sidebar-visible: none !important;
+}
+
+/* Mobile view styles */
+.mobile-view .mobile-navbar {
+  padding: 0.5rem 0.75rem;
+}
+
+.mobile-view .mobile-menu-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.5rem;
+}
+
+.mobile-view .navbar-brand {
+  font-size: 1rem;
+  margin-right: 0;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile sidebar styles */
+.mobile-sidebar .offcanvas-body {
+  padding: 1rem;
+}
+
+.mobile-sidebar .nav-tabs {
+  margin-bottom: 1rem;
+}
+
+.mobile-sidebar .tab-content {
+  padding-top: 1rem;
+}
+
+/* Full-width map container for mobile */
+.mobile-map-container {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 56px); /* Subtract mobile navbar height */
+  overflow: hidden;
+}
+
+/* Floating action button for mobile */
+.mobile-fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  z-index: 1050;
+}
+
+.mobile-fab i {
+  font-size: 1.5rem;
+}
+
+/* Modify map container height for mobile */
+.mobile-view .map-container {
+  height: calc(100vh - 56px); /* Full height minus mobile navbar */
+  min-height: auto;
+  border: none;
+  border-radius: 0;
+}
+
+/* Adjust modals for mobile */
+.mobile-view .modal-fullscreen {
+  padding: 0;
+}
+
+.mobile-view .modal-fullscreen .modal-content {
+  border-radius: 0;
+  min-height: 100vh;
+}
+
+/* Make event markers larger for touch devices */
+.mobile-view .event-marker {
+  width: 28px;
+  height: 28px;
+  border-width: 4px;
+}
+
+.mobile-view .event-marker:hover,
+.mobile-view .event-marker-hover {
+  width: 34px;
+  height: 34px;
+}
+
+/* Adjust event popup for mobile */
+.mobile-view .event-popup {
+  width: 90vw;
+  max-width: 350px;
+}
+
+/* Fix for mobile panels */
+@media (max-width: 768px) {
+  .map-container {
+    height: calc(100vh - 180px);
+    min-height: 300px;
+  }
+  
+  .mobile-view .sidebar-panel {
+    display: none; /* Hide sidebar panel on mobile as we're using offcanvas */
+  }
+  
+  .mobile-projects-list .card {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: transform 0.15s ease;
+  }
+  
+  .mobile-projects-list .card:active {
+    transform: scale(0.98);
+  }
+
+  /* Make project cards more touch-friendly */
+  .mobile-view .project-card {
+    margin-bottom: 15px;
+  }
+}
+
+/* Overrides for mobile map controls */
+.mobile-view .event-count-badge {
+  top: auto;
+  bottom: 20px;
+  left: 20px;
+  right: auto;
+  font-size: 0.9rem;
+  padding: 8px 15px;
+  background-color: rgba(40, 40, 40, 0.8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure map container takes full height */
+.map-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.mobile-view.map-viewer {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.mobile-view .container-fluid {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fixes for Bootstrap Tabs on mobile */
+.mobile-sidebar .nav-tabs .nav-link {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+/* Ensure maps are properly sized in mobile */
+.mobile-view .content-fit-view {
+  height: calc(100vh - 56px);
+}
+
+.mobile-view .map-detail-container {
+  height: 100%;
+}
+
+/* Map view height adjustment for mobile */
+.mobile-view .consistent-map-view {
+  height: calc(100vh - 56px);
+}
+
+/* Mobile map controls */
+.mobile-map-detail {
+  position: relative;
+}
+
+.mobile-layers-toggle {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+.mobile-layers-toggle i {
+  font-size: 1.2rem;
+}
+
+.mobile-overlay-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border-top-left-radius: 15px;
+  border-top-right-radius: 15px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1050;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.mobile-overlay-controls.show {
+  transform: translateY(0);
+}
+
+.mobile-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.mobile-overlay-header h6 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.mobile-overlay-header .close-btn {
+  padding: 0;
+  color: #666;
+  font-size: 1.2rem;
+}
+
+.mobile-overlay-body {
+  padding: 10px 15px 20px;
+  max-height: calc(60vh - 60px);
+  overflow-y: auto;
+}
+
+/* Mobile optimized list group items */
+.mobile-view .list-group-item {
+  padding: 10px 15px;
+}
+
+.mobile-view .form-check label {
+  font-size: 0.9rem;
+}
+
+/* Touch-optimized form controls */
+.mobile-view .form-range {
+  height: 24px;
+}
+
+/* Event marker adjustments for touch */
+.mobile-view .event-marker {
+  width: 30px;
+  height: 30px;
+}
+
+/* Pinch zoom container */
+.mobile-view .map-container {
+  touch-action: pan-x pan-y;
 } 

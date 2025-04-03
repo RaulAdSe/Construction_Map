@@ -52,8 +52,9 @@ const adjustBrightness = (hex, factor) => {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 };
 
-const EventMarker = ({ event, onClick, scale = 1 }) => {
+const EventMarker = ({ event, onClick, scale = 1, isMobile = false }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isTouched, setIsTouched] = useState(false);
   
   if (!event || !event.x_coordinate || !event.y_coordinate) {
     console.warn("Invalid event data for marker:", event);
@@ -80,12 +81,18 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
     }
   }
   
+  // Mobile markers are larger and have thicker borders
+  const markerSize = isMobile ? { width: '30px', height: '30px' } : {};
+  const borderWidth = isMobile ? '4px' : '3px';
+  
   // Use CSS classes for core styles and only use inline styles for positioning and color
   const markerStyle = {
     left: `${event.x_coordinate}%`,
     top: `${event.y_coordinate}%`,
     backgroundColor: color,
-    boxShadow: isHovered 
+    borderWidth: borderWidth,
+    ...markerSize,
+    boxShadow: (isHovered || isTouched) 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
       : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`
   };
@@ -144,18 +151,42 @@ const EventMarker = ({ event, onClick, scale = 1 }) => {
     'data-y-position': event.y_coordinate
   };
   
+  // For mobile, handle touch events differently
+  const handleTouchStart = () => {
+    setIsTouched(true);
+    // Hide tooltip after a delay
+    setTimeout(() => {
+      if (isTouched) setIsTouched(false);
+    }, 1500);
+  };
+  
   return (
     <OverlayTrigger
       placement="top"
       overlay={tooltip}
-      delay={{ show: 200, hide: 100 }}
+      delay={{ show: isMobile ? 50 : 200, hide: isMobile ? 50 : 100 }}
+      trigger={isMobile ? ['click'] : ['hover', 'focus']}
     >
       <div 
-        className={`event-marker ${isHovered ? 'event-marker-hover' : ''}`}
+        className={`event-marker ${isHovered || isTouched ? 'event-marker-hover' : ''} ${isMobile ? 'mobile-event-marker' : ''}`}
         style={markerStyle}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={onClick}
+        onClick={(e) => {
+          // For mobile, delay the click to allow tooltip to show
+          if (isMobile) {
+            if (!isTouched) {
+              e.preventDefault();
+              e.stopPropagation();
+              handleTouchStart();
+            } else {
+              onClick(e);
+            }
+          } else {
+            onClick(e);
+          }
+        }}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
         {...dataAttributes}
       />
     </OverlayTrigger>

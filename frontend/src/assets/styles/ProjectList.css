@@ -110,4 +110,93 @@
   color: #f0ad4e;
   font-size: 1.2rem;
   margin-right: 0.5rem;
+}
+
+/* Mobile specific styles */
+.mobile-view .container {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.mobile-view .nav-tabs .nav-link {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.mobile-projects-list {
+  margin-top: 0.5rem;
+}
+
+.mobile-projects-list .project-card {
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-projects-list .project-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-projects-list .card-body {
+  padding: 1rem;
+}
+
+.mobile-view .create-project-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  padding: 0;
+}
+
+.mobile-view .create-project-btn i {
+  margin-right: 0;
+  font-size: 1.5rem;
+}
+
+/* Mobile navbar styles */
+.mobile-view .navbar-brand {
+  font-size: 1rem;
+}
+
+.mobile-view .container-fluid {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* Mobile modal styles */
+.mobile-view .modal-fullscreen .modal-header {
+  padding: 0.75rem 1rem;
+}
+
+.mobile-view .modal-fullscreen .modal-body {
+  padding: 1rem;
+}
+
+.mobile-view .modal-fullscreen .modal-footer {
+  padding: 0.75rem 1rem;
+}
+
+/* Adjust tab content for mobile */
+.mobile-view .tab-content {
+  padding: 0.5rem 0;
+}
+
+/* Optimize project header for mobile */
+.mobile-view h2.h4 {
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 576px) {
+  .project-card {
+    margin-bottom: 15px;
+  }
+  
+  .project-card:hover {
+    transform: none;
+  }
+  
+  .mobile-view .tab-content {
+    padding: 0;
+  }
 } 
