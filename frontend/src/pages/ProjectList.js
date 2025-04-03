@@ -6,6 +6,7 @@ import { isUserAdmin } from '../utils/permissions';
 import MonitoringDashboard from '../components/monitoring/MonitoringDashboard';
 import NotificationBell from '../components/NotificationBell';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
+import MobileSwitcher from '../components/common/MobileSwitcher';
 import '../assets/styles/ProjectList.css';
 import translate from '../utils/translate';
 
@@ -176,6 +177,7 @@ const ProjectList = ({ onLogout }) => {
           <div className="d-flex align-items-center">
             <NotificationBell />
             <LanguageSwitcher />
+            <MobileSwitcher />
             <Button variant="outline-light" onClick={onLogout} className="ms-3">{translate('Logout')}</Button>
           </div>
         </Container>

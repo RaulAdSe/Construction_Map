@@ -5,22 +5,31 @@ import MapViewer from './pages/MapViewer';
 import ProjectList from './pages/ProjectList';
 import './assets/styles/App.css';
 import { TranslationProvider } from './components/common/TranslationProvider';
+import { MobileProvider } from './components/common/MobileProvider';
 import { setLanguage } from './utils/translate';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // Add a state variable to force re-render on language changes
+  // Add state variables to force re-render on language/mobile mode changes
   const [languageKey, setLanguageKey] = useState(0);
+  const [mobileKey, setMobileKey] = useState(0);
   
   useEffect(() => {
     // Listen for forced language updates
-    const handleForceUpdate = () => {
+    const handleForceLanguageUpdate = () => {
       setLanguageKey(prev => prev + 1);
     };
-    window.addEventListener('forceLanguageUpdate', handleForceUpdate);
+    window.addEventListener('forceLanguageUpdate', handleForceLanguageUpdate);
+    
+    // Listen for forced mobile mode updates
+    const handleForceMobileUpdate = () => {
+      setMobileKey(prev => prev + 1);
+    };
+    window.addEventListener('forceMobileUpdate', handleForceMobileUpdate);
     
     return () => {
-      window.removeEventListener('forceLanguageUpdate', handleForceUpdate);
+      window.removeEventListener('forceLanguageUpdate', handleForceLanguageUpdate);
+      window.removeEventListener('forceMobileUpdate', handleForceMobileUpdate);
     };
   }, []);
   
@@ -55,23 +64,25 @@ function App() {
   
   return (
     <TranslationProvider>
-      <Router>
-        <Routes key={`routes-${languageKey}`}>
-          <Route 
-            path="/" 
-            element={isAuthenticated ? <Navigate to="/projects" /> : <LoginPage onLogin={handleLogin} />} 
-          />
-          <Route 
-            path="/projects" 
-            element={isAuthenticated ? <ProjectList onLogout={handleLogout} /> : <Navigate to="/" />} 
-          />
-          <Route 
-            path="/project/:projectId" 
-            element={isAuthenticated ? <MapViewer onLogout={handleLogout} /> : <Navigate to="/" />} 
-          />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </Router>
+      <MobileProvider>
+        <Router>
+          <Routes key={`routes-${languageKey}-${mobileKey}`}>
+            <Route 
+              path="/" 
+              element={isAuthenticated ? <Navigate to="/projects" /> : <LoginPage onLogin={handleLogin} />} 
+            />
+            <Route 
+              path="/projects" 
+              element={isAuthenticated ? <ProjectList onLogout={handleLogout} /> : <Navigate to="/" />} 
+            />
+            <Route 
+              path="/project/:projectId" 
+              element={isAuthenticated ? <MapViewer onLogout={handleLogout} /> : <Navigate to="/" />} 
+            />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </Router>
+      </MobileProvider>
     </TranslationProvider>
   );
 }
