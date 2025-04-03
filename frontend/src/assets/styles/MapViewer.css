@@ -1121,7 +1121,7 @@ iframe[src*=".pdf"] {
 /* Add Event FAB positioned at bottom left */
 .add-event-fab {
   position: fixed;
-  bottom: 80px; /* Position above the tab navigation */
+  bottom: 110px; /* Moved higher up from 80px */
   left: 20px;
   width: 50px;
   height: 50px;
@@ -1274,7 +1274,7 @@ iframe[src*=".pdf"] {
 
 .mobile-layers-toggle {
   position: absolute;
-  bottom: 80px; /* Match the add-event-fab bottom position */
+  bottom: 110px; /* Moved higher up from 80px to match add-event-fab */
   right: 20px;
   width: 45px;
   height: 45px;
