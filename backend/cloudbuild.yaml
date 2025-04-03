@@ -1,11 +1,13 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/servitec-map-api', '-f', 'Dockerfile.minimal', '.']
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/servitec-map-api', '-f', 'Dockerfile.prod', '.']
+    timeout: '1200s'
   
   # Push the container image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/servitec-map-api']
+    timeout: '600s'
 
 # Save the image to GCR
 images:
@@ -16,4 +18,5 @@ timeout: '1800s'  # 30 minutes
 
 # Configure options for the build
 options:
-  logging: CLOUD_LOGGING_ONLY 
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'  # Use a more powerful machine for building 

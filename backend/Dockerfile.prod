@@ -32,7 +32,12 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     # Default port is 8080 for Cloud Run
-    PORT=8080
+    PORT=8080 \
+    # Set database timeouts
+    SQLALCHEMY_ENGINE_OPTIONS='{"connect_args": {"connect_timeout": 5}}' \
+    # Safety check for database connection
+    DB_CONNECT_RETRY=3 \
+    DB_CONNECT_RETRY_DELAY=5
 
 # Install runtime dependencies with improved retry logic
 RUN apt-get clean && \
