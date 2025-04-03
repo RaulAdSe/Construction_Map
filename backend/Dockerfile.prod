@@ -87,6 +87,14 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY docker-entrypoint.sh /app/
 RUN chmod 755 /app/docker-entrypoint.sh
 
+# Copy configuration override scripts and make them executable
+COPY override_config.py /app/
+RUN chmod 755 /app/override_config.py
+
+# Copy patch scripts and make them executable
+COPY patch_main.py /app/
+RUN chmod 755 /app/patch_main.py
+
 # Copy application code
 COPY . .
 

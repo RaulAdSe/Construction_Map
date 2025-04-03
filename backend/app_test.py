@@ -51,19 +51,16 @@ if 'CORS_ORIGINS' in os.environ:
     cors_value = os.environ['CORS_ORIGINS']
     logger.info(f"Original CORS_ORIGINS: {cors_value}")
     
-    # If CORS_ORIGINS has quotes, remove them
-    if cors_value.startswith('"') and cors_value.endswith('"'):
-        cors_value = cors_value[1:-1]
-    elif cors_value.startswith("'") and cors_value.endswith("'"):
-        cors_value = cors_value[1:-1]
-    
-    # If it's a single asterisk, convert to a valid format
-    if cors_value == '*':
-        cors_value = 'http://localhost:3000,http://localhost:5173'
-        logger.info(f"Converted wildcard CORS to specific origins: {cors_value}")
+    # For pydantic-settings in FastAPI, simplify to a single value to avoid parsing issues
+    # The application will convert this to a list with a single item
+    cors_value = "http://localhost:3000"
     
     os.environ['CORS_ORIGINS'] = cors_value
     logger.info(f"Updated CORS_ORIGINS: {os.environ['CORS_ORIGINS']}")
+    
+    # Also set an additional env var that will be checked in the main.py file
+    os.environ['ALLOW_ALL_ORIGINS'] = "true"
+    logger.info("Set ALLOW_ALL_ORIGINS=true to enable all origins despite CORS_ORIGINS setting")
 
 # List all environment variables (excluding sensitive ones)
 logger.info("Environment variables:")
@@ -161,9 +158,19 @@ try:
         os.environ["DISABLE_DATABASE_OPERATIONS"] = "true"
     
     # Import application with timeout
-    logger.info("Importing FastAPI app...")
     try:
         with time_limit(60):
+            # First, apply the config override which is CRITICAL to avoid the settings parsing error
+            logger.info("Importing config override...")
+            try:
+                # This needs to be imported BEFORE any app modules to override the config
+                import override_config
+                logger.info("Config overridden successfully")
+            except Exception as config_error:
+                logger.error(f"Error overriding config: {config_error}")
+                logger.error(traceback.format_exc())
+                raise
+            
             # Add a monkey patch to disable database operations if connection failed
             if not db_connected:
                 logger.info("Adding database operation monkey patches...")
@@ -203,6 +210,7 @@ try:
                     logger.warning("Could not import SessionLocal to patch")
             
             # Now import the app
+            logger.info("Importing FastAPI app...")
             from app.main import app
             logger.info("App imported successfully!")
     except TimeoutException as e:
