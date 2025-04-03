@@ -58,6 +58,9 @@ const MapViewer = ({ onLogout }) => {
   // Add a state variable for the comment to highlight
   const [highlightCommentId, setHighlightCommentId] = useState(null);
   
+  // Add a state to control the default tab in view event modal
+  const [activeEventModalTab, setActiveEventModalTab] = useState('details');
+  
   // Add a state to track if user has manually closed the modal
   const [userClosedModal, setUserClosedModal] = useState(false);
   
@@ -597,6 +600,15 @@ const MapViewer = ({ onLogout }) => {
           
           // Set the selected event and show the event modal
           setSelectedEvent(eventToHighlight);
+          
+          // If we have a comment to highlight, set it
+          if (commentIdFromUrl) {
+            setHighlightCommentId(parseInt(commentIdFromUrl, 10));
+            
+            // Also set the active tab to comments
+            setActiveEventModalTab('comments');
+          }
+          
           setShowViewEventModal(true);
           
           // Remove the parameters from the URL to prevent issues on refresh
@@ -708,7 +720,8 @@ const MapViewer = ({ onLogout }) => {
     currentUser: currentUser,
     projectId: project?.id,
     effectiveIsAdmin: effectiveIsAdmin,
-    highlightCommentId: highlightCommentId
+    highlightCommentId: highlightCommentId,
+    activeTab: activeEventModalTab
   }), [
     showViewEventModal,
     handleCloseViewEventModal,
@@ -718,7 +731,8 @@ const MapViewer = ({ onLogout }) => {
     currentUser,
     project?.id,
     effectiveIsAdmin,
-    highlightCommentId
+    highlightCommentId,
+    activeEventModalTab
   ]);
   
   // Let's also fix the handleVisibleMapsChanged function to prevent unnecessary re-renders
