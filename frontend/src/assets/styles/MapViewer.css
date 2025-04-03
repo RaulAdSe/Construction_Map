@@ -1051,6 +1051,12 @@ iframe[src*=".pdf"] {
   justify-content: space-around;
   padding: 10px 0;
   z-index: 1070;
+  transition: transform 0.3s ease;
+}
+
+/* Hide tab navigation when adding an event */
+.map-adding-event .mobile-view .tab-navigation {
+  transform: translateY(100%);
 }
 
 .mobile-view .tab-navigation .tab-button {

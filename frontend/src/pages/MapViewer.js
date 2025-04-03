@@ -379,6 +379,9 @@ const MapViewer = ({ onLogout }) => {
     // Store reference to map and set selecting location mode
     setMapForEvent(selectedMap);
     
+    // Add a class to the root element to hide the nav bar while selecting location
+    document.body.classList.add('map-adding-event');
+    
     // Notify user to click on the map
     showNotification(translate('Click on the map to place your event.'), 'info');
   };
@@ -398,6 +401,9 @@ const MapViewer = ({ onLogout }) => {
         visibleMaps: map.visibleMaps || []
       }));
       setShowAddEventModal(true);
+      
+      // Remove the class when the modal is shown
+      document.body.classList.remove('map-adding-event');
     }
   };
   
@@ -1128,6 +1134,14 @@ const MapViewer = ({ onLogout }) => {
     );
   };
   
+  const handleHideAddEventModal = () => {
+    setShowAddEventModal(false);
+    setMapForEvent(null);
+    
+    // Ensure the class is removed when the modal is closed
+    document.body.classList.remove('map-adding-event');
+  };
+  
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -1253,10 +1267,7 @@ const MapViewer = ({ onLogout }) => {
       
       <AddEventModal
         show={showAddEventModal}
-        onHide={() => {
-          setShowAddEventModal(false);
-          setMapForEvent(null);
-        }}
+        onHide={handleHideAddEventModal}
         mapId={mapForEvent?.id}
         position={eventPosition}
         onEventAdded={handleEventAdded}
