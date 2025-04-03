@@ -31,7 +31,8 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=8000
+    # Don't set PORT - Cloud Run will set it to 8080
+    PORT=8080
 
 # Install runtime dependencies with improved retry logic
 RUN apt-get clean && \
@@ -79,7 +80,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Create required directories
-RUN mkdir -p /app/uploads/events /app/uploads/comments /app/credentials
+RUN mkdir -p /app/uploads/events /app/uploads/comments /app/credentials /app/logs
 
 # Set environment variable for GCP credentials
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-credentials.json

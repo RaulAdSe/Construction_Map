@@ -85,7 +85,8 @@ done < "$ENV_VARS_FILE"
 
 # Deploy to Cloud Run with Cloud Build
 echo "Building and deploying with Cloud Build..."
-gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME
+# Use the cloudbuild.yaml file for more control
+gcloud builds submit --config cloudbuild.yaml .
 
 # Deploy to Cloud Run with environment variables
 echo "Deploying to Cloud Run..."
