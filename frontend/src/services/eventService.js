@@ -212,4 +212,63 @@ export const updateEventState = async (eventId, state) => {
     console.error(`Error updating event ${eventId} state:`, error);
     throw error;
   }
+};
+
+/**
+ * Get events with optional filters
+ * @param {Object} options - Filter options
+ * @param {number} options.projectId - Project ID
+ * @param {number} [options.userId] - Filter by user ID
+ * @param {string[]} [options.status] - Filter by status values
+ * @param {string[]} [options.type] - Filter by type/state values
+ * @param {string} [options.startDate] - Filter by start date (YYYY-MM-DD)
+ * @param {string} [options.endDate] - Filter by end date (YYYY-MM-DD)
+ * @param {string[]} [options.tags] - Filter by tags
+ * @param {number} [options.skip=0] - Number of records to skip
+ * @param {number} [options.limit=100] - Maximum number of records to return
+ * @returns {Promise<Array>} - List of events
+ */
+export const getFilteredEvents = async (options) => {
+  try {
+    const {
+      projectId,
+      userId,
+      status,
+      type,
+      startDate,
+      endDate,
+      tags,
+      skip = 0,
+      limit = 100
+    } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams();
+    params.append('project_id', projectId);
+    
+    if (userId) params.append('user_id', userId);
+    if (skip) params.append('skip', skip);
+    if (limit) params.append('limit', limit);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    // Add array parameters
+    if (status && status.length > 0) {
+      status.forEach(s => params.append('status', s));
+    }
+    
+    if (type && type.length > 0) {
+      type.forEach(t => params.append('type', t));
+    }
+    
+    if (tags && tags.length > 0) {
+      tags.forEach(tag => params.append('tags', tag));
+    }
+    
+    const response = await api.get(`${API_URL}/events/?${params.toString()}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching filtered events:', error);
+    throw error;
+  }
 }; 

@@ -19,14 +19,30 @@ router = APIRouter()
 def get_events(
     project_id: int,
     user_id: Optional[int] = None,
+    status: Optional[List[str]] = Query(None),
+    type: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    tags: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
     skip: int = 0,
     limit: int = 100
 ):
     """
-    Get all events for a project.
+    Get all events for a project with optional filtering.
     Admin users can see all events, regular users cannot see closed events.
+    
+    Parameters:
+    - project_id: ID of the project
+    - user_id: Optional filter by user ID
+    - status: Optional list of status values to filter by ('open', 'in-progress', 'resolved', 'closed')
+    - type: Optional list of type/state values to filter by ('incidence', 'periodic check', 'request')
+    - start_date: Optional start date filter (format: YYYY-MM-DD)
+    - end_date: Optional end date filter (format: YYYY-MM-DD)
+    - tags: Optional list of tags to filter by
+    - skip: Number of records to skip for pagination
+    - limit: Maximum number of records to return
     """
     # Check if project exists and user has access
     project = project_service.get_project(db, project_id)
@@ -37,14 +53,24 @@ def get_events(
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Get events - only include closed events for admin users
-    events = event_service.get_events(
+    # Get events - only include closed events for admin users or if explicitly requested
+    include_closed = current_user.is_admin
+    if status and 'closed' in status:
+        include_closed = True
+        
+    # Get events with filtering
+    events = event_service.get_events_with_filters(
         db=db,
         project_id=project_id,
         user_id=user_id,
+        status_filter=status,
+        type_filter=type,
+        start_date=start_date,
+        end_date=end_date,
+        tags_filter=tags,
         skip=skip,
         limit=limit,
-        include_closed=current_user.is_admin  # Only admins see closed events
+        include_closed=include_closed
     )
     return events
 

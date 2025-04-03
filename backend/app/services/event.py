@@ -4,9 +4,10 @@ import json
 from typing import List, Optional, Dict, Any, Tuple
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, and_, or_, cast, Date
 import pandas as pd
 import io
+from datetime import datetime, timedelta
 
 from app.models.event import Event
 from app.models.event_comment import EventComment
@@ -655,4 +656,125 @@ def update_event_state(db: Session, event_id: int, new_state: str, user_id: int)
         # Re-raise the original exception so the caller knows something went wrong
         raise e
     
-    return db_event 
+    return db_event
+
+
+def get_events_with_filters(
+    db: Session, 
+    project_id: int,
+    user_id: Optional[int] = None,
+    status_filter: Optional[List[str]] = None,
+    type_filter: Optional[List[str]] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    tags_filter: Optional[List[str]] = None,
+    skip: int = 0, 
+    limit: int = 100,
+    include_closed: bool = False
+) -> List[Dict[str, Any]]:
+    """
+    Get events with filtering options and comment counts
+    
+    Parameters:
+    - db: Database session
+    - project_id: Project ID to filter by
+    - user_id: Optional user ID to filter by
+    - status_filter: Optional list of status values to filter by
+    - type_filter: Optional list of type/state values to filter by
+    - start_date: Optional start date to filter by (YYYY-MM-DD)
+    - end_date: Optional end date to filter by (YYYY-MM-DD)
+    - tags_filter: Optional list of tags to filter by
+    - skip: Number of records to skip for pagination
+    - limit: Maximum number of records to return
+    - include_closed: Whether to include closed events
+    """
+    from sqlalchemy.orm import joinedload
+    from sqlalchemy import and_, func, or_, cast, Date
+    from datetime import datetime, timedelta
+    
+    # Start with base query
+    query = db.query(
+        Event,
+        func.count(EventComment.id).label('comment_count'),
+        User.username.label('created_by_user_name')
+    ).outerjoin(
+        EventComment, 
+        Event.id == EventComment.event_id
+    ).join(
+        User,
+        Event.created_by_user_id == User.id
+    ).filter(
+        Event.project_id == project_id
+    )
+    
+    # Filter by user if specified
+    if user_id:
+        query = query.filter(Event.created_by_user_id == user_id)
+    
+    # Filter by status if specified
+    if status_filter:
+        query = query.filter(Event.status.in_(status_filter))
+    elif not include_closed:
+        # If no status filter and not including closed, exclude closed status
+        query = query.filter(Event.status != 'closed')
+    
+    # Filter by type/state if specified
+    if type_filter:
+        query = query.filter(Event.state.in_(type_filter))
+    
+    # Filter by date range if specified
+    if start_date:
+        try:
+            start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(Event.created_at >= start_datetime)
+        except ValueError:
+            # Invalid date format, ignore this filter
+            pass
+    
+    if end_date:
+        try:
+            # Add one day to include the entire end date
+            end_datetime = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(Event.created_at < end_datetime)
+        except ValueError:
+            # Invalid date format, ignore this filter
+            pass
+    
+    # Filter by tags if specified
+    if tags_filter and len(tags_filter) > 0:
+        # For each tag, check if it exists in the tags array
+        tag_conditions = []
+        for tag in tags_filter:
+            # This uses PostgreSQL's array containment operator
+            tag_conditions.append(Event.tags.contains([tag]))
+        
+        # Join conditions with OR (event has any of the specified tags)
+        query = query.filter(or_(*tag_conditions))
+    
+    # Group by necessary fields
+    query = query.group_by(
+        Event.id,
+        User.username
+    )
+    
+    # Order by newest first
+    query = query.order_by(desc(Event.created_at))
+    
+    # Apply pagination
+    results = query.offset(skip).limit(limit).all()
+    
+    # Process results
+    events_with_counts = []
+    for event, comment_count, created_by_user_name in results:
+        # Convert event to dict and add comment count
+        event_dict = {c.name: getattr(event, c.name) for c in event.__table__.columns}
+        event_dict['comment_count'] = comment_count
+        event_dict['created_by_user_name'] = created_by_user_name
+        
+        # Fix for active_maps - convert empty array to empty dict if needed
+        if event_dict['active_maps'] == [] or event_dict['active_maps'] is None:
+            event_dict['active_maps'] = {}
+            
+        events_with_counts.append(event_dict)
+    
+    return events_with_counts 
