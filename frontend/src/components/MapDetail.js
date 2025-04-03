@@ -389,6 +389,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         </div>
       );
     } else {
+      // For other file types, use a generic iframe
       return (
         <div key={currentMap.id} style={layerStyle}>
           <iframe 
