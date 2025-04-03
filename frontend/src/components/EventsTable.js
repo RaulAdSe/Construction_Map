@@ -8,6 +8,7 @@ import MentionInput from './MentionInput';
 import { parseAndHighlightMentions } from '../utils/mentionUtils';
 import translate from '../utils/translate';
 import EventHistoryModal from './EventHistoryModal';
+import EventsFilterPanel from './EventsFilterPanel';
 
 const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effectiveIsAdmin }) => {
   const [updatingEvent, setUpdatingEvent] = useState(null);
@@ -24,6 +25,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
   const [selectedTypes, setSelectedTypes] = useState(['incidence', 'periodic check', 'request']);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedEventTitle, setSelectedEventTitle] = useState('');
+  const [allEvents, setAllEvents] = useState([]); // Store original unfiltered events
 
   // Handle mention click
   const handleMentionClick = useCallback((username) => {
@@ -32,15 +34,39 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
     // TODO: Implement proper navigation or search for user profiles
   }, []);
 
-  // Filter events and update when events prop changes
+  // Set all events when events prop changes
   useEffect(() => {
+    setAllEvents(events || []);
     setFilteredEvents(events || []);
   }, [events]);
 
+  // Handle filter changes from the filter panel
+  const handleFilterChange = (filtered) => {
+    setFilteredEvents(filtered);
+  };
+
+  // Extract all unique tags from events
+  const getAllTags = () => {
+    const tagSet = new Set();
+    events?.forEach(event => {
+      if (event.tags && Array.isArray(event.tags)) {
+        event.tags.forEach(tag => tagSet.add(tag));
+      }
+    });
+    return Array.from(tagSet);
+  };
+
   if (!filteredEvents || filteredEvents.length === 0) {
     return (
-      <div className="p-3 bg-light rounded text-center">
-        <p>{translate('No events found')}</p>
+      <div>
+        <EventsFilterPanel 
+          events={allEvents} 
+          onFilterChange={handleFilterChange}
+          availableTags={getAllTags()}
+        />
+        <div className="p-3 bg-light rounded text-center">
+          <p>{translate('No events found')}</p>
+        </div>
       </div>
     );
   }
@@ -238,6 +264,12 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
 
   return (
     <div className="events-table-container">
+      <EventsFilterPanel 
+        events={allEvents} 
+        onFilterChange={handleFilterChange}
+        availableTags={getAllTags()}
+      />
+      
       {Object.keys(eventsByMap).map(mapId => (
         <div key={mapId} className="mb-4">
           <h5 className="mb-3">{translate('Map')}: {filteredEvents.find(e => e.map_id === parseInt(mapId))?.map_name || `ID: ${mapId}`}</h5>
@@ -246,13 +278,11 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
               <tr>
                 <th>{translate('#')}</th>
                 <th>{translate('Title')}</th>
-                <th>{translate('Description')}</th>
                 <th>{translate('Status')}</th>
                 <th>{translate('Type')}</th>
                 <th>{translate('Tags')}</th>
                 <th>{translate('Created By')}</th>
                 <th>{translate('Created At')}</th>
-                <th>{translate('Comments')}</th>
                 <th>{translate('History')}</th>
                 <th>{translate('Actions')}</th>
               </tr>
@@ -262,13 +292,6 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                 <tr key={event.id}>
                   <td>{event.id}</td>
                   <td>{event.title}</td>
-                  <td>
-                    {event.description 
-                      ? event.description.length > 50 
-                        ? `${event.description.substring(0, 50)}...`
-                        : event.description
-                      : "-"}
-                  </td>
                   <td>
                     <OverlayTrigger
                       placement="top"
@@ -378,24 +401,6 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                   </td>
                   <td>{event.created_by_user_name || `${translate('User ID')}: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>
-                  <td>
-                    <Button 
-                      variant={event.comment_count > 0 ? "outline-info" : "outline-secondary"}
-                      size="sm"
-                      onClick={() => handleOpenComments(event.id)}
-                    >
-                      {event.comment_count > 0 ? (
-                        <>
-                          <Badge bg="info" pill className="me-1">
-                            {event.comment_count}
-                          </Badge>
-                          {translate('View')}
-                        </>
-                      ) : (
-                        translate('add')
-                      )}
-                    </Button>
-                  </td>
                   <td>
                     <Button 
                       variant="outline-info" 
