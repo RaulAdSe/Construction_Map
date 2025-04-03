@@ -31,7 +31,7 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    # Don't set PORT - Cloud Run will set it to 8080
+    # Default port is 8080 for Cloud Run
     PORT=8080
 
 # Install runtime dependencies with improved retry logic
@@ -76,6 +76,10 @@ COPY --from=builder /app/wheels /wheels
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir /wheels/*
 
+# Copy entrypoint script first and make it executable
+COPY docker-entrypoint.sh .
+RUN chmod +x docker-entrypoint.sh
+
 # Copy application code
 COPY . .
 
@@ -92,5 +96,5 @@ RUN adduser --disabled-password --gecos "" appuser && \
 # Switch to non-root user
 USER appuser
 
-# Run migrations and start the server
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"] 
+# Use the entrypoint script to start the server
+ENTRYPOINT ["/app/docker-entrypoint.sh"] 
