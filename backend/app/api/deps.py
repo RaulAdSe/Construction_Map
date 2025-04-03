@@ -52,4 +52,56 @@ def get_current_admin_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user doesn't have enough privileges",
         )
-    return current_user 
+    return current_user
+
+
+def verify_project_access(
+    db: Session,
+    user_id: int,
+    project_id: Optional[int] = None,
+    event_id: Optional[int] = None
+) -> bool:
+    """
+    Verify if a user has access to a project.
+    
+    Args:
+        db: Database session
+        user_id: ID of the user
+        project_id: ID of the project (optional if event_id is provided)
+        event_id: ID of the event (optional if project_id is provided)
+        
+    Returns:
+        True if user has access, raises HTTPException otherwise
+    
+    Raises:
+        HTTPException: If the user doesn't have access to the project
+    """
+    from app.models.project import ProjectUser
+    from app.models.event import Event
+    from app.models.user import User
+    
+    # First check if user is admin
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.is_admin:
+        return True
+    
+    # Determine project_id if only event_id is provided
+    if project_id is None and event_id is not None:
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        project_id = event.project_id
+    
+    if project_id is None:
+        raise HTTPException(status_code=400, detail="Either project_id or event_id must be provided")
+    
+    # Check if user has access to project
+    project_user = db.query(ProjectUser).filter(
+        ProjectUser.project_id == project_id,
+        ProjectUser.user_id == user_id
+    ).first()
+    
+    if not project_user:
+        raise HTTPException(status_code=403, detail="Not enough permissions: User is not a member of this project")
+    
+    return True 

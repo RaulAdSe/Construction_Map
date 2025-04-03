@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Add debug flag to control console output
-const DEBUG = false;
+const DEBUG = true; // Set to true to help troubleshoot the current issues
 
 const API_URL = 'http://localhost:8000/api/v1';
 
@@ -11,11 +11,15 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
+  withCredentials: true,
+  timeout: 10000, // 10 second timeout
 });
 
 // Add auth token to requests if available
 apiClient.interceptors.request.use((config) => {
+  // Log all requests when debugging
+  if (DEBUG) console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`);
+  
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -26,12 +30,30 @@ apiClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+// Track failed requests for potential retry
+const failedRequestQueue = [];
+let isRefreshing = false;
+
 // Add response interceptor to handle common responses
 apiClient.interceptors.response.use(
   response => {
     return response;
   },
-  error => {
+  async error => {
+    const originalRequest = error.config;
+    
+    // Log all errors in debug mode
+    if (DEBUG) {
+      if (error.response) {
+        console.error('Response error:', error.response.status, error.response.data);
+      } else if (error.request) {
+        console.error('Request error (no response):', error.request);
+        console.error('Is this a CORS issue?', error.message.includes('Network Error'));
+      } else {
+        console.error('Error setting up request:', error.message);
+      }
+    }
+    
     // Handle unauthorized errors (401)
     if (error.response && error.response.status === 401) {
       if (DEBUG) console.warn('Unauthorized access, redirecting to login');
@@ -42,14 +64,35 @@ apiClient.interceptors.response.use(
       }
     }
     
-    // Log other errors only when debugging is enabled
-    if (DEBUG) {
-      if (error.response) {
-        console.error('Response error:', error.response.status, error.response.data);
-      } else if (error.request) {
-        console.error('Request error (no response):', error.request);
-      } else {
-        console.error('Error setting up request:', error.message);
+    // Handle CORS or network errors with retry logic
+    if (!error.response && error.message.includes('Network Error') && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      if (DEBUG) console.log(`Retrying failed request to: ${originalRequest.url}`);
+      
+      try {
+        // Wait 1 second before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return apiClient(originalRequest);
+      } catch (retryError) {
+        if (DEBUG) console.error('Retry failed:', retryError);
+        return Promise.reject(retryError);
+      }
+    }
+    
+    // Handle 500 server errors with retry
+    if (error.response && error.response.status === 500 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      if (DEBUG) console.log(`Retrying failed request after server error: ${originalRequest.url}`);
+      
+      try {
+        // Wait 2 seconds before retrying a server error
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return apiClient(originalRequest);
+      } catch (retryError) {
+        if (DEBUG) console.error('Server error retry failed:', retryError);
+        return Promise.reject(retryError);
       }
     }
     

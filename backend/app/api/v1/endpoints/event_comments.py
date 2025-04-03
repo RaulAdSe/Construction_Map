@@ -64,10 +64,11 @@ async def create_event_comment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
     content: str = Form(...),
-    image: Optional[UploadFile] = File(None)
+    attachment: Optional[UploadFile] = File(None)
 ):
     """
     Create a new comment for an event.
+    Supports both image and PDF attachments.
     """
     # Get event to verify access
     event = event_service.get_event(db, event_id)
@@ -79,6 +80,33 @@ async def create_event_comment(
     if not project or not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
+    # Validate file type
+    if attachment:
+        # Check file type
+        file_type = attachment.content_type
+        filename = attachment.filename.lower()
+        
+        is_image = file_type.startswith('image/')
+        is_pdf = file_type == 'application/pdf' or filename.endswith('.pdf')
+        
+        if not (is_image or is_pdf):
+            raise HTTPException(
+                status_code=400, 
+                detail="Only image or PDF files are allowed"
+            )
+        
+        # Check file size - limit to 10MB to prevent abuse
+        file_size_limit = 10 * 1024 * 1024  # 10MB
+        file_content = await attachment.read()
+        if len(file_content) > file_size_limit:
+            raise HTTPException(
+                status_code=400, 
+                detail="File size exceeds the limit of 10MB"
+            )
+        
+        # Reset file position for later reading
+        await attachment.seek(0)
+    
     # Create comment
     try:
         comment = await comment_service.create_comment(
@@ -86,8 +114,16 @@ async def create_event_comment(
             event_id=event_id,
             user_id=current_user.id,
             content=content,
-            image=image
+            image=attachment  # Pass attachment to the service (can be None, image, or PDF)
         )
+        
+        # Determine attachment type for activity log
+        attachment_type = None
+        if attachment:
+            if attachment.content_type == 'application/pdf' or attachment.filename.lower().endswith('.pdf'):
+                attachment_type = 'pdf'
+            else:
+                attachment_type = 'image'
         
         # Log user activity
         log_user_activity(
@@ -100,7 +136,8 @@ async def create_event_comment(
                 "event_id": event_id,
                 "comment_id": comment.id,
                 "project_id": event.project_id,
-                "has_image": image is not None,
+                "has_attachment": attachment is not None,
+                "attachment_type": attachment_type,
                 "event_title": event.title
             }
         )

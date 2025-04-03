@@ -12,7 +12,8 @@ class EventComment(Base):
     event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(String, nullable=False)
-    image_url = Column(String, nullable=True)
+    image_url = Column(String, nullable=True)  # Renamed to attachment_url for backward compatibility
+    file_type = Column(String, nullable=True)  # 'image' or 'pdf'
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     comment_data = Column(JSON, nullable=True)  # For any additional metadata

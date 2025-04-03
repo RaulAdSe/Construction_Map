@@ -1,11 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse, StreamingResponse
 import os
+import io
+import logging
 
 from app.api.v1.api import api_router
 # Import the db_monitoring module to activate SQLAlchemy event listeners
 import app.core.db_monitoring
+from app.core.storage import storage_service
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Construction Map API",
@@ -34,6 +40,19 @@ app.add_middleware(
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
+
+# Create a custom handler to proxy cloud storage requests when needed
+@app.get("/uploads/{file_path:path}")
+async def get_upload(file_path: str):
+    # Check if we're using cloud storage and file exists locally
+    if storage_service.cloud_storage_enabled:
+        # Attempt to get URL from cloud storage
+        cloud_url = storage_service.get_file_url(file_path)
+        if cloud_url and cloud_url != f"/uploads/{file_path}":
+            return RedirectResponse(url=cloud_url)
+    
+    # Fall back to local file (will be handled by the StaticFiles mount)
+    return None
 
 # Mount uploads directory for static files
 uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")

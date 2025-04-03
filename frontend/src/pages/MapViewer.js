@@ -424,7 +424,7 @@ const MapViewer = ({ onLogout }) => {
       window.removeEventListener('popstate', handleBackButton);
     };
   }, [mapForEvent]);
-
+  
   const handleMapSelected = (mapId) => {
     const map = maps.find(m => m.id === mapId);
     setMapForEvent(map);
@@ -807,7 +807,7 @@ const MapViewer = ({ onLogout }) => {
   // Render a mobile-optimized navbar
   const renderNavbar = () => {
     if (isMobile) {
-      return (
+    return (
         <Navbar bg="dark" variant="dark" expand="lg" className="mobile-navbar py-2">
           <Container fluid>
             <Button 
@@ -817,7 +817,7 @@ const MapViewer = ({ onLogout }) => {
               aria-label="Toggle sidebar"
             >
               <i className="bi bi-list"></i>
-            </Button>
+          </Button>
             <Navbar.Brand onClick={handleBackToProjects} style={{ cursor: 'pointer', fontSize: '1rem' }}>
               {project?.name || translate('Construction Map Viewer')}
             </Navbar.Brand>
@@ -830,13 +830,13 @@ const MapViewer = ({ onLogout }) => {
               <LanguageSwitcher />
               <MobileSwitcher />
             </div>
-          </Container>
+      </Container>
         </Navbar>
-      );
-    }
-    
+    );
+  }
+  
     // Default desktop navbar
-    return (
+  return (
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container>
           <Navbar.Brand onClick={handleBackToProjects} style={{ cursor: 'pointer' }}>
@@ -887,8 +887,8 @@ const MapViewer = ({ onLogout }) => {
           <Offcanvas.Title>{translate('Map Controls')}</Offcanvas.Title>
         </Offcanvas.Header>
         <Offcanvas.Body>
-          <Tabs 
-            activeKey={activeTab} 
+        <Tabs 
+          activeKey={activeTab} 
             onSelect={(key) => {
               setActiveTab(key);
               if (isMobile) setShowMobileSidebar(false);
@@ -1124,68 +1124,68 @@ const MapViewer = ({ onLogout }) => {
     
     // For desktop, use the sidebar layout
     return (
-      <Row>
-        <Col md={3}>
-          <div className="sidebar-panel">
-            <h5 className="mb-3">{translate('Map Controls')}</h5>
-            
-            <div className="d-grid gap-2 mb-4">
-              <Button
-                variant="success"
-                onClick={handleAddEvent}
-              >
-                <i className="bi bi-pin-map me-2"></i>{translate('Add Event')}
-              </Button>
-            </div>
-            
-            <hr />
-            
-            <div className="map-info-section">
-              <h6>{translate('Current View')}</h6>
-              {selectedMap && (
-                <div className="current-map-info mb-3">
-                  <p className="mb-1">
-                    <strong>{translate('Main Map')}:</strong> {selectedMap.name}
-                    {selectedMap.map_type === 'implantation' && (
-                      <span className="badge bg-success ms-2">{translate('Primary')}</span>
+                <Row>
+                  <Col md={3}>
+                    <div className="sidebar-panel">
+                      <h5 className="mb-3">{translate('Map Controls')}</h5>
+                      
+                      <div className="d-grid gap-2 mb-4">
+                        <Button
+                          variant="success"
+                          onClick={handleAddEvent}
+                        >
+                          <i className="bi bi-pin-map me-2"></i>{translate('Add Event')}
+                        </Button>
+                      </div>
+                      
+                      <hr />
+                      
+                      <div className="map-info-section">
+                        <h6>{translate('Current View')}</h6>
+                        {selectedMap && (
+                          <div className="current-map-info mb-3">
+                            <p className="mb-1">
+                              <strong>{translate('Main Map')}:</strong> {selectedMap.name}
+                              {selectedMap.map_type === 'implantation' && (
+                                <span className="badge bg-success ms-2">{translate('Primary')}</span>
+                              )}
+                            </p>
+                            <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
+                            <p className="mb-0">
+                              <strong>{translate('Events')}:</strong> {visibleEvents.length}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <hr />
+                      
+                      <div className="events-summary mb-3">
+                        <h6>{translate('Event Categories')}</h6>
+                        <ul className="list-unstyled">
+                          {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
+                            <li key={tag} className="mb-1">
+                              <span className="badge bg-secondary me-2">{tag}</span>
+                              <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </Col>
+                  <Col md={9}>
+                    {selectedMap ? (
+                      <MapDetail
+                        {...mapDetailProps}
+                      />
+                    ) : (
+                      <div className="text-center p-5 bg-light rounded">
+                        <h3>{translate('No map selected')}</h3>
+                        <p>{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
+                      </div>
                     )}
-                  </p>
-                  <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
-                  <p className="mb-0">
-                    <strong>{translate('Events')}:</strong> {visibleEvents.length}
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <hr />
-            
-            <div className="events-summary mb-3">
-              <h6>{translate('Event Categories')}</h6>
-              <ul className="list-unstyled">
-                {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
-                  <li key={tag} className="mb-1">
-                    <span className="badge bg-secondary me-2">{tag}</span>
-                    <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </Col>
-        <Col md={9}>
-          {selectedMap ? (
-            <MapDetail
-              {...mapDetailProps}
-            />
-          ) : (
-            <div className="text-center p-5 bg-light rounded">
-              <h3>{translate('No map selected')}</h3>
-              <p>{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
-            </div>
-          )}
-        </Col>
-      </Row>
+                  </Col>
+                </Row>
     );
   };
   
@@ -1271,7 +1271,7 @@ const MapViewer = ({ onLogout }) => {
                 />
               </Tab>
             )}
-            
+              
             {/* Events tab - admin only */}
             {effectiveIsAdmin && (
               <Tab eventKey="events" title={translate('Events')}>
@@ -1288,15 +1288,15 @@ const MapViewer = ({ onLogout }) => {
                 />
               </Tab>
             )}
-            
+              
             {/* Contacts tab - available to all users */}
             <Tab eventKey="contacts" title={translate('Contacts')}>
-              <ContactsTab 
-                projectId={parseInt(projectId)} 
-                effectiveIsAdmin={effectiveIsAdmin}
-              />
-            </Tab>
-          </Tabs>
+                <ContactsTab 
+                  projectId={parseInt(projectId)} 
+                  effectiveIsAdmin={effectiveIsAdmin}
+                />
+              </Tab>
+        </Tabs>
         )}
         
         {/* For mobile, render content directly */}

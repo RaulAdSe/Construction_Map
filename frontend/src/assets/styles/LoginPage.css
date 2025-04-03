@@ -35,4 +35,67 @@
 
 .login-container h2 {
   margin-bottom: 0;
+}
+
+/* Mobile optimizations */
+.mobile-login {
+  margin-top: 40px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+}
+
+.mobile-login h2.h3 {
+  font-size: 1.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-login .form-control-lg {
+  font-size: 1.1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+}
+
+.mobile-login .btn-lg {
+  padding: 12px;
+  font-size: 1.1rem;
+  border-radius: 8px;
+}
+
+.login-logo {
+  margin: 0 auto;
+  display: block;
+}
+
+@media (max-width: 576px) {
+  .login-container {
+    margin-top: 50px;
+    padding: 20px;
+  }
+  
+  .mobile-login {
+    margin-top: 20px;
+  }
+  
+  .login-container .d-flex {
+    padding-bottom: 10px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .login-container {
+    background-color: #2a2a2a;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .login-container h2 {
+    color: #eee;
+  }
+  
+  .login-container .d-flex {
+    border-bottom: 1px solid #444;
+  }
 } 

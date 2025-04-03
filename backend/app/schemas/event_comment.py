@@ -20,6 +20,7 @@ class EventComment(EventCommentBase):
     id: int
     user_id: int
     image_url: Optional[str] = None
+    file_type: Optional[str] = None  # 'image' or 'pdf'
     created_at: datetime
     updated_at: Optional[datetime] = None
     comment_data: Optional[Dict[str, Any]] = None

@@ -1,0 +1,29 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /logs/*.log
+  fields:
+    log_type: application
+  fields_under_root: true
+  json.keys_under_root: true
+  json.add_error_key: true
+
+- type: docker
+  enabled: true
+  containers.ids: '*'
+  fields:
+    log_type: docker
+  fields_under_root: true
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+setup.template.settings:
+  index.number_of_shards: 1
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: info 
