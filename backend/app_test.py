@@ -46,6 +46,25 @@ logger.info(f"Python version: {sys.version}")
 logger.info(f"Current directory: {os.getcwd()}")
 logger.info(f"Directory contents: {os.listdir('.')}")
 
+# Fix common environment variables issues
+if 'CORS_ORIGINS' in os.environ:
+    cors_value = os.environ['CORS_ORIGINS']
+    logger.info(f"Original CORS_ORIGINS: {cors_value}")
+    
+    # If CORS_ORIGINS has quotes, remove them
+    if cors_value.startswith('"') and cors_value.endswith('"'):
+        cors_value = cors_value[1:-1]
+    elif cors_value.startswith("'") and cors_value.endswith("'"):
+        cors_value = cors_value[1:-1]
+    
+    # If it's a single asterisk, convert to a valid format
+    if cors_value == '*':
+        cors_value = 'http://localhost:3000,http://localhost:5173'
+        logger.info(f"Converted wildcard CORS to specific origins: {cors_value}")
+    
+    os.environ['CORS_ORIGINS'] = cors_value
+    logger.info(f"Updated CORS_ORIGINS: {os.environ['CORS_ORIGINS']}")
+
 # List all environment variables (excluding sensitive ones)
 logger.info("Environment variables:")
 for key, value in sorted(os.environ.items()):
