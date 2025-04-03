@@ -30,10 +30,13 @@ import psycopg2
 
 DB_URL = os.environ.get('DATABASE_URL')
 CLOUD_DB_STR = os.environ.get('CLOUD_DB_CONNECTION_STRING')
-CONNECTION_STRING = CLOUD_DB_STR if os.environ.get('CLOUD_DB_ENABLED') == 'true' else DB_URL
+
+# We're using the DATABASE_URL by default since it's the public IP
+CONNECTION_STRING = DB_URL
 
 for i in range(5):
     try:
+        print(f'Attempting to connect to database (attempt {i+1})...')
         conn = psycopg2.connect(CONNECTION_STRING)
         conn.close()
         print('Database connection successful!')
