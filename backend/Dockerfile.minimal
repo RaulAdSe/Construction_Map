@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080
+
+# Copy the minimal server and entrypoint script
+COPY minimal_server.py /app/
+COPY docker-entrypoint.sh /app/
+
+# Make scripts executable
+RUN chmod 755 /app/minimal_server.py /app/docker-entrypoint.sh && \
+    mkdir -p /app/uploads/events /app/uploads/comments /app/logs
+
+# Use the entrypoint script
+ENTRYPOINT ["/app/docker-entrypoint.sh"] 
