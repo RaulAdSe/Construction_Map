@@ -278,13 +278,11 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
               <tr>
                 <th>{translate('#')}</th>
                 <th>{translate('Title')}</th>
-                <th>{translate('Description')}</th>
                 <th>{translate('Status')}</th>
                 <th>{translate('Type')}</th>
                 <th>{translate('Tags')}</th>
                 <th>{translate('Created By')}</th>
                 <th>{translate('Created At')}</th>
-                <th>{translate('Comments')}</th>
                 <th>{translate('History')}</th>
                 <th>{translate('Actions')}</th>
               </tr>
@@ -294,13 +292,6 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                 <tr key={event.id}>
                   <td>{event.id}</td>
                   <td>{event.title}</td>
-                  <td>
-                    {event.description 
-                      ? event.description.length > 50 
-                        ? `${event.description.substring(0, 50)}...`
-                        : event.description
-                      : "-"}
-                  </td>
                   <td>
                     <OverlayTrigger
                       placement="top"
@@ -410,24 +401,6 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                   </td>
                   <td>{event.created_by_user_name || `${translate('User ID')}: ${event.created_by_user_id}`}</td>
                   <td>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</td>
-                  <td>
-                    <Button 
-                      variant={event.comment_count > 0 ? "outline-info" : "outline-secondary"}
-                      size="sm"
-                      onClick={() => handleOpenComments(event.id)}
-                    >
-                      {event.comment_count > 0 ? (
-                        <>
-                          <Badge bg="info" pill className="me-1">
-                            {event.comment_count}
-                          </Badge>
-                          {translate('View')}
-                        </>
-                      ) : (
-                        translate('add')
-                      )}
-                    </Button>
-                  </td>
                   <td>
                     <Button 
                       variant="outline-info" 
