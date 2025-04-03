@@ -123,7 +123,10 @@ gcloud run deploy $SERVICE_NAME \
     --max-instances $MAX_INSTANCES \
     --concurrency $CONCURRENCY \
     --service-account $SERVICE_ACCOUNT \
-    --env-vars-file $ENV_YAML_FILE
+    --env-vars-file $ENV_YAML_FILE \
+    --set-startup-probe-path=/health \
+    --startup-probe-initial-delay=10 \
+    --startup-probe-timeout=5
 
 # Clean up
 rm -f $TEMP_DOCKERFILE cloudbuild.db.yaml $ENV_YAML_FILE

@@ -34,24 +34,6 @@ logger.info(f"Starting minimal app with DB on port {port}")
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:4%7CYD%7D%54l4npU1d%22M%24@34.123.51.251:5432/servitec_map")
 logger.info(f"Using database URL: {DB_URL.replace('postgres:', 'postgres:***')}")
 
-# Add connection timeout parameters
-if '?' in DB_URL:
-    DB_URL += "&connect_timeout=5"
-else:
-    DB_URL += "?connect_timeout=5"
-
-# Create SQLAlchemy engine with connect_args for timeout
-engine = create_engine(
-    DB_URL, 
-    connect_args={
-        "connect_timeout": 10
-    },
-    pool_pre_ping=True
-)
-
-# Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 # Create Base class for models
 Base = declarative_base()
 
@@ -64,22 +46,6 @@ class HealthCheck(Base):
     status = Column(String)
     message = Column(String)
     created_at = Column(DateTime, default=func.now())
-
-# Dependency to get DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# Create tables - handle failure gracefully
-try:
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created successfully (or already exist)")
-except Exception as e:
-    logger.error(f"Error creating database tables: {e}")
-    logger.error("Continuing without database tables")
 
 # Create a minimal FastAPI app
 app = FastAPI(
@@ -97,6 +63,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize database connection - wrapped in try/except
+engine = None
+SessionLocal = None
+
+def init_db():
+    global engine, SessionLocal
+    try:
+        # Add connection timeout parameters
+        db_url = DB_URL
+        if '?' in db_url:
+            db_url += "&connect_timeout=5"
+        else:
+            db_url += "?connect_timeout=5"
+
+        # Create SQLAlchemy engine with connect_args for timeout
+        engine = create_engine(
+            db_url, 
+            connect_args={"connect_timeout": 10},
+            pool_pre_ping=True
+        )
+
+        # Create session factory
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        
+        # Test connection
+        with engine.connect() as conn:
+            conn.execute(select(func.now()))
+            logger.info("Database connection established successfully")
+        
+        # Create tables - handle failure gracefully
+        try:
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables created successfully (or already exist)")
+        except Exception as e:
+            logger.error(f"Error creating database tables: {e}")
+            logger.error("Continuing without database tables")
+        
+        return True
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        return False
+
+# Initialize database in the background - this ensures app startup
+# even if database is not available
+import threading
+threading.Thread(target=init_db, daemon=True).start()
+
+# Dependency to get DB session
+def get_db():
+    if SessionLocal is None:
+        raise HTTPException(status_code=503, detail="Database connection not available")
+    
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @app.get("/")
 async def root():
     logger.info("Root endpoint called")
@@ -106,30 +130,38 @@ async def root():
     }
 
 @app.get("/health")
-async def health(db: Session = Depends(get_db)):
+async def health(request: Request):
     logger.info("Health endpoint called")
     
-    # Try to interact with the database
-    try:
-        # Insert a health check record
-        health_check = HealthCheck(
-            service="minimal-app",
-            status="healthy",
-            message="Health check endpoint called"
-        )
-        db.add(health_check)
-        db.commit()
-        db.refresh(health_check)
-        
-        # Get the last 5 health checks
-        health_checks = db.query(HealthCheck).order_by(HealthCheck.created_at.desc()).limit(5).all()
-        
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "version": "1.0.0",
-            "timestamp": datetime.now().isoformat(),
-            "recent_checks": [
+    # First return basic health info without database dependency
+    # This ensures the health check passes even if DB is unavailable
+    health_response = {
+        "status": "healthy",
+        "version": "1.0.0",
+        "timestamp": datetime.now().isoformat(),
+        "database_status": "not_initialized" if SessionLocal is None else "initialized"
+    }
+    
+    # If database is available, try to use it
+    if SessionLocal is not None:
+        try:
+            db = SessionLocal()
+            
+            # Insert a health check record
+            health_check = HealthCheck(
+                service="minimal-app",
+                status="healthy",
+                message="Health check endpoint called"
+            )
+            db.add(health_check)
+            db.commit()
+            db.refresh(health_check)
+            
+            # Get the last 5 health checks
+            health_checks = db.query(HealthCheck).order_by(HealthCheck.created_at.desc()).limit(5).all()
+            
+            health_response["database"] = "connected"
+            health_response["recent_checks"] = [
                 {
                     "id": hc.id, 
                     "status": hc.status, 
@@ -137,37 +169,43 @@ async def health(db: Session = Depends(get_db)):
                 } 
                 for hc in health_checks
             ]
-        }
-    except Exception as e:
-        logger.error(f"Database error in health check: {e}")
-        return {
-            "status": "unhealthy",
-            "database": "error",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
+            
+            db.close()
+        except Exception as e:
+            logger.error(f"Database error in health check: {e}")
+            health_response["database"] = "error"
+            health_response["error"] = str(e)
+    
+    return health_response
 
 @app.get("/api/v1/test")
-async def test(db: Session = Depends(get_db)):
+async def test():
     logger.info("Test endpoint called")
     
-    # Try to test the database
-    try:
-        # Test query
-        result = db.execute(select(func.now())).scalar()
-        
-        return {
-            "message": "API test endpoint is working",
-            "database_time": result.isoformat() if result else None,
-            "app_time": datetime.now().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"Database error in test: {e}")
-        return {
-            "message": "API test endpoint is working, but database connection failed",
-            "error": str(e),
-            "app_time": datetime.now().isoformat()
-        }
+    # Always return app status first
+    response = {
+        "message": "API test endpoint is working",
+        "app_time": datetime.now().isoformat(),
+        "database_initialized": SessionLocal is not None
+    }
+    
+    # Try to test the database if initialized
+    if SessionLocal is not None:
+        try:
+            db = SessionLocal()
+            # Test query
+            result = db.execute(select(func.now())).scalar()
+            response["database_time"] = result.isoformat() if result else None
+            response["database_status"] = "connected"
+            db.close()
+        except Exception as e:
+            logger.error(f"Database error in test: {e}")
+            response["database_status"] = "error"
+            response["error"] = str(e)
+    else:
+        response["database_status"] = "not_initialized"
+    
+    return response
 
 @app.get("/api/v1/debug")
 async def debug(request: Request):
@@ -183,14 +221,15 @@ async def debug(request: Request):
             env_vars[key] = value
     
     # Test database connection without exposing details
-    db_status = "unknown"
-    try:
-        db = SessionLocal()
-        db.execute(select(func.now())).scalar()
-        db.close()
-        db_status = "connected"
-    except Exception as e:
-        db_status = f"error: {str(e)}"
+    db_status = "not_initialized"
+    if SessionLocal is not None:
+        try:
+            db = SessionLocal()
+            db.execute(select(func.now())).scalar()
+            db.close()
+            db_status = "connected"
+        except Exception as e:
+            db_status = f"error: {str(e)}"
     
     # Return debug info
     return {
@@ -205,4 +244,5 @@ async def debug(request: Request):
     }
 
 if __name__ == "__main__":
+    # Make sure the app starts even if database connection fails
     uvicorn.run(app, host="0.0.0.0", port=port) 
