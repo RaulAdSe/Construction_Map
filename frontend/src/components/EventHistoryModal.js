@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Table, Badge, Spinner, Alert } from 'react-bootstrap';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import translate from '../utils/translate';
 
@@ -8,6 +9,7 @@ const EventHistoryModal = ({ show, onHide, eventId, eventTitle }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   // Fetch history data when modal is opened
   useEffect(() => {
@@ -100,9 +102,18 @@ const EventHistoryModal = ({ show, onHide, eventId, eventTitle }) => {
     const currentPath = window.location.pathname;
     const projectId = currentPath.split('/').pop();
     
-    // Create a URL that includes the project ID in the path and the event/comment in query params
-    // This format works with the application's router and the MapViewer component
-    window.location.href = `/project/${projectId}?event=${eventId}&comment=${commentId}`;
+    // Use React Router's navigate with state (similar to notification handling)
+    navigate(`/project/${projectId}`, {
+      state: {
+        highlightEventId: eventId,
+        highlightCommentId: commentId
+      }
+    });
+    
+    // Reset any userClosedModal flag when navigating to new event
+    if (window.resetModalClosedFlag && typeof window.resetModalClosedFlag === 'function') {
+      window.resetModalClosedFlag();
+    }
   };
 
   return (
