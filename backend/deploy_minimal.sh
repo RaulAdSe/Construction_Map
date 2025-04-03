@@ -64,6 +64,15 @@ EXPOSE 8080
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 EOF
 
+# Create a temporary Cloud Build config file
+cat > cloudbuild.minimal.yaml << EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$SERVICE_NAME-minimal', '-f', 'Dockerfile.minimal', '.']
+images:
+  - 'gcr.io/$PROJECT_ID/$SERVICE_NAME-minimal'
+EOF
+
 # Set project
 echo "Setting project to $PROJECT_ID..."
 gcloud config set project $PROJECT_ID
@@ -74,13 +83,7 @@ gcloud services enable cloudbuild.googleapis.com run.googleapis.com
 
 # Build and deploy using Cloud Build
 echo "Building and deploying minimal application..."
-gcloud builds submit --config - << EOF
-steps:
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$SERVICE_NAME-minimal', '-f', 'Dockerfile.minimal', '.']
-images:
-  - 'gcr.io/$PROJECT_ID/$SERVICE_NAME-minimal'
-EOF
+gcloud builds submit --config cloudbuild.minimal.yaml .
 
 # Deploy to Cloud Run
 echo "Deploying to Cloud Run..."
@@ -98,6 +101,7 @@ gcloud run deploy $SERVICE_NAME-minimal \
 
 # Clean up
 rm -f Dockerfile.minimal
+rm -f cloudbuild.minimal.yaml
 
 # Get URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME-minimal --platform managed --region $REGION --format 'value(status.url)')
