@@ -1022,16 +1022,18 @@ const MapViewer = ({ onLogout }) => {
               <span>{translate('Map')}</span>
             </div>
             
-            <div 
-              className={`tab-button ${activeTab === 'events' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('events');
-                toggleMobileSidebar();
-              }}
-            >
-              <i className="bi bi-pin-map"></i>
-              <span>{translate('Events')}</span>
-            </div>
+            {effectiveIsAdmin && (
+              <div 
+                className={`tab-button ${activeTab === 'events' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('events');
+                  toggleMobileSidebar();
+                }}
+              >
+                <i className="bi bi-pin-map"></i>
+                <span>{translate('Events')}</span>
+              </div>
+            )}
             
             {effectiveIsAdmin && (
               <div 
@@ -1055,17 +1057,6 @@ const MapViewer = ({ onLogout }) => {
             >
               <i className="bi bi-people"></i>
               <span>{translate('Contacts')}</span>
-            </div>
-            
-            <div 
-              className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('settings');
-                toggleMobileSidebar();
-              }}
-            >
-              <i className="bi bi-gear"></i>
-              <span>{translate('Settings')}</span>
             </div>
           </div>
         </div>
