@@ -1090,11 +1090,6 @@ iframe[src*=".pdf"] {
   height: calc(100vh - 56px - 60px); /* Navbar height + Tab navigation height */
 }
 
-/* Mobile overlay controls adjustment */
-.mobile-overlay-controls {
-  z-index: 1075; /* Higher than sidebar but lower than modals */
-}
-
 /* Full-width map container for mobile */
 .mobile-map-container {
   position: relative;
@@ -1290,6 +1285,7 @@ iframe[src*=".pdf"] {
   font-size: 1.2rem;
 }
 
+/* Mobile overlay controls */
 .mobile-overlay-controls {
   position: fixed;
   bottom: 0;
@@ -1299,11 +1295,11 @@ iframe[src*=".pdf"] {
   border-top-left-radius: 15px;
   border-top-right-radius: 15px;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1050;
+  z-index: 1075; /* Higher than sidebar but lower than modals */
   transform: translateY(100%);
   transition: transform 0.3s ease;
-  max-height: 60vh;
-  overflow-y: auto;
+  max-height: 70vh; /* Allow for more content visibility */
+  overflow: hidden; /* Ensure the rounded corners are respected */
 }
 
 .mobile-overlay-controls.show {
@@ -1316,6 +1312,10 @@ iframe[src*=".pdf"] {
   align-items: center;
   padding: 15px;
   border-bottom: 1px solid #eee;
+  background-color: white; /* Ensure the header is solid */
+  position: sticky; /* Keep header visible when scrolling */
+  top: 0;
+  z-index: 2;
 }
 
 .mobile-overlay-header h6 {
@@ -1331,8 +1331,9 @@ iframe[src*=".pdf"] {
 
 .mobile-overlay-body {
   padding: 10px 15px 20px;
-  max-height: calc(60vh - 60px);
-  overflow-y: auto;
+  max-height: calc(70vh - 52px); /* Header height is ~52px */
+  overflow-y: auto; /* Enable vertical scrolling */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
 }
 
 /* Mobile optimized list group items */

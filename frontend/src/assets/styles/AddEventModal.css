@@ -132,4 +132,145 @@
     border-color: #495057;
     background-color: #212529;
   }
+}
+
+/* Styles for Add Event Modal */
+
+/* Make the modal more compact on mobile devices */
+.mobile-view .add-event-modal .modal-body {
+  padding: 0.75rem;
+}
+
+.mobile-view .add-event-modal .form-group {
+  margin-bottom: 0.75rem;
+}
+
+.mobile-view .add-event-modal .form-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.mobile-view .add-event-modal .form-control {
+  font-size: 0.9rem;
+  padding: 0.375rem 0.5rem;
+}
+
+.mobile-view .add-event-modal .form-select {
+  font-size: 0.9rem;
+  padding: 0.375rem 0.5rem;
+  height: calc(1.5em + 0.75rem + 2px);
+}
+
+/* Make buttons smaller */
+.mobile-view .add-event-modal .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Adjust spacing for form elements */
+.mobile-view .add-event-modal .row {
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+}
+
+.mobile-view .add-event-modal .col,
+.mobile-view .add-event-modal [class*="col-"] {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* Ensure the tag badges are compact */
+.mobile-view .add-event-modal .badge {
+  font-size: 0.75rem;
+  padding: 0.25em 0.5em;
+  margin-right: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Adjust file upload preview size */
+.mobile-view .add-event-modal .image-preview {
+  max-height: 120px;
+  margin-top: 0.5rem;
+}
+
+/* Optimize tag input on mobile */
+.mobile-view .add-event-modal .tag-input-container {
+  margin-bottom: 0.5rem;
+}
+
+.mobile-view .add-event-modal .tag-suggestions {
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Reduce modal height by optimizing spacing */
+.mobile-view .add-event-modal.modal-dialog {
+  margin: 0.5rem;
+}
+
+.mobile-view .add-event-modal .modal-header {
+  padding: 0.75rem;
+}
+
+.mobile-view .add-event-modal .modal-footer {
+  padding: 0.5rem;
+}
+
+/* Desktop styles */
+.add-event-modal .form-group {
+  margin-bottom: 1rem;
+}
+
+.add-event-modal .image-preview {
+  max-width: 100%;
+  max-height: 200px;
+  margin-top: 1rem;
+  border-radius: 4px;
+}
+
+.add-event-modal .tag-badge {
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
+
+.add-event-modal .tag-suggestions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: white;
+  position: absolute;
+  width: 100%;
+  z-index: 1000;
+}
+
+.add-event-modal .tag-suggestion-item {
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+.add-event-modal .tag-suggestion-item:hover {
+  background-color: #f8f9fa;
+}
+
+.add-event-modal .tag-input-container {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.add-event-modal .selected-tags-container {
+  margin-bottom: 0.5rem;
+}
+
+/* Map coordinates info in a more compact style */
+.mobile-view .add-event-modal .map-coordinates-info {
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  background-color: #f8f9fa;
+  padding: 0.5rem;
+  border-radius: 4px;
 } 

@@ -215,198 +215,173 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const isFullscreen = fullscreen || isMobile;
   
   return (
-    <Modal 
-      show={show} 
+    <Modal
+      show={show}
       onHide={handleClose}
-      size={isFullscreen ? "xl" : "lg"}
-      dialogClassName={`event-modal-dialog ${isMobile ? 'mobile-event-modal' : ''}`}
-      backdropClassName="event-modal-backdrop"
-      contentClassName="modal-content"
-      fullscreen={isFullscreen}
+      fullscreen={fullscreen}
+      centered={!fullscreen}
+      className="add-event-modal"
+      size={fullscreen ? undefined : "lg"}
     >
       <Modal.Header closeButton>
-        <Modal.Title>{translate('Add New Event')}</Modal.Title>
+        <Modal.Title>{translate('Add Event')}</Modal.Title>
       </Modal.Header>
-      <Modal.Body className={isMobile ? 'p-2' : ''}>
+      <Modal.Body>
+        {error && (
+          <Alert variant="danger" className="mb-3">
+            {error}
+          </Alert>
+        )}
+        
+        {/* Add map information display for reference */}
+        <div className="map-coordinates-info mb-3 small text-muted">
+          {translate('Map')}: {mainMap?.name}
+          {position && (
+            <> | {translate('Position')}: X: {position.x.toFixed(2)}, Y: {position.y.toFixed(2)}</>
+          )}
+          {mainMap && (
+            <> | {translate('Map Size')}: {mapSizeInfo()}</>
+          )}
+        </div>
+        
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label>{translate('Event Title')}</Form.Label>
-            <Form.Control
-              type="text"
-              value={title}
+            <Form.Label>{translate('Title')} *</Form.Label>
+            <Form.Control 
+              type="text" 
+              value={title} 
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={translate('Enter event title')}
-              className={isMobile ? 'form-control-lg' : ''}
+              placeholder={translate('Enter a title for the event')}
               required
             />
           </Form.Group>
           
           <Form.Group className="mb-3">
             <Form.Label>{translate('Description')}</Form.Label>
-            <MentionInput
-              value={description}
-              onChange={setDescription}
-              placeholder={translate('Enter event description (use @ to mention users)')}
-              rows={isMobile ? 4 : 3}
-              projectId={projectId}
-              id="event-description"
-              className={isMobile ? 'form-control-lg' : ''}
+            <Form.Control 
+              as="textarea" 
+              rows={3} 
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={translate('Enter a description (optional)')}
             />
           </Form.Group>
           
-          <Row className={isMobile ? 'mb-2' : ''}>
-            <Col xs={12} md={6} className={isMobile ? 'mb-3' : ''}>
-              <Form.Group className={isMobile ? '' : 'mb-3'}>
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
                 <Form.Label>{translate('Type')}</Form.Label>
-                <Form.Select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className={isMobile ? 'form-select-lg mb-2' : ''}
-                >
+                <Form.Select value={type} onChange={(e) => setType(e.target.value)}>
                   <option value="periodic check">{translate('Periodic Check')}</option>
-                  <option value="incidence">{translate('Incidence')}</option>
-                  <option value="request">{translate('Request')}</option>
+                  <option value="issue">{translate('Issue')}</option>
+                  <option value="maintenance">{translate('Maintenance')}</option>
+                  <option value="installation">{translate('Installation')}</option>
+                  <option value="other">{translate('Other')}</option>
                 </Form.Select>
-                <Form.Text className="text-muted">
-                  {translate('Type defines the purpose and appearance of the event marker')}
-                </Form.Text>
               </Form.Group>
             </Col>
-            <Col xs={12} md={6}>
-              <Form.Group className={isMobile ? '' : 'mb-3'}>
+            <Col md={6}>
+              <Form.Group className="mb-3">
                 <Form.Label>{translate('Status')}</Form.Label>
-                <Form.Select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className={isMobile ? 'form-select-lg mb-2' : ''}
-                >
+                <Form.Select value={status} onChange={(e) => setStatus(e.target.value)}>
                   <option value="open">{translate('Open')}</option>
-                  {type !== 'periodic check' && type !== 'request' && (
-                    <>
-                      <option value="in-progress">{translate('In Progress')}</option>
-                      <option value="resolved">{translate('Resolved')}</option>
-                    </>
-                  )}
+                  <option value="in_progress">{translate('In Progress')}</option>
+                  <option value="resolved">{translate('Resolved')}</option>
                   <option value="closed">{translate('Closed')}</option>
                 </Form.Select>
               </Form.Group>
             </Col>
           </Row>
           
-          <Form.Group className="mb-3">
+          {/* Tag input with suggestions */}
+          <Form.Group className="mb-3 tag-input-container">
             <Form.Label>{translate('Tags')}</Form.Label>
-            <div className="selected-tags mb-2">
-              {selectedTags.map(tag => (
-                <Badge 
-                  key={tag} 
-                  bg="primary" 
-                  className={`me-1 mb-1 tag-badge ${isMobile ? 'mobile-tag-badge' : ''}`}
-                  onClick={() => removeTag(tag)}
-                >
-                  {tag} <span className="ms-1">&times;</span>
-                </Badge>
-              ))}
-            </div>
-            <div className="tag-input-container">
-              <Form.Control
-                type="text"
-                value={tagInput}
+            <div className="d-flex">
+              <Form.Control 
+                type="text" 
+                value={tagInput} 
                 onChange={handleTagInputChange}
                 onKeyPress={handleTagKeyPress}
-                placeholder={translate('Add tag...')}
-                autoComplete="off"
-                className={isMobile ? 'form-control-lg' : ''}
+                placeholder={translate('Enter tags and press Enter')}
               />
-              {showTagSuggestions && (
-                <div className={`tag-suggestions ${isMobile ? 'mobile-tag-suggestions' : ''}`}>
-                  {tagSuggestions.length > 0 ? (
-                    <ListGroup>
-                      {tagSuggestions.map(tag => (
-                        <ListGroup.Item 
-                          key={tag}
-                          action
-                          onClick={() => addTag(tag)}
-                          className={isMobile ? 'py-2 mobile-suggestion-item' : ''}
-                        >
-                          {tag}
-                        </ListGroup.Item>
-                      ))}
-                    </ListGroup>
-                  ) : (
-                    <div className="no-suggestions">
-                      {translate('Press Enter to add this new tag')}
-                    </div>
-                  )}
-                </div>
-              )}
+              <Button 
+                variant="outline-secondary" 
+                onClick={() => addTag(tagInput)}
+                disabled={!tagInput.trim()}
+                className="ms-2"
+              >
+                {translate('Add')}
+              </Button>
             </div>
+            
+            {showTagSuggestions && tagSuggestions.length > 0 && (
+              <ListGroup className="tag-suggestions">
+                {tagSuggestions.map((tag, index) => (
+                  <ListGroup.Item 
+                    key={index} 
+                    action 
+                    onClick={() => addTag(tag)}
+                    className="tag-suggestion-item"
+                  >
+                    {tag}
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            )}
           </Form.Group>
           
+          <div className="selected-tags-container mb-3">
+            {selectedTags.map((tag, index) => (
+              <Badge 
+                key={index} 
+                bg="secondary" 
+                className="me-1 mb-1 tag-badge"
+                style={{ cursor: 'pointer' }}
+                onClick={() => removeTag(tag)}
+              >
+                {tag} <i className="bi bi-x-circle"></i>
+              </Badge>
+            ))}
+          </div>
+          
           <Form.Group className="mb-3">
-            <Form.Label>{translate('Attach Image (Optional)')}</Form.Label>
-            <Form.Control
-              type="file"
+            <Form.Label>{translate('Attachment')} ({translate('optional')})</Form.Label>
+            <Form.Control 
+              type="file" 
               onChange={handleFileChange}
-              accept="image/*"
-              className={isMobile ? 'form-control-lg' : ''}
+              accept="image/jpeg,image/png,image/gif" 
             />
             <Form.Text className="text-muted">
-              {translate('Maximum file size: 5MB. Supported formats: JPG, PNG, GIF')}
+              {translate('Maximum size: 5MB. Supported formats: JPG, PNG, GIF')}
             </Form.Text>
           </Form.Group>
           
           {previewUrl && (
-            <div className="mb-3">
-              <p className="mb-1">{translate('Image Preview')}:</p>
-              <div className="image-preview-container">
-                <img 
-                  src={previewUrl} 
-                  alt="Preview" 
-                  className="img-preview"
-                />
-              </div>
+            <div className="text-center">
+              <img src={previewUrl} alt="Preview" className="image-preview" />
             </div>
           )}
-          
-          {mapSizeInfo()}
-          
-          {error && (
-            <Alert variant="danger" className="mt-3">
-              {error}
-            </Alert>
-          )}
-          
-          <div className={`d-flex justify-content-end gap-2 ${isMobile ? 'mt-4' : 'mt-3'}`}>
-            <Button 
-              variant="secondary" 
-              onClick={handleClose}
-              className={isMobile ? 'btn-lg px-4' : ''}
-            >
-              {translate('Cancel')}
-            </Button>
-            <Button 
-              variant="primary" 
-              type="submit" 
-              disabled={loading}
-              className={isMobile ? 'btn-lg px-4' : ''}
-            >
-              {loading ? (
-                <>
-                  <Spinner
-                    as="span"
-                    animation="border"
-                    size="sm"
-                    role="status"
-                    aria-hidden="true"
-                    className="me-2"
-                  />
-                  {translate('Saving...')}
-                </>
-              ) : translate('Add')}
-            </Button>
-          </div>
         </Form>
       </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={handleClose}>
+          {translate('Cancel')}
+        </Button>
+        <Button 
+          variant="primary" 
+          onClick={handleSubmit}
+          disabled={loading || !title}
+        >
+          {loading ? (
+            <>
+              <Spinner animation="border" size="sm" className="me-2" />
+              {translate('Saving...')}
+            </>
+          ) : (
+            translate('Save Event')
+          )}
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };

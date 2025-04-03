@@ -376,6 +376,9 @@ const MapViewer = ({ onLogout }) => {
       return;
     }
     
+    // Close any open sidebar or overlays
+    setShowMobileSidebar(false);
+    
     // Store reference to map and set selecting location mode
     setMapForEvent(selectedMap);
     

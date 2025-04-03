@@ -267,15 +267,34 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!imageLoaded) {
-        if (DEBUG) {
-          console.log("Forcing imageLoaded=true after timeout");
+        console.log("Forcing imageLoaded=true after timeout");
+        // Also log map data to help debug
+        if (implantationMap) {
+          console.log("Main map data:", {
+            id: implantationMap.id,
+            name: implantationMap.name,
+            content_url: implantationMap.content_url,
+            mapType: implantationMap.map_type
+          });
         }
+        
+        // Temporarily set DEBUG to true to log overlay maps
+        const tempDebug = true;
+        if (tempDebug && overlayMaps.length > 0) {
+          console.log("Overlay maps:", overlayMaps.map(m => ({
+            id: m.id,
+            name: m.name,
+            content_url: m.content_url,
+            visible: visibleMaps.includes(m.id)
+          })));
+        }
+        
         setImageLoaded(true);
       }
     }, 2000); // 2 second timeout
     
     return () => clearTimeout(timer);
-  }, [imageLoaded]);
+  }, [imageLoaded, implantationMap, overlayMaps, visibleMaps]);
   
   // Ensure event markers are always visible, regardless of map loading state
   useEffect(() => {
@@ -332,12 +351,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   // Function to render a single map layer
   const renderMapLayer = (currentMap, zIndex, isOverlay = false) => {
     if (!currentMap || !currentMap.content_url) {
+      console.log("No map or content_url for:", currentMap?.id, currentMap?.name);
       return null;
     }
     
     const url = currentMap.content_url;
     const fileExt = url.split('.').pop().toLowerCase();
     const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
+    
+    console.log(`Rendering map: ${currentMap.name}, ID: ${currentMap.id}, URL: ${url}, Extension: ${fileExt}`);
     
     const layerStyle = {
       position: 'absolute',
@@ -480,8 +502,19 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   
   // Function to toggle mobile map layer controls
   const toggleMobileControls = () => {
+    // If in selecting location mode, don't show controls
+    if (isSelectingLocation) {
+      return;
+    }
     setShowMobileControls(!showMobileControls);
   };
+  
+  // When isSelectingLocation changes, hide mobile controls
+  useEffect(() => {
+    if (isSelectingLocation && showMobileControls) {
+      setShowMobileControls(false);
+    }
+  }, [isSelectingLocation]);
   
   // Function to render map content with layers
   const renderMapContent = () => {
