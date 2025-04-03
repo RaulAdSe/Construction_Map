@@ -386,9 +386,45 @@ const MapViewer = ({ onLogout }) => {
     document.body.classList.add('map-adding-event');
     
     // Notify user to click on the map
-    showNotification(translate('Click on the map to place your event.'), 'info');
+    showNotification(translate('Click on the map to place your event or press ESC to cancel.'), 'info');
   };
   
+  // Cancel location selection mode
+  const cancelLocationSelection = () => {
+    setMapForEvent(null);
+    document.body.classList.remove('map-adding-event');
+    showNotification(translate('Event location selection cancelled.'), 'info');
+  };
+
+  // Handle escape key to cancel location selection
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && mapForEvent) {
+        cancelLocationSelection();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscKey);
+    return () => {
+      window.removeEventListener('keydown', handleEscKey);
+    };
+  }, [mapForEvent]);
+
+  // Handle browser back button
+  useEffect(() => {
+    const handleBackButton = (event) => {
+      if (mapForEvent) {
+        event.preventDefault();
+        cancelLocationSelection();
+      }
+    };
+
+    window.addEventListener('popstate', handleBackButton);
+    return () => {
+      window.removeEventListener('popstate', handleBackButton);
+    };
+  }, [mapForEvent]);
+
   const handleMapSelected = (mapId) => {
     const map = maps.find(m => m.id === mapId);
     setMapForEvent(map);
@@ -996,6 +1032,29 @@ const MapViewer = ({ onLogout }) => {
               <p className="small">{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
               <Button size="sm" variant="primary" onClick={toggleMobileSidebar}>
                 {translate('Open Maps')}
+              </Button>
+            </div>
+          )}
+          
+          {/* Cancel overlay for location selection mode */}
+          {mapForEvent && (
+            <div className="selecting-location-cancel-overlay" onClick={(e) => {
+              // Only cancel if clicking outside the map container
+              if (!e.target.closest('.map-container')) {
+                cancelLocationSelection();
+              }
+            }}>
+              <Button 
+                variant="danger" 
+                size="sm"
+                className="cancel-selection-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelLocationSelection();
+                }}
+              >
+                <i className="bi bi-x-lg me-1"></i>
+                {translate('Cancel')}
               </Button>
             </div>
           )}
