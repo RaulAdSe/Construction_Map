@@ -15,9 +15,14 @@ echo "============================================"
 mkdir -p /app/uploads/events /app/uploads/comments /app/logs
 echo "Directories created successfully"
 
-# Force override settings - critical for the application to work correctly in Cloud Run
-export ALLOW_ALL_ORIGINS="true"
-export CORS_ORIGINS="http://localhost:3000"
+# Force debug mode for troubleshooting
+export DEBUG="true"
+export PYDANTIC_SETTINGS_DEBUG="true" # Add debug for pydantic-settings
+
+# Force environment variables for CORS - setting them explicitly
+# Note: We're using hardcoded settings now which bypass these env vars
+unset CORS_ORIGINS
+unset ALLOW_ALL_ORIGINS
 
 # Start the application with our robust error handling
 echo "Starting the application with robust error handling..."
