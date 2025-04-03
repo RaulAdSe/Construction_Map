@@ -104,13 +104,7 @@ gcloud run deploy $SERVICE_NAME \
     --service-account $SERVICE_ACCOUNT \
     --add-cloudsql-instances $CLOUDSQL_INSTANCE \
     --env-vars-file $ENV_YAML_FILE \
-    --no-cpu-throttling \
-    --startup-cpu-boost \
-    --set-env-vars DISABLE_DATABASE_OPERATIONS=false \
-    --startup-cpu-percentage=100 \
-    --health-checks /health \
-    --no-use-http2 \
-    --deployment-timeout=15m
+    --set-env-vars DISABLE_DATABASE_OPERATIONS=false
 
 # Clean up
 rm -f "$ENV_VARS_FILE" "$ENV_YAML_FILE"
