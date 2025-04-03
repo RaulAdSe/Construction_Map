@@ -1,0 +1,79 @@
+/* Add Comment Form Styles */
+
+.add-comment-form {
+  margin-top: 1rem;
+}
+
+.form-title {
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.selected-files {
+  background-color: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.selected-file {
+  margin-bottom: 0.3rem;
+}
+
+.selected-file:last-child {
+  margin-bottom: 0;
+}
+
+.file-size {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+/* Mobile specific styles */
+.mobile-comment-form {
+  margin-top: 0.5rem;
+}
+
+.mobile-comment-form .form-title {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.mobile-textarea {
+  font-size: 0.9rem !important;
+  padding: 0.5rem 0.75rem !important;
+}
+
+.mobile-comment-form .form-label {
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+
+.mobile-comment-form .form-text {
+  font-size: 0.75rem;
+}
+
+.mobile-comment-form .selected-files {
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.mobile-comment-form .selected-file {
+  margin-bottom: 0.2rem;
+}
+
+.mobile-comment-form .file-size {
+  font-size: 0.7rem;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .selected-files {
+    background-color: #343a40;
+  }
+  
+  .file-size {
+    color: #adb5bd;
+  }
+} 

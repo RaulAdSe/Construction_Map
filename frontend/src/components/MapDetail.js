@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Spinner, Alert, Form, ListGroup } from 'react-bootstrap';
+import { Spinner, Alert, Form, ListGroup, Button } from 'react-bootstrap';
 import EventMarker from './EventMarker';
+import { useMobile } from './common/MobileProvider';
 
 const DEBUG = false; // Set to true only when debugging is needed
 
@@ -13,6 +14,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
   const [viewportScale, setViewportScale] = useState(1);
+  const { isMobile } = useMobile();
+  
+  // For mobile: Add pinch-zoom capability
+  const [isPinching, setIsPinching] = useState(false);
+  const [mobilePanZoomScale, setMobilePanZoomScale] = useState(1);
+  const lastTouchDistance = useRef(null);
+  const lastTouchCenter = useRef(null);
+  const initialTouchScale = useRef(null);
+  const [showMobileControls, setShowMobileControls] = useState(false);
   
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
@@ -257,15 +267,34 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!imageLoaded) {
-        if (DEBUG) {
-          console.log("Forcing imageLoaded=true after timeout");
+        console.log("Forcing imageLoaded=true after timeout");
+        // Also log map data to help debug
+        if (implantationMap) {
+          console.log("Main map data:", {
+            id: implantationMap.id,
+            name: implantationMap.name,
+            content_url: implantationMap.content_url,
+            mapType: implantationMap.map_type
+          });
         }
+        
+        // Temporarily set DEBUG to true to log overlay maps
+        const tempDebug = true;
+        if (tempDebug && overlayMaps.length > 0) {
+          console.log("Overlay maps:", overlayMaps.map(m => ({
+            id: m.id,
+            name: m.name,
+            content_url: m.content_url,
+            visible: visibleMaps.includes(m.id)
+          })));
+        }
+        
         setImageLoaded(true);
       }
     }, 2000); // 2 second timeout
     
     return () => clearTimeout(timer);
-  }, [imageLoaded]);
+  }, [imageLoaded, implantationMap, overlayMaps, visibleMaps]);
   
   // Ensure event markers are always visible, regardless of map loading state
   useEffect(() => {
@@ -322,12 +351,15 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   // Function to render a single map layer
   const renderMapLayer = (currentMap, zIndex, isOverlay = false) => {
     if (!currentMap || !currentMap.content_url) {
+      console.log("No map or content_url for:", currentMap?.id, currentMap?.name);
       return null;
     }
     
     const url = currentMap.content_url;
     const fileExt = url.split('.').pop().toLowerCase();
     const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
+    
+    console.log(`Rendering map: ${currentMap.name}, ID: ${currentMap.id}, URL: ${url}, Extension: ${fileExt}`);
     
     const layerStyle = {
       position: 'absolute',
@@ -379,6 +411,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         </div>
       );
     } else {
+      // For other file types, use a generic iframe
       return (
         <div key={currentMap.id} style={layerStyle}>
           <iframe 
@@ -394,6 +427,95 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     }
   };
   
+  // Add touch event handlers for mobile pinch-zoom
+  useEffect(() => {
+    if (!isMobile || !mapContainerRef.current) return;
+    
+    const container = mapContainerRef.current;
+    
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        // Two finger touch - start pinch gesture
+        setIsPinching(true);
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const distance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+        lastTouchDistance.current = distance;
+        
+        // Calculate center point between touches
+        lastTouchCenter.current = {
+          x: (touch1.clientX + touch2.clientX) / 2,
+          y: (touch1.clientY + touch2.clientY) / 2
+        };
+        
+        initialTouchScale.current = mobilePanZoomScale;
+      }
+    };
+    
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 2 && isPinching) {
+        e.preventDefault(); // Prevent default browser pinch zoom
+        
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const distance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+        
+        if (lastTouchDistance.current && initialTouchScale.current) {
+          // Calculate new scale based on touch distance change
+          const delta = distance / lastTouchDistance.current;
+          let newScale = initialTouchScale.current * delta;
+          
+          // Limit scale to reasonable range
+          newScale = Math.max(0.5, Math.min(3, newScale));
+          setMobilePanZoomScale(newScale);
+        }
+      }
+    };
+    
+    const handleTouchEnd = () => {
+      if (isPinching) {
+        setIsPinching(false);
+        lastTouchDistance.current = null;
+        lastTouchCenter.current = null;
+        initialTouchScale.current = null;
+      }
+    };
+    
+    // Add touch event listeners
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      // Clean up
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile, isPinching, mobilePanZoomScale]);
+  
+  // Function to toggle mobile map layer controls
+  const toggleMobileControls = () => {
+    // If in selecting location mode, don't show controls
+    if (isSelectingLocation) {
+      return;
+    }
+    setShowMobileControls(!showMobileControls);
+  };
+  
+  // When isSelectingLocation changes, hide mobile controls
+  useEffect(() => {
+    if (isSelectingLocation && showMobileControls) {
+      setShowMobileControls(false);
+    }
+  }, [isSelectingLocation]);
+  
   // Function to render map content with layers
   const renderMapContent = () => {
     if (!implantationMap || !implantationMap.content_url) {
@@ -408,7 +530,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       position: 'absolute',
       width: contentSize.width,
       height: initialContentSize.current ? initialContentSize.current.height : contentSize.height,
-      transform: `scale(${viewportScale})`,
+      transform: isMobile 
+        ? `scale(${viewportScale * mobilePanZoomScale})` 
+        : `scale(${viewportScale})`,
       transformOrigin: 'center center',
       top: '50%',
       left: '50%',
@@ -444,6 +568,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
                 event={event} 
                 onClick={(e) => handleEventClick(event, e)}
                 scale={1} // No need to adjust scale as we're in the content coordinate system
+                isMobile={isMobile} // Pass mobile state to event marker
               />
             ))}
           </div>
@@ -484,12 +609,28 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   }, []); // Empty dependency array means this runs only on mount
   
   return (
-    <div className="map-detail-container">
+    <div className={`map-detail-container ${isMobile ? 'mobile-map-detail' : ''}`}>
       <div 
         ref={mapContainerRef}
         className="map-container content-fit-view" 
         data-map-id={map?.id}
         data-scale={viewportScale.toFixed(3)}
+        onClick={(e) => {
+          if (isSelectingLocation && mapContentRef.current) {
+            // Calculate click position relative to map content
+            const rect = mapContentRef.current.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / (viewportScale * (isMobile ? mobilePanZoomScale : 1));
+            const y = (e.clientY - rect.top) / (viewportScale * (isMobile ? mobilePanZoomScale : 1));
+            
+            if (DEBUG) {
+              console.log(`Clicked at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            }
+            
+            if (onMapClick) {
+              onMapClick(map, x, y);
+            }
+          }
+        }}
       >
         {renderMapContent()}
         
@@ -507,77 +648,127 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
           </div>
         )}
         
-        {/* Display event count badge */}
-        {events && events.length > 0 && (
-          <div className="event-count-badge">
-            {visibleEvents.length} of {events.length} {events.length === 1 ? 'Event' : 'Events'}
-          </div>
+        {/* Mobile controls button */}
+        {isMobile && overlayMaps.length > 0 && (
+          <Button
+            variant="primary"
+            size="sm"
+            className="mobile-layers-toggle"
+            onClick={toggleMobileControls}
+          >
+            <i className="bi bi-layers"></i>
+          </Button>
         )}
       </div>
       
-      {/* Map overlay controls */}
-      <div className="map-overlay-controls mt-3">
-        <h6>Map Layers</h6>
-        {implantationMap && (
-          <ListGroup>
-            <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
-              <div>
-                <Form.Check 
-                  type="checkbox"
-                  id={`map-toggle-${implantationMap.id}`}
-                  label={`${implantationMap.name} (Main)`}
-                  checked={true}
-                  className="me-2"
-                  disabled={true} // Main map cannot be toggled off
-                />
-              </div>
-              {/* Add opacity slider for main map */}
-              <div style={{ width: '50%' }}>
+      {/* Mobile optimized map layers panel */}
+      {isMobile ? (
+        <div className={`mobile-overlay-controls ${showMobileControls ? 'show' : ''}`}>
+          <div className="mobile-overlay-header">
+            <h6>Map Layers</h6>
+            <Button variant="link" className="close-btn" onClick={toggleMobileControls}>
+              <i className="bi bi-x-lg"></i>
+            </Button>
+          </div>
+          <div className="mobile-overlay-body">
+            <ListGroup>
+              <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
+                <Form.Label htmlFor={`mobile-map-opacity-${implantationMap?.id}`} className="mb-0">
+                  {implantationMap?.name} (Main)
+                </Form.Label>
                 <Form.Range 
-                  value={(mapOpacities[implantationMap.id] || 1.0) * 100}
-                  onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
+                  id={`mobile-map-opacity-${implantationMap?.id}`}
+                  value={(mapOpacities[implantationMap?.id] || 1.0) * 100}
+                  onChange={(e) => handleOpacityChange(implantationMap?.id, parseInt(e.target.value))}
                   min="50"
                   max="100"
+                  style={{ width: '120px' }}
                 />
-              </div>
-            </ListGroup.Item>
-            
-            {overlayMaps.map(overlayMap => (
-              <ListGroup.Item 
-                key={overlayMap.id}
-                className="d-flex justify-content-between align-items-center"
-              >
-                <div>
+              </ListGroup.Item>
+              
+              {overlayMaps.map(overlayMap => (
+                <ListGroup.Item 
+                  key={overlayMap.id}
+                  className="d-flex justify-content-between align-items-center"
+                  style={{ opacity: visibleMaps.includes(overlayMap.id) ? 1 : 0.5 }}
+                >
                   <Form.Check 
                     type="checkbox"
-                    id={`map-toggle-${overlayMap.id}`}
+                    id={`mobile-map-toggle-${overlayMap.id}`}
                     label={overlayMap.name}
                     checked={visibleMaps.includes(overlayMap.id)}
                     onChange={() => toggleMapVisibility(overlayMap.id)}
+                    className="mb-0"
+                  />
+                  {visibleMaps.includes(overlayMap.id) && (
+                    <Form.Range 
+                      value={(mapOpacities[overlayMap.id] || 0.5) * 100}
+                      onChange={(e) => handleOpacityChange(overlayMap.id, parseInt(e.target.value))}
+                      min="20"
+                      max="100"
+                      style={{ width: '100px' }}
+                    />
+                  )}
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          </div>
+        </div>
+      ) : (
+        /* Original desktop controls */
+        <div className="map-overlay-controls mt-3">
+          <h6>Map Layers</h6>
+          {implantationMap && (
+            <ListGroup>
+              <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
+                <div>
+                  <Form.Check 
+                    type="checkbox"
+                    id={`map-toggle-${implantationMap.id}`}
+                    label={`${implantationMap.name} (Main)`}
+                    checked={true}
                     className="me-2"
+                    disabled={true} // Main map cannot be toggled off
                   />
                 </div>
-                {/* Add opacity slider for overlay maps */}
-                {visibleMaps.includes(overlayMap.id) && (
+                {/* Add opacity slider for main map */}
+                <div style={{ width: '50%' }}>
+                  <Form.Range 
+                    value={(mapOpacities[implantationMap.id] || 1.0) * 100}
+                    onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
+                    min="50"
+                    max="100"
+                  />
+                </div>
+              </ListGroup.Item>
+              
+              {overlayMaps.map(overlayMap => (
+                <ListGroup.Item key={overlayMap.id} className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <Form.Check 
+                      type="checkbox"
+                      id={`map-toggle-${overlayMap.id}`}
+                      label={overlayMap.name}
+                      checked={visibleMaps.includes(overlayMap.id)}
+                      onChange={() => toggleMapVisibility(overlayMap.id)}
+                      className="me-2"
+                    />
+                  </div>
                   <div style={{ width: '50%' }}>
                     <Form.Range 
                       value={(mapOpacities[overlayMap.id] || 0.5) * 100}
                       onChange={(e) => handleOpacityChange(overlayMap.id, parseInt(e.target.value))}
-                      min="10"
+                      min="20"
                       max="100"
+                      disabled={!visibleMaps.includes(overlayMap.id)}
                     />
                   </div>
-                )}
-              </ListGroup.Item>
-            ))}
-          </ListGroup>
-        )}
-        {!implantationMap && (
-          <Alert variant="info">
-            No maps available for this project. Add a map to get started.
-          </Alert>
-        )}
-      </div>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          )}
+        </div>
+      )}
     </div>
   );
 };

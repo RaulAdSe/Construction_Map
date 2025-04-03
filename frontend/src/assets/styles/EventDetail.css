@@ -1,0 +1,169 @@
+/* Event Detail Component Styles */
+
+.event-detail-container {
+  margin-bottom: 1rem;
+}
+
+.event-detail-card {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  border: none;
+}
+
+.event-tabs {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.event-image-container {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  border-radius: 5px;
+  overflow: hidden;
+  max-height: 400px;
+}
+
+.event-detail-image {
+  max-width: 100%;
+  max-height: 400px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.event-detail-image:hover {
+  transform: scale(1.02);
+}
+
+.status-badge {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.event-description {
+  margin-bottom: 1.5rem;
+}
+
+.description-text {
+  white-space: pre-line;
+}
+
+.tag-badge {
+  padding: 0.4rem 0.6rem;
+  margin-right: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.event-meta {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* Mobile specific styles */
+
+.mobile-event-detail .event-detail-card {
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-event-detail .card-header {
+  padding: 0.75rem 1rem;
+}
+
+.mobile-event-detail .card-body {
+  padding: 0.75rem 1rem;
+}
+
+.mobile-event-detail .event-tabs {
+  font-size: 0.9rem;
+}
+
+.mobile-event-detail .event-image-container {
+  max-height: 250px;
+  margin-bottom: 1rem;
+}
+
+.mobile-event-detail .event-detail-image {
+  max-height: 250px;
+}
+
+.mobile-event-detail .status-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.mobile-event-detail h5 {
+  font-size: 1.1rem;
+}
+
+.mobile-event-detail h6 {
+  font-size: 0.95rem;
+}
+
+.mobile-event-detail .description-text {
+  font-size: 0.9rem;
+}
+
+.mobile-event-detail .event-meta {
+  font-size: 0.8rem;
+}
+
+.mobile-tag {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+@media (max-width: 576px) {
+  .event-detail-container {
+    margin: 0;
+  }
+  
+  .event-detail-card {
+    border-radius: 0;
+    box-shadow: none;
+  }
+  
+  .event-tabs .nav-link {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.85rem;
+  }
+  
+  .mobile-event-detail .form-control,
+  .mobile-event-detail .form-select {
+    font-size: 0.9rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .event-detail-card {
+    background-color: #343a40;
+    border-color: #495057;
+  }
+  
+  .event-detail-card .card-header {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-bottom-color: #495057;
+  }
+  
+  .event-tabs {
+    border-bottom-color: #495057;
+  }
+  
+  .event-detail-card .nav-link {
+    color: #adb5bd;
+  }
+  
+  .event-detail-card .nav-link.active {
+    background-color: #495057;
+    color: white;
+    border-color: #495057;
+  }
+  
+  .description-text {
+    color: #ced4da;
+  }
+  
+  .event-meta {
+    color: #adb5bd;
+  }
+} 

@@ -435,7 +435,13 @@ const translations = {
   'Status changed to': 'Estado cambiado a',
   'mentioned you in': 'te mencionó en',
   'New event added': 'Nuevo evento agregado',
-  'assigned you to': 'te asignó a'
+  'assigned you to': 'te asignó a',
+
+  // Mobile mode related
+  'Switch to Mobile View': 'Cambiar a Vista Móvil',
+  'Switch to Desktop View': 'Cambiar a Vista de Escritorio',
+  'Mobile Mode': 'Modo Móvil',
+  'Desktop Mode': 'Modo Escritorio',
 };
 
 export default translations; 

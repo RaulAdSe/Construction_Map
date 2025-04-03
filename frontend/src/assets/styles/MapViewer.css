@@ -996,4 +996,373 @@ iframe[src*=".pdf"] {
 :root .pdfjs-viewer {
   --pdfjs-toolbar-visible: none !important;
   --pdfjs-sidebar-visible: none !important;
+}
+
+/* Mobile view styles */
+.mobile-view .mobile-navbar {
+  padding: 0.5rem 0.75rem;
+}
+
+.mobile-view .mobile-menu-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.5rem;
+}
+
+.mobile-view .navbar-brand {
+  font-size: 1rem;
+  margin-right: 0;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile sidebar styles */
+.mobile-sidebar {
+  z-index: 1080 !important; /* Ensure sidebar is above navbar but below modals */
+}
+
+/* Make the sidebar appear over the navbar */
+.offcanvas-start.mobile-sidebar {
+  top: 0 !important; /* Start from the very top of the page */
+  height: 100vh !important; /* Full viewport height */
+}
+
+.mobile-sidebar .offcanvas-body {
+  padding: 1rem;
+}
+
+.mobile-sidebar .nav-tabs {
+  margin-bottom: 1rem;
+}
+
+.mobile-sidebar .tab-content {
+  padding-top: 1rem;
+}
+
+/* Mobile tab navigation */
+.mobile-view .tab-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  z-index: 1070;
+  transition: transform 0.3s ease;
+}
+
+/* Hide tab navigation when adding an event */
+.map-adding-event .mobile-view .tab-navigation {
+  transform: translateY(100%);
+}
+
+.mobile-view .tab-navigation .tab-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #495057;
+  text-decoration: none;
+  padding: 5px;
+}
+
+.mobile-view .tab-navigation .tab-button.active {
+  color: #007bff;
+}
+
+.mobile-view .tab-navigation .tab-button i {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+/* Ensure mobile menu button has higher z-index */
+.mobile-view .mobile-menu-btn {
+  z-index: 1075;
+  position: relative;
+}
+
+/* Adjust content for mobile tab navigation */
+.mobile-view.has-tab-navigation .map-container,
+.mobile-view.has-tab-navigation .content-fit-view {
+  height: calc(100vh - 56px - 60px); /* Navbar height + Tab navigation height */
+}
+
+/* Full-width map container for mobile */
+.mobile-map-container {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 56px); /* Subtract mobile navbar height */
+  overflow: hidden;
+}
+
+/* Floating action button for mobile */
+.mobile-fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  z-index: 1050;
+}
+
+/* Add Event FAB positioned at bottom left */
+.add-event-fab {
+  position: fixed;
+  bottom: 90px; /* Lowered from 130px */
+  left: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  z-index: 1050;
+  background-color: #28a745; /* Bootstrap success color */
+  border-color: #28a745;
+  color: white;
+  padding: 0;
+}
+
+.add-event-fab:hover, 
+.add-event-fab:focus {
+  background-color: #218838; /* Darker green on hover */
+  border-color: #1e7e34;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+}
+
+.add-event-fab i {
+  font-size: 1.3rem;
+}
+
+.mobile-fab i {
+  font-size: 1.5rem;
+}
+
+/* Modify map container height for mobile */
+.mobile-view .map-container {
+  height: calc(100vh - 56px); /* Full height minus mobile navbar */
+  min-height: auto;
+  border: none;
+  border-radius: 0;
+}
+
+/* Adjust modals for mobile */
+.mobile-view .modal-fullscreen {
+  padding: 0;
+}
+
+.mobile-view .modal-fullscreen .modal-content {
+  border-radius: 0;
+  min-height: 100vh;
+}
+
+/* Make event markers larger for touch devices */
+.mobile-view .event-marker {
+  width: 28px;
+  height: 28px;
+  border-width: 4px;
+}
+
+.mobile-view .event-marker:hover,
+.mobile-view .event-marker-hover {
+  width: 34px;
+  height: 34px;
+}
+
+/* Adjust event popup for mobile */
+.mobile-view .event-popup {
+  width: 90vw;
+  max-width: 350px;
+}
+
+/* Fix for mobile panels */
+@media (max-width: 768px) {
+  .map-container {
+    height: calc(100vh - 180px);
+    min-height: 300px;
+  }
+  
+  .mobile-view .sidebar-panel {
+    display: none; /* Hide sidebar panel on mobile as we're using offcanvas */
+  }
+  
+  .mobile-projects-list .card {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: transform 0.15s ease;
+  }
+  
+  .mobile-projects-list .card:active {
+    transform: scale(0.98);
+  }
+
+  /* Make project cards more touch-friendly */
+  .mobile-view .project-card {
+    margin-bottom: 15px;
+  }
+}
+
+/* Overrides for mobile map controls */
+.mobile-view .event-count-badge {
+  top: auto;
+  bottom: 20px;
+  left: 20px;
+  right: auto;
+  font-size: 0.9rem;
+  padding: 8px 15px;
+  background-color: rgba(40, 40, 40, 0.8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure map container takes full height */
+.map-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.mobile-view.map-viewer {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.mobile-view .container-fluid {
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fixes for Bootstrap Tabs on mobile */
+.mobile-sidebar .nav-tabs .nav-link {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+/* Ensure maps are properly sized in mobile */
+.mobile-view .content-fit-view {
+  height: calc(100vh - 56px);
+}
+
+.mobile-view .map-detail-container {
+  height: 100%;
+}
+
+/* Map view height adjustment for mobile */
+.mobile-view .consistent-map-view {
+  height: calc(100vh - 56px);
+}
+
+/* Mobile map controls */
+.mobile-map-detail {
+  position: relative;
+}
+
+.mobile-layers-toggle {
+  position: absolute;
+  bottom: 100px; /* Lowered from 130px */
+  right: 20px;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+.mobile-layers-toggle i {
+  font-size: 1.2rem;
+}
+
+/* Mobile overlay controls */
+.mobile-overlay-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border-top-left-radius: 15px;
+  border-top-right-radius: 15px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1075; /* Higher than sidebar but lower than modals */
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  max-height: 70vh; /* Allow for more content visibility */
+  overflow: hidden; /* Ensure the rounded corners are respected */
+}
+
+.mobile-overlay-controls.show {
+  transform: translateY(0);
+}
+
+.mobile-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  background-color: white; /* Ensure the header is solid */
+  position: sticky; /* Keep header visible when scrolling */
+  top: 0;
+  z-index: 2;
+}
+
+.mobile-overlay-header h6 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.mobile-overlay-header .close-btn {
+  padding: 0;
+  color: #666;
+  font-size: 1.2rem;
+}
+
+.mobile-overlay-body {
+  padding: 10px 15px 20px;
+  max-height: calc(70vh - 52px); /* Header height is ~52px */
+  overflow-y: auto; /* Enable vertical scrolling */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+}
+
+/* Mobile optimized list group items */
+.mobile-view .list-group-item {
+  padding: 10px 15px;
+}
+
+.mobile-view .form-check label {
+  font-size: 0.9rem;
+}
+
+/* Touch-optimized form controls */
+.mobile-view .form-range {
+  height: 24px;
+}
+
+/* Event marker adjustments for touch */
+.mobile-view .event-marker {
+  width: 30px;
+  height: 30px;
+}
+
+/* Pinch zoom container */
+.mobile-view .map-container {
+  touch-action: pan-x pan-y;
 } 
