@@ -13,6 +13,7 @@ from app.models.event_comment import EventComment
 from app.models.user import User
 from app.core.config import settings
 from app.services.notification import NotificationService
+from app.services import event_history
 
 
 def get_event(db: Session, event_id: int) -> Optional[Event]:
@@ -281,6 +282,19 @@ async def create_event(
     db.commit()
     db.refresh(db_event)
     
+    # Create event history record for creation (wrapped in try-except)
+    try:
+        event_history.create_event_history(
+            db=db,
+            event_id=db_event.id,
+            user_id=created_by_user_id,
+            action_type="create",
+            new_value=status
+        )
+    except Exception as e:
+        print(f"Error recording event creation history (non-critical): {str(e)}")
+        # This error is non-critical, the event has already been created
+    
     # Create notifications for mentioned users
     if description:
         link = f"/events/{db_event.id}"
@@ -313,75 +327,160 @@ def update_event(
     """
     Update an event.
     """
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
+    db_event = get_event(db, event_id)
+    if not db_event:
         return None
     
-    # Check if status is being updated
-    old_status = event.status
-    old_state = event.state
+    # Store original values before update for history tracking
+    original_status = db_event.status
+    original_state = db_event.state
     
     # Update fields if provided
     update_data = event_update.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        if hasattr(event, key):
-            setattr(event, key, value)
+    for field, value in update_data.items():
+        # Set the attribute first
+        setattr(db_event, field, value)
     
-    db.commit()
-    db.refresh(event)
-    
-    # Create notifications for status/state changes
-    link = f"/project/{event.project_id}?event={event.id}"
-    
-    if 'status' in update_data and update_data['status'] != old_status:
-        # Notify event creator if current user is not the creator
-        if event.created_by_user_id != current_user_id:
-            NotificationService.notify_event_interaction(
-                db, 
-                event_id, 
-                current_user_id, 
-                f"updated the status to '{event.status}'", 
-                link
-            )
-            
-    if 'state' in update_data and update_data['state'] != old_state:
-        # Notify event creator if current user is not the creator
-        if event.created_by_user_id != current_user_id:
-            NotificationService.notify_event_interaction(
-                db, 
-                event_id, 
-                current_user_id, 
-                f"changed the state to '{event.state}'", 
-                link
-            )
-    
-    # Check for new mentions if description was updated
-    if 'description' in update_data:
-        NotificationService.notify_mentions(
-            db, 
-            event.description, 
-            current_user_id, 
-            event_id=event.id, 
-            link=link
-        )
+    # First commit the actual changes to ensure they're saved
+    try:
+        # Now commit the changes
+        db.commit()
+        db.refresh(db_event)
         
-    # Notify admins about the update
-    if current_user_id != event.created_by_user_id:
-        action = "updated an event"
-        if 'status' in update_data:
-            action = f"changed event status to '{event.status}'"
-        elif 'state' in update_data:
-            action = f"changed event state to '{event.state}'"
+        # After successful commit, try to record history (non-critical)
+        
+        # Track status changes in history (wrapped in try-except)
+        if 'status' in update_data and update_data['status'] != original_status:
+            try:
+                event_history.create_event_history(
+                    db=db,
+                    event_id=event_id,
+                    user_id=current_user_id,
+                    action_type="status_change",
+                    previous_value=original_status,
+                    new_value=update_data['status']
+                )
+            except Exception as e:
+                print(f"Error recording status change history (non-critical): {str(e)}")
+                # This error is non-critical, the update has already been saved
+                # Make sure we don't have a transaction that needs to be rolled back
+                try:
+                    db.rollback()
+                except Exception as rollback_error:
+                    print(f"Error during rollback after history error: {str(rollback_error)}")
+                
+        # Track state/type changes in history (wrapped in try-except)
+        if 'state' in update_data and update_data['state'] != original_state:
+            try:
+                event_history.create_event_history(
+                    db=db,
+                    event_id=event_id,
+                    user_id=current_user_id,
+                    action_type="type_change",
+                    previous_value=original_state,
+                    new_value=update_data['state']
+                )
+            except Exception as e:
+                print(f"Error recording state change history (non-critical): {str(e)}")
+                # This error is non-critical, the update has already been saved
+                # Make sure we don't have a transaction that needs to be rolled back
+                try:
+                    db.rollback()
+                except Exception as rollback_error:
+                    print(f"Error during rollback after history error: {str(rollback_error)}")
+        
+        # Add a general "edit" history entry if fields other than status/state were updated
+        excluded_fields = ["status", "state", "is_admin_request"]
+        other_fields_updated = [f for f in update_data.keys() if f not in excluded_fields]
+        if other_fields_updated:
+            try:
+                event_history.create_event_history(
+                    db=db,
+                    event_id=event_id,
+                    user_id=current_user_id,
+                    action_type="edit",
+                    additional_data={"updated_fields": other_fields_updated}
+                )
+            except Exception as e:
+                print(f"Error recording edit history (non-critical): {str(e)}")
+                # This error is non-critical, the update has already been saved
+                # Make sure we don't have a transaction that needs to be rolled back
+                try:
+                    db.rollback()
+                except Exception as rollback_error:
+                    print(f"Error during rollback after history error: {str(rollback_error)}")
+        
+        # Create notifications for status/state changes
+        link = f"/project/{db_event.project_id}?event={db_event.id}"
+        
+        try:
+            if 'status' in update_data and update_data['status'] != original_status:
+                # Notify event creator if current user is not the creator
+                if db_event.created_by_user_id != current_user_id:
+                    NotificationService.notify_event_interaction(
+                        db, 
+                        event_id, 
+                        current_user_id, 
+                        f"updated the status to '{db_event.status}'", 
+                        link
+                    )
+                    
+            if 'state' in update_data and update_data['state'] != original_state:
+                # Notify event creator if current user is not the creator
+                if db_event.created_by_user_id != current_user_id:
+                    NotificationService.notify_event_interaction(
+                        db, 
+                        event_id, 
+                        current_user_id, 
+                        f"changed the state to '{db_event.state}'", 
+                        link
+                    )
             
-        NotificationService.notify_admins(
-            db, 
-            action, 
-            current_user_id, 
-            event_id=event.id, 
-            link=link
-        )
+            # Check for new mentions if description was updated
+            if 'description' in update_data:
+                NotificationService.notify_mentions(
+                    db, 
+                    db_event.description, 
+                    current_user_id, 
+                    event_id=db_event.id, 
+                    link=link
+                )
+                
+            # Notify admins about the update
+            if current_user_id != db_event.created_by_user_id:
+                action = "updated an event"
+                if 'status' in update_data:
+                    action = f"changed event status to '{db_event.status}'"
+                elif 'state' in update_data:
+                    action = f"changed event state to '{db_event.state}'"
+                    
+                NotificationService.notify_admins(
+                    db, 
+                    action, 
+                    current_user_id, 
+                    event_id=db_event.id, 
+                    link=link
+                )
+        except Exception as notif_error:
+            print(f"Error sending notifications (non-critical): {str(notif_error)}")
+            # Notifications are non-critical, the update has already been saved
+            # Make sure we don't have a transaction that needs to be rolled back
+            try:
+                db.rollback()
+            except Exception as rollback_error:
+                print(f"Error during rollback after notification error: {str(rollback_error)}")
+                
+    except Exception as e:
+        # If we fail during the initial commit, roll back and re-raise
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            print(f"Error during rollback: {str(rollback_error)}")
+        
+        # Re-raise the original exception so the caller knows something went wrong
+        raise e
     
-    return event
+    return db_event
 
 
 def delete_event(db: Session, event_id: int) -> bool:
@@ -460,4 +559,100 @@ def export_events(
         "content": buffer.getvalue(),
         "media_type": mime_type,
         "filename": f"events-project-{project_id}.{file_ext}"
-    } 
+    }
+
+
+def update_event_status(db: Session, event_id: int, new_status: str, user_id: int) -> Optional[Event]:
+    """Update just the status of an event"""
+    db_event = get_event(db, event_id)
+    if not db_event:
+        return None
+    
+    # Record previous status for history
+    previous_status = db_event.status
+    
+    # Update status
+    db_event.status = new_status
+    
+    try:
+        # Commit the status change first
+        db.commit()
+        db.refresh(db_event)
+        
+        # Record in history (wrapped in try-except)
+        try:
+            event_history.create_event_history(
+                db=db,
+                event_id=event_id,
+                user_id=user_id,
+                action_type="status_change",
+                previous_value=previous_status,
+                new_value=new_status
+            )
+        except Exception as e:
+            print(f"Error recording status change history (non-critical): {str(e)}")
+            # This error is non-critical, the status has already been updated
+            # Make sure we don't have a transaction that needs to be rolled back
+            try:
+                db.rollback()
+            except Exception as rollback_error:
+                print(f"Error during rollback after history error: {str(rollback_error)}")
+    except Exception as e:
+        # If we fail during the initial commit, roll back and re-raise
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            print(f"Error during rollback: {str(rollback_error)}")
+        
+        # Re-raise the original exception so the caller knows something went wrong
+        raise e
+    
+    return db_event
+
+
+def update_event_state(db: Session, event_id: int, new_state: str, user_id: int) -> Optional[Event]:
+    """Update just the state/type of an event"""
+    db_event = get_event(db, event_id)
+    if not db_event:
+        return None
+    
+    # Record previous state for history
+    previous_state = db_event.state
+    
+    # Update state
+    db_event.state = new_state
+    
+    try:
+        # Commit the state change first
+        db.commit()
+        db.refresh(db_event)
+        
+        # Record in history (wrapped in try-except)
+        try:
+            event_history.create_event_history(
+                db=db,
+                event_id=event_id,
+                user_id=user_id,
+                action_type="type_change",
+                previous_value=previous_state,
+                new_value=new_state
+            )
+        except Exception as e:
+            print(f"Error recording state change history (non-critical): {str(e)}")
+            # This error is non-critical, the state has already been updated
+            # Make sure we don't have a transaction that needs to be rolled back
+            try:
+                db.rollback()
+            except Exception as rollback_error:
+                print(f"Error during rollback after history error: {str(rollback_error)}")
+    except Exception as e:
+        # If we fail during the initial commit, roll back and re-raise
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            print(f"Error during rollback: {str(rollback_error)}")
+        
+        # Re-raise the original exception so the caller knows something went wrong
+        raise e
+    
+    return db_event 

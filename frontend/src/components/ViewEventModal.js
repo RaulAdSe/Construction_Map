@@ -16,12 +16,13 @@ const ViewEventModal = ({
   currentUser, 
   projectId, 
   effectiveIsAdmin,
-  highlightCommentId
+  highlightCommentId,
+  activeTab: initialActiveTab = 'details'
 }) => {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('');
   const [currentType, setCurrentType] = useState('');
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [eventKey, setEventKey] = useState(0);
   
   // Use ref for modal element to help with force closing
@@ -72,8 +73,11 @@ const ViewEventModal = ({
       setCurrentStatus(event.status);
       setCurrentType(event.state);
       setEventKey(prevKey => prevKey + 1); // Force child components to re-render
+      
+      // Update the active tab if initialActiveTab changed
+      setActiveTab(initialActiveTab);
     }
-  }, [event?.id, highlightCommentId]); // Only reset when event ID changes or when highlighting a comment
+  }, [event?.id, highlightCommentId, initialActiveTab]); // Include initialActiveTab in dependencies
 
   // Add an effect to handle keyboard escape
   useEffect(() => {

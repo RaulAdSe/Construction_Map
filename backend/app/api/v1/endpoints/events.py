@@ -165,6 +165,9 @@ async def create_event(
 ):
     """
     Create a new event.
+    
+    Accepts either image or PDF files as attachments.
+    Maximum file size: 10MB
     """
     # Check if project exists and user has access
     project = project_service.get_project(db, project_id)
@@ -280,7 +283,24 @@ def update_event(
         
         return updated_event
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Always roll back the session on error to ensure it's clean for the next request
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            # If rollback fails, log this too
+            print(f"Error during rollback: {str(rollback_error)}")
+            
+        # Log the error details
+        import traceback
+        print(f"Error updating event {event_id}: {str(e)}")
+        print(traceback.format_exc())
+        
+        # Return a more informative error
+        error_message = str(e)
+        if "event_history" in error_message and "does not exist" in error_message:
+            error_message = "Event update failed due to missing event_history table. This is a temporary issue being fixed."
+        
+        raise HTTPException(status_code=500, detail=f"Failed to update event: {error_message}")
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)

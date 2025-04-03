@@ -75,4 +75,23 @@
 .login-container .language-switcher:hover {
   color: white;
   background-color: #007bff;
+}
+
+/* Highlighted comment styles */
+.highlight-comment {
+  border: 2px solid #007bff !important;
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5) !important;
+  animation: pulse-highlight 2s infinite;
+}
+
+@keyframes pulse-highlight {
+  0% {
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+  }
 } 
