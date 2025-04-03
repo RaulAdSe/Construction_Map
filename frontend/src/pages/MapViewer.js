@@ -844,6 +844,8 @@ const MapViewer = ({ onLogout }) => {
         onHide={() => setShowMobileSidebar(false)} 
         placement="start"
         className="mobile-sidebar"
+        style={{ zIndex: 1080 }}
+        backdrop={false}
       >
         <Offcanvas.Header closeButton>
           <Offcanvas.Title>{translate('Map Controls')}</Offcanvas.Title>

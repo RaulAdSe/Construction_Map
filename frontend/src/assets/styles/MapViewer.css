@@ -1027,6 +1027,12 @@ iframe[src*=".pdf"] {
   z-index: 1080 !important; /* Ensure sidebar is above navbar but below modals */
 }
 
+/* Make the sidebar appear over the navbar */
+.offcanvas-start.mobile-sidebar {
+  top: 0 !important; /* Start from the very top of the page */
+  height: 100vh !important; /* Full viewport height */
+}
+
 .mobile-sidebar .offcanvas-body {
   padding: 1rem;
 }
