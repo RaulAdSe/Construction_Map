@@ -77,8 +77,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir /wheels/*
 
 # Copy entrypoint script first and make it executable
-COPY docker-entrypoint.sh .
-RUN chmod +x docker-entrypoint.sh
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Copy application code
 COPY . .
@@ -91,7 +91,9 @@ ENV GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-credentials.json
 
 # Create a non-root user to run the application
 RUN adduser --disabled-password --gecos "" appuser && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app && \
+    # Ensure the entrypoint script is executable by everyone
+    chmod 755 /app/docker-entrypoint.sh
 
 # Switch to non-root user
 USER appuser
