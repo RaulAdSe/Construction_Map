@@ -7,8 +7,10 @@ import { projectService } from '../services/api';
 import { API_URL } from '../config';
 import apiClient from '../services/api';
 import translate from '../utils/translate';
+import { useMobile } from './common/MobileProvider';
+import '../assets/styles/AddEventModal.css';
 
-const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = {} }) => {
+const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId, allMaps = [], visibleMaps = {}, fullscreen = false }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('periodic check');
@@ -19,6 +21,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
   const [uploadFile, setUploadFile] = useState(null);
   const [fileType, setFileType] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const { isMobile } = useMobile();
   
   // For tag suggestions
   const [tagInput, setTagInput] = useState('');
@@ -37,70 +40,91 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     }
   }, [projectId]);
   
+  // Fetch all existing tags for autocomplete
   const fetchProjectTags = async () => {
     try {
-      // Use projectService instead of apiClient
-      const response = await projectService.getProjectTags(projectId);
-      
+      const response = await apiClient.get(`${API_URL}/projects/${projectId}/tags`);
       if (response.data && Array.isArray(response.data)) {
-        console.log('Fetched tags:', response.data);
         setAllProjectTags(response.data);
       }
     } catch (error) {
       console.error('Error fetching project tags:', error);
-      // Show a user-friendly message but don't block functionality
-      setAllProjectTags([]);
     }
   };
   
-  // Handle tag input change
   const handleTagInputChange = (e) => {
-    const input = e.target.value;
-    setTagInput(input);
+    const value = e.target.value;
+    setTagInput(value);
     
-    // Always show suggestion area if input has content
-    if (input.trim() === '') {
+    if (value.trim()) {
+      const filteredSuggestions = allProjectTags.filter(tag => 
+        tag.toLowerCase().includes(value.toLowerCase())
+      );
+      setTagSuggestions(filteredSuggestions);
+      setShowTagSuggestions(true);
+    } else {
       setShowTagSuggestions(false);
+    }
+  };
+  
+  const handleTagKeyPress = (e) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      addTag(tagInput.trim());
+    }
+  };
+  
+  const addTag = (tag) => {
+    // Normalize the tag: trim and to lowercase
+    const normalizedTag = tag.trim().toLowerCase();
+    
+    // Only add if it's not already in the list
+    if (!selectedTags.includes(normalizedTag)) {
+      setSelectedTags([...selectedTags, normalizedTag]);
+    }
+    
+    // Clear the input and hide suggestions
+    setTagInput('');
+    setShowTagSuggestions(false);
+  };
+  
+  const removeTag = (tag) => {
+    setSelectedTags(selectedTags.filter(t => t !== tag));
+  };
+  
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setUploadFile(null);
+      setFileType(null);
+      setPreviewUrl('');
       return;
     }
     
-    // Filter tags that match the current input
-    const inputLower = input.toLowerCase();
-    const matchingTags = allProjectTags
-      .filter(tag => tag.toLowerCase().includes(inputLower))
-      .filter(tag => !selectedTags.includes(tag))
-      .slice(0, 5); // Limit to 5 suggestions
-    
-    console.log('Matching tags:', matchingTags, 'All tags:', allProjectTags);
-    setTagSuggestions(matchingTags);
-    setShowTagSuggestions(true); // Always show even if empty for feedback
-  };
-  
-  // Add a tag from suggestions or from input
-  const addTag = (tag = null) => {
-    const tagToAdd = tag || tagInput.trim();
-    
-    if (tagToAdd && !selectedTags.includes(tagToAdd)) {
-      setSelectedTags([...selectedTags, tagToAdd]);
-      setTagInput('');
-      setShowTagSuggestions(false);
+    // Check if file type is supported
+    const supportedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!supportedTypes.includes(file.type)) {
+      setError(translate('Unsupported file type. Please upload a JPG, PNG, or GIF image.'));
+      return;
     }
-  };
-  
-  // Remove a tag
-  const removeTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
-  };
-  
-  // Handle key press in tag input
-  const handleTagKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addTag();
-    } else if (e.key === ',') {
-      e.preventDefault();
-      addTag();
+    
+    // Check if file size is under 5MB
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      setError(translate('File size exceeds 5MB limit.'));
+      return;
     }
+    
+    setUploadFile(file);
+    setFileType(file.type);
+    setError(''); // Clear any previous errors
+    
+    // Generate preview URL
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
   
   const handleSubmit = async (e) => {
@@ -173,57 +197,37 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     onHide();
   };
   
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      
-      // Check file type
-      const isPdf = file.type === 'application/pdf';
-      const isImage = file.type.startsWith('image/');
-      
-      if (!isImage && !isPdf) {
-        setError(translate('Only image and PDF files are allowed'));
-        return;
-      }
-      
-      // Check file size (10MB limit)
-      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-      if (file.size > maxSize) {
-        setError(translate('File size exceeds the limit of 10MB'));
-        return;
-      }
-      
-      setError('');
-      setUploadFile(file);
-      setFileType(isPdf ? 'pdf' : 'image');
-      
-      // Create preview if it's an image
-      if (isImage) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPreviewUrl(reader.result);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        // For PDFs, just clear the image preview
-        setPreviewUrl('');
-      }
-    }
+  // Calculate pixel coordinates for debugging
+  const mapSizeInfo = () => {
+    if (!mainMap) return null;
+    
+    return (
+      <div className="mt-2 bg-light p-2 rounded">
+        <h6 className="mb-1">{translate('Event Position')}</h6>
+        <p className="mb-0 small">
+          {translate('Map')}: {mainMap.name}<br />
+          X: {position?.x.toFixed(2)}%, Y: {position?.y.toFixed(2)}%
+        </p>
+      </div>
+    );
   };
+  
+  const isFullscreen = fullscreen || isMobile;
   
   return (
     <Modal 
       show={show} 
       onHide={handleClose}
-      size="lg"
-      dialogClassName="event-modal-dialog"
+      size={isFullscreen ? "xl" : "lg"}
+      dialogClassName={`event-modal-dialog ${isMobile ? 'mobile-event-modal' : ''}`}
       backdropClassName="event-modal-backdrop"
       contentClassName="modal-content"
+      fullscreen={isFullscreen}
     >
       <Modal.Header closeButton>
         <Modal.Title>{translate('Add New Event')}</Modal.Title>
       </Modal.Header>
-      <Modal.Body>
+      <Modal.Body className={isMobile ? 'p-2' : ''}>
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
             <Form.Label>{translate('Event Title')}</Form.Label>
@@ -232,6 +236,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={translate('Enter event title')}
+              className={isMobile ? 'form-control-lg' : ''}
               required
             />
           </Form.Group>
@@ -242,19 +247,21 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               value={description}
               onChange={setDescription}
               placeholder={translate('Enter event description (use @ to mention users)')}
-              rows={3}
+              rows={isMobile ? 4 : 3}
               projectId={projectId}
               id="event-description"
+              className={isMobile ? 'form-control-lg' : ''}
             />
           </Form.Group>
           
-          <Row>
-            <Col md={6}>
-              <Form.Group className="mb-3">
+          <Row className={isMobile ? 'mb-2' : ''}>
+            <Col xs={12} md={6} className={isMobile ? 'mb-3' : ''}>
+              <Form.Group className={isMobile ? '' : 'mb-3'}>
                 <Form.Label>{translate('Type')}</Form.Label>
                 <Form.Select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
+                  className={isMobile ? 'form-select-lg mb-2' : ''}
                 >
                   <option value="periodic check">{translate('Periodic Check')}</option>
                   <option value="incidence">{translate('Incidence')}</option>
@@ -265,12 +272,13 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                 </Form.Text>
               </Form.Group>
             </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
+            <Col xs={12} md={6}>
+              <Form.Group className={isMobile ? '' : 'mb-3'}>
                 <Form.Label>{translate('Status')}</Form.Label>
                 <Form.Select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
+                  className={isMobile ? 'form-select-lg mb-2' : ''}
                 >
                   <option value="open">{translate('Open')}</option>
                   {type !== 'periodic check' && type !== 'request' && (
@@ -292,7 +300,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                 <Badge 
                   key={tag} 
                   bg="primary" 
-                  className="me-1 mb-1 tag-badge"
+                  className={`me-1 mb-1 tag-badge ${isMobile ? 'mobile-tag-badge' : ''}`}
                   onClick={() => removeTag(tag)}
                 >
                   {tag} <span className="ms-1">&times;</span>
@@ -307,9 +315,10 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                 onKeyPress={handleTagKeyPress}
                 placeholder={translate('Add tag...')}
                 autoComplete="off"
+                className={isMobile ? 'form-control-lg' : ''}
               />
               {showTagSuggestions && (
-                <div className="tag-suggestions">
+                <div className={`tag-suggestions ${isMobile ? 'mobile-tag-suggestions' : ''}`}>
                   {tagSuggestions.length > 0 ? (
                     <ListGroup>
                       {tagSuggestions.map(tag => (
@@ -317,6 +326,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                           key={tag}
                           action
                           onClick={() => addTag(tag)}
+                          className={isMobile ? 'py-2 mobile-suggestion-item' : ''}
                         >
                           {tag}
                         </ListGroup.Item>
@@ -333,44 +343,44 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           </Form.Group>
           
           <Form.Group className="mb-3">
-            <Form.Label>{translate('Upload Attachment')}</Form.Label>
+            <Form.Label>{translate('Attach Image (Optional)')}</Form.Label>
             <Form.Control
               type="file"
               onChange={handleFileChange}
-              accept="image/*,application/pdf"
+              accept="image/*"
+              className={isMobile ? 'form-control-lg' : ''}
             />
             <Form.Text className="text-muted">
-              {translate('Accepted file types: Images, PDF. Maximum size: 10MB')}
+              {translate('Maximum file size: 5MB. Supported formats: JPG, PNG, GIF')}
             </Form.Text>
           </Form.Group>
           
-          {previewUrl && fileType === 'image' && (
+          {previewUrl && (
             <div className="mb-3">
-              <p className="mb-1">{translate('Image preview')}:</p>
-              <img 
-                src={previewUrl} 
-                alt="Preview" 
-                style={{ maxWidth: '100%', maxHeight: '200px' }} 
-              />
-            </div>
-          )}
-          
-          {fileType === 'pdf' && uploadFile && (
-            <div className="mb-3">
-              <p className="mb-1">{translate('PDF file selected')}:</p>
-              <div className="pdf-preview p-2 border rounded">
-                <i className="bi bi-file-pdf text-danger me-2" style={{ fontSize: '1.5rem' }}></i>
-                <span>{uploadFile.name}</span>
+              <p className="mb-1">{translate('Image Preview')}:</p>
+              <div className="image-preview-container">
+                <img 
+                  src={previewUrl} 
+                  alt="Preview" 
+                  className="img-preview"
+                />
               </div>
             </div>
           )}
           
-          {error && <Alert variant="danger">{error}</Alert>}
+          {mapSizeInfo()}
           
-          <div className="d-flex justify-content-end gap-2">
+          {error && (
+            <Alert variant="danger" className="mt-3">
+              {error}
+            </Alert>
+          )}
+          
+          <div className={`d-flex justify-content-end gap-2 ${isMobile ? 'mt-4' : 'mt-3'}`}>
             <Button 
               variant="secondary" 
               onClick={handleClose}
+              className={isMobile ? 'btn-lg px-4' : ''}
             >
               {translate('Cancel')}
             </Button>
@@ -378,6 +388,7 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
               variant="primary" 
               type="submit" 
               disabled={loading}
+              className={isMobile ? 'btn-lg px-4' : ''}
             >
               {loading ? (
                 <>

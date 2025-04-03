@@ -1,0 +1,135 @@
+/* AddEventModal.css - Styling for the event addition modal */
+
+.event-modal-dialog {
+  max-width: 800px;
+}
+
+.modal-content {
+  border-radius: 8px;
+}
+
+.event-modal-backdrop {
+  opacity: 0.7 !important;
+}
+
+.tag-input-container {
+  position: relative;
+}
+
+.tag-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  max-height: 200px;
+  overflow-y: auto;
+  background-color: white;
+  border: 1px solid #ced4da;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-tag-suggestions {
+  max-height: 180px;
+}
+
+.tag-badge {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-tag-badge {
+  font-size: 1rem;
+  padding: 0.5rem 0.8rem;
+}
+
+.tag-badge:hover {
+  opacity: 0.8;
+}
+
+.no-suggestions {
+  padding: 10px;
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.mobile-suggestion-item {
+  font-size: 1.1rem;
+}
+
+.image-preview-container {
+  display: flex;
+  justify-content: center;
+  max-height: 200px;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.img-preview {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+}
+
+/* Mobile-specific styles */
+.mobile-event-modal .modal-header {
+  padding: 0.75rem 1rem;
+}
+
+.mobile-event-modal .modal-body {
+  padding: 0.75rem;
+}
+
+.mobile-event-modal .form-control-lg,
+.mobile-event-modal .form-select-lg {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 576px) {
+  .event-modal-dialog {
+    margin: 0.5rem;
+    max-width: none;
+  }
+  
+  .mobile-event-modal .modal-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .mobile-event-modal .modal-body {
+    padding: 0.75rem 1rem;
+  }
+  
+  .image-preview-container {
+    max-height: 180px;
+  }
+  
+  /* Add more padding to form elements for better touch targets */
+  .mobile-event-modal .form-control,
+  .mobile-event-modal .form-select,
+  .mobile-event-modal .btn {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .tag-suggestions {
+    background-color: #343a40;
+    border-color: #495057;
+  }
+  
+  .no-suggestions {
+    color: #adb5bd;
+  }
+  
+  .image-preview-container {
+    border-color: #495057;
+    background-color: #212529;
+  }
+} 
