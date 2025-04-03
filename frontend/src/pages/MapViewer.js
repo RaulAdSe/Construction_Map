@@ -989,12 +989,11 @@ const MapViewer = ({ onLogout }) => {
             </div>
           )}
           
-          {/* Floating action button for adding events on mobile */}
+          {/* Add Event button in bottom left corner */}
           {selectedMap && (
             <Button 
-              className="mobile-fab"
+              className="add-event-fab"
               variant="success"
-              size="lg"
               onClick={handleAddEvent}
               aria-label={translate('Add Event')}
             >

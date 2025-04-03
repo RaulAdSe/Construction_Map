@@ -1112,6 +1112,36 @@ iframe[src*=".pdf"] {
   z-index: 1050;
 }
 
+/* Add Event FAB positioned at bottom left */
+.add-event-fab {
+  position: fixed;
+  bottom: 80px; /* Position above the tab navigation */
+  left: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  z-index: 1050;
+  background-color: #28a745; /* Bootstrap success color */
+  border-color: #28a745;
+  color: white;
+  padding: 0;
+}
+
+.add-event-fab:hover, 
+.add-event-fab:focus {
+  background-color: #218838; /* Darker green on hover */
+  border-color: #1e7e34;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+}
+
+.add-event-fab i {
+  font-size: 1.3rem;
+}
+
 .mobile-fab i {
   font-size: 1.5rem;
 }
