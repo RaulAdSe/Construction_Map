@@ -1001,6 +1001,63 @@ const MapViewer = ({ onLogout }) => {
               <i className="bi bi-plus-lg"></i>
             </Button>
           )}
+          
+          {/* Add mobile tab navigation */}
+          <div className="tab-navigation">
+            <div 
+              className={`tab-button ${activeTab === 'map-view' ? 'active' : ''}`}
+              onClick={() => setActiveTab('map-view')}
+            >
+              <i className="bi bi-map"></i>
+              <span>{translate('Map')}</span>
+            </div>
+            
+            <div 
+              className={`tab-button ${activeTab === 'events' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('events');
+                toggleMobileSidebar();
+              }}
+            >
+              <i className="bi bi-pin-map"></i>
+              <span>{translate('Events')}</span>
+            </div>
+            
+            {effectiveIsAdmin && (
+              <div 
+                className={`tab-button ${activeTab === 'project-maps' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('project-maps');
+                  toggleMobileSidebar();
+                }}
+              >
+                <i className="bi bi-layers"></i>
+                <span>{translate('Maps')}</span>
+              </div>
+            )}
+            
+            <div 
+              className={`tab-button ${activeTab === 'contacts' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('contacts');
+                toggleMobileSidebar();
+              }}
+            >
+              <i className="bi bi-people"></i>
+              <span>{translate('Contacts')}</span>
+            </div>
+            
+            <div 
+              className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('settings');
+                toggleMobileSidebar();
+              }}
+            >
+              <i className="bi bi-gear"></i>
+              <span>{translate('Settings')}</span>
+            </div>
+          </div>
         </div>
       );
     }
@@ -1096,7 +1153,7 @@ const MapViewer = ({ onLogout }) => {
   }
   
   return (
-    <div className={`map-viewer ${isMobile ? 'mobile-view' : ''}`}>
+    <div className={`map-viewer ${isMobile ? 'mobile-view has-tab-navigation' : ''}`}>
       {renderNavbar()}
       
       {/* For mobile, render the sidebar as an offcanvas */}
