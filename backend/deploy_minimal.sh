@@ -81,7 +81,16 @@ gcloud config set project $PROJECT_ID
 
 # Build and deploy directly (no Cloud Build)
 echo "Building and deploying minimal app..."
-gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME --dockerfile $TEMP_DOCKERFILE .
+echo "Creating a temporary Cloud Build config file..."
+cat > cloudbuild.minimal.yaml << EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$SERVICE_NAME', '-f', '$TEMP_DOCKERFILE', '.']
+images:
+  - 'gcr.io/$PROJECT_ID/$SERVICE_NAME'
+EOF
+
+gcloud builds submit --config cloudbuild.minimal.yaml .
 
 # Deploy to Cloud Run
 echo "Deploying to Cloud Run..."
@@ -98,7 +107,7 @@ gcloud run deploy $SERVICE_NAME \
     --concurrency $CONCURRENCY
 
 # Clean up
-rm -f $TEMP_DOCKERFILE
+rm -f $TEMP_DOCKERFILE cloudbuild.minimal.yaml
 
 # Get URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
