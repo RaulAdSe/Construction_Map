@@ -95,10 +95,14 @@ const EventHistoryModal = ({ show, onHide, eventId, eventTitle }) => {
   // Handle clicking on a comment link
   const onCommentClick = (eventId, commentId) => {
     onHide();
-    // Create a URL with the event and comment IDs
-    const url = `/project?event=${eventId}&comment=${commentId}`;
-    // Navigate to the project page and highlight the specific comment
-    window.location.href = url;
+    
+    // Get the project ID from the current URL
+    const currentPath = window.location.pathname;
+    const projectId = currentPath.split('/').pop();
+    
+    // Create a URL that includes the project ID in the path and the event/comment in query params
+    // This format works with the application's router and the MapViewer component
+    window.location.href = `/project/${projectId}?event=${eventId}&comment=${commentId}`;
   };
 
   return (
