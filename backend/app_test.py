@@ -61,8 +61,18 @@ for directory in ['app', 'uploads', 'uploads/events', 'uploads/comments']:
     else:
         logger.warning(f"Directory {directory} does not exist")
 
+# First, check if we have all required dependencies
 try:
-    # Import base dependencies with timeout
+    # Try to import pydantic_settings - if it fails, install it
+    try:
+        logger.info("Checking for pydantic_settings...")
+        import pydantic_settings
+        logger.info("pydantic_settings is available")
+    except ImportError:
+        logger.error("pydantic_settings not found, creating minimal fallback app")
+        raise ImportError("Missing dependency: pydantic_settings. Please add 'pydantic-settings>=2.0.3' to requirements.txt")
+    
+    # Try to import other required dependencies
     logger.info("Trying to import dependencies...")
     try:
         with time_limit(30):
