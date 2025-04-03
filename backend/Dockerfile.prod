@@ -78,10 +78,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy entrypoint script first and make it executable
 COPY docker-entrypoint.sh /app/
-RUN chmod +x /app/docker-entrypoint.sh
+RUN chmod 755 /app/docker-entrypoint.sh
 
 # Copy application code
 COPY . .
+
+# Ensure entrypoint script is still executable after copying all files
+RUN chmod 755 /app/docker-entrypoint.sh
 
 # Create required directories
 RUN mkdir -p /app/uploads/events /app/uploads/comments /app/credentials /app/logs
