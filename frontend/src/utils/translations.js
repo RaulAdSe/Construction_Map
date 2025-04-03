@@ -435,7 +435,17 @@ const translations = {
   'Status changed to': 'Estado cambiado a',
   'mentioned you in': 'te mencionó en',
   'New event added': 'Nuevo evento agregado',
-  'assigned you to': 'te asignó a'
+  'assigned you to': 'te asignó a',
+
+  // Filter panel translations
+  'Filters': 'Filtros',
+  'Reset Filters': 'Restablecer Filtros',
+  'Date Range': 'Rango de Fechas',
+  'Start Date': 'Fecha de Inicio',
+  'End Date': 'Fecha Final',
+  'No tags available': 'No hay etiquetas disponibles',
+  'No events found': 'No se encontraron eventos',
+  'Request': 'Solicitud',
 };
 
 export default translations; 
