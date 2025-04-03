@@ -647,19 +647,18 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
             </div>
           </div>
         )}
-        
-        {/* Mobile controls button */}
-        {isMobile && overlayMaps.length > 0 && (
-          <Button
-            variant="primary"
-            size="sm"
-            className="mobile-layers-toggle"
-            onClick={toggleMobileControls}
-          >
-            <i className="bi bi-layers"></i>
-          </Button>
-        )}
       </div>
+      
+      {/* Mobile controls button - moved outside map container to make it floating */}
+      {isMobile && overlayMaps.length > 0 && (
+        <Button
+          variant="primary"
+          className="mobile-layers-toggle"
+          onClick={toggleMobileControls}
+        >
+          <i className="bi bi-layers"></i>
+        </Button>
+      )}
       
       {/* Mobile optimized map layers panel */}
       {isMobile ? (
