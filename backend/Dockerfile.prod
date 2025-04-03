@@ -79,7 +79,9 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
 COPY --from=builder /app/wheels /wheels
 # Install Python packages
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir /wheels/*
+    pip install --no-cache-dir /wheels/* && \
+    # Explicitly install pydantic-settings to fix missing dependency
+    pip install --no-cache-dir pydantic-settings>=2.0.3
 
 # Copy entrypoint script first and make it executable
 COPY docker-entrypoint.sh /app/
