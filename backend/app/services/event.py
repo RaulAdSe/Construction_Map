@@ -538,22 +538,39 @@ def update_event_status(db: Session, event_id: int, new_status: str, user_id: in
     
     # Update status
     db_event.status = new_status
-    db.commit()
-    db.refresh(db_event)
     
-    # Record in history (wrapped in try-except)
     try:
-        event_history.create_event_history(
-            db=db,
-            event_id=event_id,
-            user_id=user_id,
-            action_type="status_change",
-            previous_value=previous_status,
-            new_value=new_status
-        )
+        # Commit the status change first
+        db.commit()
+        db.refresh(db_event)
+        
+        # Record in history (wrapped in try-except)
+        try:
+            event_history.create_event_history(
+                db=db,
+                event_id=event_id,
+                user_id=user_id,
+                action_type="status_change",
+                previous_value=previous_status,
+                new_value=new_status
+            )
+        except Exception as e:
+            print(f"Error recording status change history (non-critical): {str(e)}")
+            # This error is non-critical, the status has already been updated
+            # Make sure we don't have a transaction that needs to be rolled back
+            try:
+                db.rollback()
+            except Exception as rollback_error:
+                print(f"Error during rollback after history error: {str(rollback_error)}")
     except Exception as e:
-        print(f"Error recording status change history (non-critical): {str(e)}")
-        # This error is non-critical, the status has already been updated
+        # If we fail during the initial commit, roll back and re-raise
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            print(f"Error during rollback: {str(rollback_error)}")
+        
+        # Re-raise the original exception so the caller knows something went wrong
+        raise e
     
     return db_event
 
@@ -569,21 +586,38 @@ def update_event_state(db: Session, event_id: int, new_state: str, user_id: int)
     
     # Update state
     db_event.state = new_state
-    db.commit()
-    db.refresh(db_event)
     
-    # Record in history (wrapped in try-except)
     try:
-        event_history.create_event_history(
-            db=db,
-            event_id=event_id,
-            user_id=user_id,
-            action_type="type_change",
-            previous_value=previous_state,
-            new_value=new_state
-        )
+        # Commit the state change first
+        db.commit()
+        db.refresh(db_event)
+        
+        # Record in history (wrapped in try-except)
+        try:
+            event_history.create_event_history(
+                db=db,
+                event_id=event_id,
+                user_id=user_id,
+                action_type="type_change",
+                previous_value=previous_state,
+                new_value=new_state
+            )
+        except Exception as e:
+            print(f"Error recording state change history (non-critical): {str(e)}")
+            # This error is non-critical, the state has already been updated
+            # Make sure we don't have a transaction that needs to be rolled back
+            try:
+                db.rollback()
+            except Exception as rollback_error:
+                print(f"Error during rollback after history error: {str(rollback_error)}")
     except Exception as e:
-        print(f"Error recording state change history (non-critical): {str(e)}")
-        # This error is non-critical, the state has already been updated
+        # If we fail during the initial commit, roll back and re-raise
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            print(f"Error during rollback: {str(rollback_error)}")
+        
+        # Re-raise the original exception so the caller knows something went wrong
+        raise e
     
     return db_event 
