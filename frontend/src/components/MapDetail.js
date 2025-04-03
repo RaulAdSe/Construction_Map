@@ -648,13 +648,6 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
           </div>
         )}
         
-        {/* Display event count badge */}
-        {events && events.length > 0 && (
-          <div className="event-count-badge">
-            {visibleEvents.length} of {events.length} {events.length === 1 ? 'Event' : 'Events'}
-          </div>
-        )}
-        
         {/* Mobile controls button */}
         {isMobile && overlayMaps.length > 0 && (
           <Button
