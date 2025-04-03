@@ -70,6 +70,9 @@ gcloud services enable cloudbuild.googleapis.com run.googleapis.com
 ENV_YAML_FILE=".env.yaml"
 echo "# Generated environment variables in YAML format" > $ENV_YAML_FILE
 
+# Add our special database operations flag first
+echo "DISABLE_DATABASE_OPERATIONS: \"false\"" >> $ENV_YAML_FILE
+
 # Convert .env format to YAML format
 while IFS='=' read -r key value || [[ -n "$key" ]]; do
     # Skip comments and empty lines
@@ -103,8 +106,7 @@ gcloud run deploy $SERVICE_NAME \
     --concurrency $CONCURRENCY \
     --service-account $SERVICE_ACCOUNT \
     --add-cloudsql-instances $CLOUDSQL_INSTANCE \
-    --env-vars-file $ENV_YAML_FILE \
-    --set-env-vars DISABLE_DATABASE_OPERATIONS=false
+    --env-vars-file $ENV_YAML_FILE
 
 # Clean up
 rm -f "$ENV_VARS_FILE" "$ENV_YAML_FILE"
