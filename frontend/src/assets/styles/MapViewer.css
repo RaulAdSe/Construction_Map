@@ -1274,7 +1274,7 @@ iframe[src*=".pdf"] {
 
 .mobile-layers-toggle {
   position: absolute;
-  bottom: 20px;
+  bottom: 80px; /* Match the add-event-fab bottom position */
   right: 20px;
   width: 45px;
   height: 45px;
