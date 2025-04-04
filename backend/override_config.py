@@ -70,6 +70,7 @@ class SimpleSettings(BaseSettings):
     def model_post_init(self, __context):
         # Add database configuration
         self.init_database_config()
+        self.init_monitoring_config()
     
     def init_database_config(self):
         # Database configuration
@@ -102,11 +103,27 @@ class SimpleSettings(BaseSettings):
         
         self.database = DatabaseConfig(self)
     
+    def init_monitoring_config(self):
+        # Monitoring configuration
+        class MonitoringConfig:
+            def __init__(self):
+                # Default monitoring settings
+                self.HEALTH_CHECK_INTERVAL = int(os.environ.get("HEALTH_CHECK_INTERVAL", "60"))
+                self.ENABLE_PERFORMANCE_TRACKING = os.environ.get("ENABLE_PERFORMANCE_TRACKING", "true").lower() in ("true", "1", "yes")
+                self.LOG_SLOW_REQUESTS = True
+                self.SLOW_REQUEST_THRESHOLD = float(os.environ.get("SLOW_REQUEST_THRESHOLD", "0.5"))  # in seconds
+                self.ENABLE_REQUEST_LOGGING = True
+                self.ENABLE_ERROR_REPORTING = True
+                
+        self.monitoring = MonitoringConfig()
+    
     def dict(self) -> Dict[str, Any]:
         """Return settings as dict for compatibility"""
-        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k != 'database'}
+        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k not in ['database', 'monitoring']}
         if hasattr(self, 'database'):
             result['database'] = {k: getattr(self.database, k) for k in dir(self.database) if not k.startswith('_') and not callable(getattr(self.database, k))}
+        if hasattr(self, 'monitoring'):
+            result['monitoring'] = {k: getattr(self.monitoring, k) for k in dir(self.monitoring) if not k.startswith('_') and not callable(getattr(self.monitoring, k))}
         return result
 
 # Create a simpler implementation that doesn't rely on pydantic-settings
@@ -158,13 +175,27 @@ class HardcodedSettings:
             self.POOL_TIMEOUT = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
             self.POOL_RECYCLE = int(os.environ.get("DB_POOL_RECYCLE", "1800"))
     
+    # Monitoring configuration
+    class MonitoringConfig:
+        def __init__(self):
+            # Default monitoring settings
+            self.HEALTH_CHECK_INTERVAL = int(os.environ.get("HEALTH_CHECK_INTERVAL", "60"))
+            self.ENABLE_PERFORMANCE_TRACKING = os.environ.get("ENABLE_PERFORMANCE_TRACKING", "true").lower() in ("true", "1", "yes")
+            self.LOG_SLOW_REQUESTS = True
+            self.SLOW_REQUEST_THRESHOLD = float(os.environ.get("SLOW_REQUEST_THRESHOLD", "0.5"))  # in seconds
+            self.ENABLE_REQUEST_LOGGING = True
+            self.ENABLE_ERROR_REPORTING = True
+    
     def __init__(self):
         # Initialize the database configuration
         self.database = self.DatabaseConfig(self)
+        # Initialize monitoring configuration
+        self.monitoring = self.MonitoringConfig()
     
     def dict(self):
-        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k != 'database'}
+        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k not in ['database', 'monitoring']}
         result['database'] = {k: getattr(self.database, k) for k in dir(self.database) if not k.startswith('_') and not callable(getattr(self.database, k))}
+        result['monitoring'] = {k: getattr(self.monitoring, k) for k in dir(self.monitoring) if not k.startswith('_') and not callable(getattr(self.monitoring, k))}
         return result
 
 # Try to create using pydantic-settings, fall back to hardcoded if it fails
