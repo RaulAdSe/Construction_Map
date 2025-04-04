@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Minimal App with Database Deployment Script
-# This deploys a minimal FastAPI app with database connectivity
+# This deploys a minimal FastAPI app with database connectivity to Cloud SQL
 
 set -e
 
@@ -16,6 +16,12 @@ CPU=${CPU:-"1"}
 TIMEOUT=${TIMEOUT:-"300"}
 CONCURRENCY=${CONCURRENCY:-"80"}
 SERVICE_ACCOUNT=${SERVICE_ACCOUNT:-"map-service-account@deep-responder-444017-h2.iam.gserviceaccount.com"}
+VPC_CONNECTOR=${VPC_CONNECTOR:-"cloudrun-sql-connector"}
+CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE:-"deep-responder-444017-h2:us-central1:map-view-servitec"}
+DB_PRIVATE_IP=${DB_PRIVATE_IP:-"172.26.144.3"}
+DB_NAME=${DB_NAME:-"servitec_map"}
+DB_USER=${DB_USER:-"postgres"}
+DB_PASSWORD=${DB_PASSWORD:-"4|YD}Tl4npU1d\"M$"}
 
 # Print banner
 echo "=============================================="
@@ -31,6 +37,9 @@ echo "  Region: $REGION"
 echo "  Service Name: $SERVICE_NAME"
 echo "  Memory: $MEMORY"
 echo "  CPU: $CPU"
+echo "  VPC Connector: $VPC_CONNECTOR"
+echo "  Cloud SQL Instance: $CLOUD_SQL_INSTANCE"
+echo "  Database IP (Private): $DB_PRIVATE_IP"
 echo
 read -p "Do you want to continue? (y/n) " -n 1 -r
 echo
@@ -39,11 +48,16 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Create environment variables YAML file
+# Create environment variables YAML file - using private IP for Cloud SQL connection
 ENV_YAML_FILE=".env.yaml"
 cat > $ENV_YAML_FILE << EOF
 # Generated environment variables for deployment
-DATABASE_URL: "postgresql://postgres:4|YD}Tl4npU1d\"M$@34.123.51.251:5432/servitec_map"
+DB_HOST: "$DB_PRIVATE_IP"
+DB_PORT: "5432"
+DB_NAME: "$DB_NAME"
+DB_USER: "$DB_USER"
+DB_PASS: "$DB_PASSWORD"
+DATABASE_URL: "postgresql://$DB_USER:$DB_PASSWORD@$DB_PRIVATE_IP:5432/$DB_NAME"
 EOF
 
 echo "Created environment YAML file for database connection"
@@ -126,7 +140,10 @@ gcloud run deploy $SERVICE_NAME \
     --env-vars-file $ENV_YAML_FILE \
     --set-startup-probe-path=/health \
     --startup-probe-initial-delay=10 \
-    --startup-probe-timeout=5
+    --startup-probe-timeout=5 \
+    --vpc-connector $VPC_CONNECTOR \
+    --vpc-egress all-traffic \
+    --add-cloudsql-instances $CLOUD_SQL_INSTANCE
 
 # Clean up
 rm -f $TEMP_DOCKERFILE cloudbuild.db.yaml $ENV_YAML_FILE

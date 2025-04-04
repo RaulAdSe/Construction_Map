@@ -31,8 +31,25 @@ port = int(os.environ.get("PORT", 8080))
 logger.info(f"Starting minimal app with DB on port {port}")
 
 # Database configuration
-DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:4%7CYD%7D%54l4npU1d%22M%24@34.123.51.251:5432/servitec_map")
-logger.info(f"Using database URL: {DB_URL.replace('postgres:', 'postgres:***')}")
+# Get database credentials from environment variables
+db_host = os.environ.get("DB_HOST")
+db_port = os.environ.get("DB_PORT", "5432")
+db_name = os.environ.get("DB_NAME")
+db_user = os.environ.get("DB_USER")
+db_pass = os.environ.get("DB_PASS")
+
+# Build DATABASE_URL if individual components are provided
+if db_host and db_name and db_user and db_pass:
+    DB_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+    logger.info(f"Built database connection string from environment variables")
+else:
+    # Fallback to direct DATABASE_URL if provided
+    DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:4%7CYD%7D%54l4npU1d%22M%24@34.123.51.251:5432/servitec_map")
+    logger.info("Using DATABASE_URL from environment")
+
+# Mask sensitive info in logs
+masked_url = DB_URL.replace("://", "://***:***@").split("@")[0] + "@" + DB_URL.split("@")[-1]
+logger.info(f"Using database URL: {masked_url}")
 
 # Create Base class for models
 Base = declarative_base()
@@ -77,6 +94,8 @@ def init_db():
         else:
             db_url += "?connect_timeout=5"
 
+        logger.info(f"Connecting to database at {db_url.split('@')[-1].split('/')[0]}")
+        
         # Create SQLAlchemy engine with connect_args for timeout
         engine = create_engine(
             db_url, 
@@ -103,6 +122,7 @@ def init_db():
         return True
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
+        logger.error(f"Connection parameters (masked): host={db_url.split('@')[-1].split('/')[0]}, db={db_url.split('/')[-1].split('?')[0]}")
         return False
 
 # Initialize database in the background - this ensures app startup
@@ -215,7 +235,7 @@ async def debug(request: Request):
     # Collect environment variables (hide sensitive ones)
     env_vars = {}
     for key, value in os.environ.items():
-        if key.lower() in ('postgres_password', 'secret_key', 'database_url'):
+        if key.lower() in ('postgres_password', 'secret_key', 'database_url', 'db_pass'):
             env_vars[key] = "***SENSITIVE***"
         else:
             env_vars[key] = value
