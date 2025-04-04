@@ -44,7 +44,7 @@ if db_host and db_name and db_user and db_pass:
     logger.info(f"Built database connection string from environment variables")
 else:
     # Fallback to direct DATABASE_URL if provided
-    DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:4%7CYD%7D%54l4npU1d%22M%24@34.123.51.251:5432/servitec_map")
+    DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:H6o$-Tt6U@>oBIfU@34.123.51.251:5432/servitec_map")
     logger.info("Using DATABASE_URL from environment")
 
 # Mask sensitive info in logs

@@ -21,7 +21,7 @@ CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE:-"deep-responder-444017-h2:us-central1:m
 DB_PRIVATE_IP=${DB_PRIVATE_IP:-"172.26.144.3"}
 DB_NAME=${DB_NAME:-"servitec_map"}
 DB_USER=${DB_USER:-"postgres"}
-DB_PASSWORD=${DB_PASSWORD:-"4|YD}Tl4npU1d\"M$"}
+DB_PASSWORD=${DB_PASSWORD:-"H6o\$-Tt6U@>oBIfU"}
 
 # Print banner
 echo "=============================================="
