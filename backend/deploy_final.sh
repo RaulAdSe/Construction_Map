@@ -60,7 +60,6 @@ DB_USER: "$DB_USER"
 DB_PASS: "${DB_PASSWORD}"
 CORS_ORIGINS: "*"
 LOG_LEVEL: "INFO"
-PORT: "8080"
 EOF
 
 echo "Created environment YAML file with ${DB_NAME} database connection"
