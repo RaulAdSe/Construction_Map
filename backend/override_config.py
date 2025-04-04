@@ -38,6 +38,7 @@ class SimpleSettings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
     POSTGRES_DB: str = "servitec_map"
+    SQLALCHEMY_DATABASE_URI: Optional[str] = None  # Legacy compatibility
     
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "development_secret_key")
@@ -75,6 +76,9 @@ class SimpleSettings(BaseSettings):
         self.init_security_config()
         self.init_email_config()
         self.init_storage_config()
+        
+        # Set legacy attributes for compatibility
+        self.SQLALCHEMY_DATABASE_URI = self.database.DATABASE_URL
     
     def init_database_config(self):
         # Database configuration
@@ -186,6 +190,21 @@ class SimpleSettings(BaseSettings):
             result['storage'] = {k: getattr(self.storage, k) for k in dir(self.storage) if not k.startswith('_') and not callable(getattr(self.storage, k))}
         return result
 
+    def __getattr__(self, name):
+        """Handle missing attributes dynamically"""
+        logger.warning(f"Accessing missing attribute {name} - attempting to map to existing attribute")
+        
+        # Map legacy attribute names to new ones
+        if name == "SQLALCHEMY_DATABASE_URI":
+            return self.database.DATABASE_URL
+        if name == "DB_URI":
+            return self.database.DATABASE_URL
+            
+        # Add more mappings as needed based on errors
+        
+        # Raise attribute error if no mapping exists
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
 # Create a simpler implementation that doesn't rely on pydantic-settings
 class HardcodedSettings:
     """Hardcoded settings that don't use pydantic-settings at all"""
@@ -206,6 +225,7 @@ class HardcodedSettings:
     DEBUG = False
     UPLOAD_FOLDER = "/app/uploads"
     LOG_LEVEL = "INFO"
+    SQLALCHEMY_DATABASE_URI = None  # Will be set in __init__
     
     # Create database configuration directly on the class initialization
     class DatabaseConfig:
@@ -295,6 +315,9 @@ class HardcodedSettings:
         self.email = self.EmailConfig()
         # Initialize storage configuration
         self.storage = self.StorageConfig()
+        
+        # Set legacy attributes for compatibility
+        self.SQLALCHEMY_DATABASE_URI = self.database.DATABASE_URL
     
     def dict(self):
         result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k not in ['database', 'monitoring', 'cloud_db', 'security', 'email', 'storage']}
@@ -305,6 +328,21 @@ class HardcodedSettings:
         result['email'] = {k: getattr(self.email, k) for k in dir(self.email) if not k.startswith('_') and not callable(getattr(self.email, k))}
         result['storage'] = {k: getattr(self.storage, k) for k in dir(self.storage) if not k.startswith('_') and not callable(getattr(self.storage, k))}
         return result
+
+    def __getattr__(self, name):
+        """Handle missing attributes dynamically"""
+        logger.warning(f"Accessing missing attribute {name} - attempting to map to existing attribute")
+        
+        # Map legacy attribute names to new ones
+        if name == "SQLALCHEMY_DATABASE_URI":
+            return self.database.DATABASE_URL
+        if name == "DB_URI":
+            return self.database.DATABASE_URL
+            
+        # Add more mappings as needed based on errors
+        
+        # Raise attribute error if no mapping exists
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
 # Try to create using pydantic-settings, fall back to hardcoded if it fails
 try:
