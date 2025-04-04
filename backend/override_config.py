@@ -64,9 +64,51 @@ class SimpleSettings(BaseSettings):
     UPLOAD_FOLDER: str = "/app/uploads"
     LOG_LEVEL: str = "INFO"
     
+    class Config:
+        env_file = ".env.production"
+        extra = "ignore"
+    
+    def __post_init__(self):
+        # Add database configuration
+        self.init_database_config()
+    
+    def init_database_config(self):
+        # Database configuration
+        class DatabaseConfig:
+            def __init__(self, parent):
+                # Check for individual database environment variables
+                db_host = os.environ.get("DB_HOST")
+                db_port = os.environ.get("DB_PORT", "5432")
+                db_name = os.environ.get("DB_NAME")
+                db_user = os.environ.get("DB_USER")
+                db_pass = os.environ.get("DB_PASS")
+                
+                # Build database URL
+                if db_host and db_name and db_user and db_pass:
+                    import urllib.parse
+                    encoded_pass = urllib.parse.quote_plus(db_pass)
+                    self.DATABASE_URL = f"postgresql://{db_user}:{encoded_pass}@{db_host}:{db_port}/{db_name}"
+                else:
+                    # Fallback to legacy environment variables or hardcoded values
+                    postgres_pass = parent.POSTGRES_PASSWORD or ""
+                    import urllib.parse
+                    encoded_pass = urllib.parse.quote_plus(postgres_pass)
+                    self.DATABASE_URL = f"postgresql://{parent.POSTGRES_USER}:{encoded_pass}@{parent.POSTGRES_SERVER}:{parent.POSTGRES_PORT}/{parent.POSTGRES_DB}"
+                
+                # Default connection pool settings
+                self.POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
+                self.POOL_OVERFLOW = int(os.environ.get("DB_POOL_OVERFLOW", "10"))
+                self.POOL_TIMEOUT = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
+                self.POOL_RECYCLE = int(os.environ.get("DB_POOL_RECYCLE", "1800"))
+        
+        self.database = DatabaseConfig(self)
+    
     def dict(self) -> Dict[str, Any]:
         """Return settings as dict for compatibility"""
-        return {k: getattr(self, k) for k in dir(self) if not k.startswith('_')}
+        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k != 'database'}
+        if hasattr(self, 'database'):
+            result['database'] = {k: getattr(self.database, k) for k in dir(self.database) if not k.startswith('_') and not callable(getattr(self.database, k))}
+        return result
     
     model_config = SettingsConfigDict(env_file=".env.production", extra="ignore")
 
@@ -91,18 +133,57 @@ class HardcodedSettings:
     UPLOAD_FOLDER = "/app/uploads"
     LOG_LEVEL = "INFO"
     
+    # Create database configuration directly on the class initialization
+    class DatabaseConfig:
+        def __init__(self, parent):
+            # Check for individual database environment variables
+            db_host = os.environ.get("DB_HOST")
+            db_port = os.environ.get("DB_PORT", "5432")
+            db_name = os.environ.get("DB_NAME")
+            db_user = os.environ.get("DB_USER")
+            db_pass = os.environ.get("DB_PASS")
+            
+            # Build database URL
+            if db_host and db_name and db_user and db_pass:
+                import urllib.parse
+                encoded_pass = urllib.parse.quote_plus(db_pass)
+                self.DATABASE_URL = f"postgresql://{db_user}:{encoded_pass}@{db_host}:{db_port}/{db_name}"
+            else:
+                # Fallback to legacy environment variables or hardcoded values
+                postgres_pass = parent.POSTGRES_PASSWORD or os.environ.get("POSTGRES_PASSWORD", "")
+                import urllib.parse
+                encoded_pass = urllib.parse.quote_plus(postgres_pass)
+                self.DATABASE_URL = f"postgresql://{parent.POSTGRES_USER}:{encoded_pass}@{parent.POSTGRES_SERVER}:{parent.POSTGRES_PORT}/{parent.POSTGRES_DB}"
+            
+            # Default connection pool settings
+            self.POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
+            self.POOL_OVERFLOW = int(os.environ.get("DB_POOL_OVERFLOW", "10"))
+            self.POOL_TIMEOUT = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
+            self.POOL_RECYCLE = int(os.environ.get("DB_POOL_RECYCLE", "1800"))
+    
+    def __init__(self):
+        # Initialize the database configuration
+        self.database = self.DatabaseConfig(self)
+    
     def dict(self):
-        return {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k))}
+        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k != 'database'}
+        result['database'] = {k: getattr(self.database, k) for k in dir(self.database) if not k.startswith('_') and not callable(getattr(self.database, k))}
+        return result
 
 # Try to create using pydantic-settings, fall back to hardcoded if it fails
 try:
     settings = SimpleSettings()
+    # Initialize database config
+    if not hasattr(settings, 'database'):
+        settings.init_database_config()
     logger.info(f"Settings created with CORS_ORIGINS: {settings.CORS_ORIGINS}")
+    logger.info(f"Database URL: {settings.database.DATABASE_URL.split('@')[-1]}")
 except Exception as e:
     logger.error(f"Error creating settings with pydantic-settings: {e}")
     logger.info("Falling back to hardcoded settings")
     settings = HardcodedSettings()
     logger.info(f"Hardcoded settings created with CORS_ORIGINS: {settings.CORS_ORIGINS}")
+    logger.info(f"Database URL: {settings.database.DATABASE_URL.split('@')[-1]}")
 
 # Create a dummy module to replace app.core.config
 class DummyConfigModule(ModuleType):
