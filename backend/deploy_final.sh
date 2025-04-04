@@ -57,8 +57,8 @@ DB_HOST: "$DB_PRIVATE_IP"
 DB_PORT: "5432"
 DB_NAME: "$DB_NAME"
 DB_USER: "$DB_USER"
-DB_PASS: "$DB_PASSWORD"
-DATABASE_URL: "postgresql://$DB_USER:$DB_PASSWORD@$DB_PRIVATE_IP:5432/$DB_NAME"
+DB_PASS: "${DB_PASSWORD}"
+DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_PRIVATE_IP}:5432/${DB_NAME}"
 CORS_ORIGINS: "*"
 LOG_LEVEL: "INFO"
 PORT: "8080"
@@ -110,10 +110,6 @@ gcloud run deploy $SERVICE_NAME \
     --timeout $TIMEOUT \
     --service-account $SERVICE_ACCOUNT \
     --env-vars-file $ENV_YAML_FILE \
-    --set-startup-probe-path=/health \
-    --startup-probe-initial-delay=15 \
-    --startup-probe-timeout=5 \
-    --set-liveness-probe-path=/health \
     --vpc-connector $VPC_CONNECTOR \
     --vpc-egress all-traffic \
     --add-cloudsql-instances $CLOUD_SQL_INSTANCE
