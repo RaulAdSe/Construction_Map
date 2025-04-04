@@ -9,6 +9,7 @@ import sys
 import logging
 from datetime import datetime
 from typing import List, Optional
+import urllib.parse
 
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,16 +41,28 @@ db_pass = os.environ.get("DB_PASS")
 
 # Build DATABASE_URL if individual components are provided
 if db_host and db_name and db_user and db_pass:
-    DB_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
-    logger.info(f"Built database connection string from environment variables")
+    # URL encode the password to handle special characters
+    encoded_password = urllib.parse.quote_plus(db_pass)
+    DB_URL = f"postgresql://{db_user}:{encoded_password}@{db_host}:{db_port}/{db_name}"
+    logger.info(f"Built database connection string from environment variables with URL-encoded password")
 else:
     # Fallback to direct DATABASE_URL if provided
-    DB_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:H6o$-Tt6U@>oBIfU@34.123.51.251:5432/servitec_map")
-    logger.info("Using DATABASE_URL from environment")
+    DB_URL = os.environ.get("DATABASE_URL")
+    if DB_URL:
+        logger.info("Using DATABASE_URL from environment")
+    else:
+        # Last resort default with encoded password
+        password = "H6o$-Tt6U@>oBIfU"
+        encoded_password = urllib.parse.quote_plus(password)
+        DB_URL = f"postgresql://postgres:{encoded_password}@34.123.51.251:5432/servitec_map"
+        logger.info("Using default DATABASE_URL with encoded password")
 
 # Mask sensitive info in logs
-masked_url = DB_URL.replace("://", "://***:***@").split("@")[0] + "@" + DB_URL.split("@")[-1]
-logger.info(f"Using database URL: {masked_url}")
+if '@' in DB_URL:
+    masked_url = DB_URL.replace("://", "://***:***@").split("@")[0] + "@" + DB_URL.split("@")[-1]
+    logger.info(f"Using database URL: {masked_url}")
+else:
+    logger.info(f"Using database URL: [MASKED]")
 
 # Create Base class for models
 Base = declarative_base()

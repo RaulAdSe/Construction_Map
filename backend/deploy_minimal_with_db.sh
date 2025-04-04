@@ -57,7 +57,6 @@ DB_PORT: "5432"
 DB_NAME: "$DB_NAME"
 DB_USER: "$DB_USER"
 DB_PASS: "${DB_PASSWORD}"
-DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_PRIVATE_IP}:5432/${DB_NAME}"
 EOF
 
 echo "Created environment YAML file for database connection"
