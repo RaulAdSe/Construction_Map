@@ -64,11 +64,10 @@ class SimpleSettings(BaseSettings):
     UPLOAD_FOLDER: str = "/app/uploads"
     LOG_LEVEL: str = "INFO"
     
-    class Config:
-        env_file = ".env.production"
-        extra = "ignore"
+    # Configuration - use only model_config, not both Config and model_config
+    model_config = SettingsConfigDict(env_file=".env.production", extra="ignore")
     
-    def __post_init__(self):
+    def model_post_init(self, __context):
         # Add database configuration
         self.init_database_config()
     
@@ -109,8 +108,6 @@ class SimpleSettings(BaseSettings):
         if hasattr(self, 'database'):
             result['database'] = {k: getattr(self.database, k) for k in dir(self.database) if not k.startswith('_') and not callable(getattr(self.database, k))}
         return result
-    
-    model_config = SettingsConfigDict(env_file=".env.production", extra="ignore")
 
 # Create a simpler implementation that doesn't rely on pydantic-settings
 class HardcodedSettings:
