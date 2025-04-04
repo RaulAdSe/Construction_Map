@@ -127,6 +127,7 @@ class SimpleSettings(BaseSettings):
         class CloudDBConfig:
             def __init__(self):
                 self.ENABLED = True
+                self.CLOUD_ENABLED = True
                 self.CONNECTION_TIMEOUT = int(os.environ.get("CLOUD_DB_CONNECTION_TIMEOUT", "30"))
                 self.RETRY_LIMIT = int(os.environ.get("CLOUD_DB_RETRY_LIMIT", "3"))
                 self.SOCKET_PATH = os.environ.get("CLOUD_DB_SOCKET_PATH", "")
@@ -250,6 +251,7 @@ class HardcodedSettings:
     class CloudDBConfig:
         def __init__(self):
             self.ENABLED = True
+            self.CLOUD_ENABLED = True
             self.CONNECTION_TIMEOUT = int(os.environ.get("CLOUD_DB_CONNECTION_TIMEOUT", "30"))
             self.RETRY_LIMIT = int(os.environ.get("CLOUD_DB_RETRY_LIMIT", "3"))
             self.SOCKET_PATH = os.environ.get("CLOUD_DB_SOCKET_PATH", "")
