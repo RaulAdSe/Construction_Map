@@ -71,6 +71,10 @@ class SimpleSettings(BaseSettings):
         # Add database configuration
         self.init_database_config()
         self.init_monitoring_config()
+        self.init_cloud_db_config()
+        self.init_security_config()
+        self.init_email_config()
+        self.init_storage_config()
     
     def init_database_config(self):
         # Database configuration
@@ -114,16 +118,71 @@ class SimpleSettings(BaseSettings):
                 self.SLOW_REQUEST_THRESHOLD = float(os.environ.get("SLOW_REQUEST_THRESHOLD", "0.5"))  # in seconds
                 self.ENABLE_REQUEST_LOGGING = True
                 self.ENABLE_ERROR_REPORTING = True
+                self.LOG_PATH = os.environ.get("LOG_PATH", "/app/logs")
                 
         self.monitoring = MonitoringConfig()
     
+    def init_cloud_db_config(self):
+        # Cloud database configuration
+        class CloudDBConfig:
+            def __init__(self):
+                self.ENABLED = True
+                self.CONNECTION_TIMEOUT = int(os.environ.get("CLOUD_DB_CONNECTION_TIMEOUT", "30"))
+                self.RETRY_LIMIT = int(os.environ.get("CLOUD_DB_RETRY_LIMIT", "3"))
+                self.SOCKET_PATH = os.environ.get("CLOUD_DB_SOCKET_PATH", "")
+        
+        self.cloud_db = CloudDBConfig()
+    
+    def init_security_config(self):
+        # Security configuration
+        class SecurityConfig:
+            def __init__(self):
+                self.JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "1440"))  # 24 hours
+                self.REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+                self.ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+                self.ALLOW_CORS_ORIGINS = os.environ.get("ALLOW_CORS_ORIGINS", "*").split(",")
+        
+        self.security = SecurityConfig()
+    
+    def init_email_config(self):
+        # Email configuration
+        class EmailConfig:
+            def __init__(self):
+                self.ENABLED = os.environ.get("EMAIL_ENABLED", "false").lower() in ("true", "1", "yes")
+                self.SMTP_SERVER = os.environ.get("SMTP_SERVER", "")
+                self.SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+                self.SMTP_USER = os.environ.get("SMTP_USER", "")
+                self.SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+                self.FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@example.com")
+        
+        self.email = EmailConfig()
+    
+    def init_storage_config(self):
+        # Storage configuration
+        class StorageConfig:
+            def __init__(self):
+                self.ENABLED = True
+                self.BUCKET_NAME = os.environ.get("GCP_STORAGE_BUCKET", "")
+                self.PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
+                self.UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/app/uploads")
+        
+        self.storage = StorageConfig()
+    
     def dict(self) -> Dict[str, Any]:
         """Return settings as dict for compatibility"""
-        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k not in ['database', 'monitoring']}
+        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k not in ['database', 'monitoring', 'cloud_db', 'security', 'email', 'storage']}
         if hasattr(self, 'database'):
             result['database'] = {k: getattr(self.database, k) for k in dir(self.database) if not k.startswith('_') and not callable(getattr(self.database, k))}
         if hasattr(self, 'monitoring'):
             result['monitoring'] = {k: getattr(self.monitoring, k) for k in dir(self.monitoring) if not k.startswith('_') and not callable(getattr(self.monitoring, k))}
+        if hasattr(self, 'cloud_db'):
+            result['cloud_db'] = {k: getattr(self.cloud_db, k) for k in dir(self.cloud_db) if not k.startswith('_') and not callable(getattr(self.cloud_db, k))}
+        if hasattr(self, 'security'):
+            result['security'] = {k: getattr(self.security, k) for k in dir(self.security) if not k.startswith('_') and not callable(getattr(self.security, k))}
+        if hasattr(self, 'email'):
+            result['email'] = {k: getattr(self.email, k) for k in dir(self.email) if not k.startswith('_') and not callable(getattr(self.email, k))}
+        if hasattr(self, 'storage'):
+            result['storage'] = {k: getattr(self.storage, k) for k in dir(self.storage) if not k.startswith('_') and not callable(getattr(self.storage, k))}
         return result
 
 # Create a simpler implementation that doesn't rely on pydantic-settings
@@ -185,17 +244,64 @@ class HardcodedSettings:
             self.SLOW_REQUEST_THRESHOLD = float(os.environ.get("SLOW_REQUEST_THRESHOLD", "0.5"))  # in seconds
             self.ENABLE_REQUEST_LOGGING = True
             self.ENABLE_ERROR_REPORTING = True
+            self.LOG_PATH = os.environ.get("LOG_PATH", "/app/logs")
+    
+    # Cloud DB configuration
+    class CloudDBConfig:
+        def __init__(self):
+            self.ENABLED = True
+            self.CONNECTION_TIMEOUT = int(os.environ.get("CLOUD_DB_CONNECTION_TIMEOUT", "30"))
+            self.RETRY_LIMIT = int(os.environ.get("CLOUD_DB_RETRY_LIMIT", "3"))
+            self.SOCKET_PATH = os.environ.get("CLOUD_DB_SOCKET_PATH", "")
+    
+    # Security configuration
+    class SecurityConfig:
+        def __init__(self):
+            self.JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "1440"))  # 24 hours
+            self.REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+            self.ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+            self.ALLOW_CORS_ORIGINS = os.environ.get("ALLOW_CORS_ORIGINS", "*").split(",")
+    
+    # Email configuration
+    class EmailConfig:
+        def __init__(self):
+            self.ENABLED = os.environ.get("EMAIL_ENABLED", "false").lower() in ("true", "1", "yes")
+            self.SMTP_SERVER = os.environ.get("SMTP_SERVER", "")
+            self.SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+            self.SMTP_USER = os.environ.get("SMTP_USER", "")
+            self.SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+            self.FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@example.com")
+    
+    # Storage configuration
+    class StorageConfig:
+        def __init__(self):
+            self.ENABLED = True
+            self.BUCKET_NAME = os.environ.get("GCP_STORAGE_BUCKET", "")
+            self.PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
+            self.UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/app/uploads")
     
     def __init__(self):
         # Initialize the database configuration
         self.database = self.DatabaseConfig(self)
         # Initialize monitoring configuration
         self.monitoring = self.MonitoringConfig()
+        # Initialize cloud DB configuration
+        self.cloud_db = self.CloudDBConfig()
+        # Initialize security configuration
+        self.security = self.SecurityConfig()
+        # Initialize email configuration
+        self.email = self.EmailConfig()
+        # Initialize storage configuration
+        self.storage = self.StorageConfig()
     
     def dict(self):
-        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k not in ['database', 'monitoring']}
+        result = {k: getattr(self, k) for k in dir(self) if not k.startswith('_') and not callable(getattr(self, k)) and k not in ['database', 'monitoring', 'cloud_db', 'security', 'email', 'storage']}
         result['database'] = {k: getattr(self.database, k) for k in dir(self.database) if not k.startswith('_') and not callable(getattr(self.database, k))}
         result['monitoring'] = {k: getattr(self.monitoring, k) for k in dir(self.monitoring) if not k.startswith('_') and not callable(getattr(self.monitoring, k))}
+        result['cloud_db'] = {k: getattr(self.cloud_db, k) for k in dir(self.cloud_db) if not k.startswith('_') and not callable(getattr(self.cloud_db, k))}
+        result['security'] = {k: getattr(self.security, k) for k in dir(self.security) if not k.startswith('_') and not callable(getattr(self.security, k))}
+        result['email'] = {k: getattr(self.email, k) for k in dir(self.email) if not k.startswith('_') and not callable(getattr(self.email, k))}
+        result['storage'] = {k: getattr(self.storage, k) for k in dir(self.storage) if not k.startswith('_') and not callable(getattr(self.storage, k))}
         return result
 
 # Try to create using pydantic-settings, fall back to hardcoded if it fails
