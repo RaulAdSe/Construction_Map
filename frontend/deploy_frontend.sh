@@ -66,7 +66,8 @@ gcloud run services update $BACKEND_SERVICE \
 
 # Build the application locally
 echo "Building the React application..."
-export REACT_APP_API_URL="${BACKEND_URL}/api/v1"
+# Use relative URL to leverage nginx proxy
+export REACT_APP_API_URL="/api/v1"
 npm ci
 npm run build
 
@@ -81,6 +82,19 @@ server {
     location = /health {
         access_log off;
         return 200 'ok';
+    }
+
+    # Proxy API requests to avoid CORS issues
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     # Serve static files
