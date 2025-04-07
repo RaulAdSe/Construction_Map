@@ -274,21 +274,31 @@ class MetricsMiddleware:
         self.app = app
         self.exclude_paths = ["/metrics", "/health"]
 
-    async def __call__(self, request, call_next):
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope["path"]
         # Check if the path should be excluded
-        path = request.url.path
         if any(path.startswith(excluded) for excluded in self.exclude_paths):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
         
-        method = request.method
+        method = scope.get("method", "UNKNOWN")
         endpoint = path
         REQUEST_IN_PROGRESS.labels(method=method, endpoint=endpoint).inc()
         start_request_timer()
         
+        # Create a new send function to intercept the response status
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+                stop_request_timer(method, endpoint, status_code)
+            await send(message)
+        
         try:
-            response = await call_next(request)
-            stop_request_timer(method, endpoint, response.status_code)
-            return response
+            await self.app(scope, receive, send_wrapper)
         except Exception as e:
             # Record error and re-raise
             record_error(type(e).__name__, endpoint)
