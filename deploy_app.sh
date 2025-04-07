@@ -24,13 +24,17 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Load environment variables from .env file if it exists
-if [ -f .env ]; then
-    echo "Loading environment variables from .env file..."
-    export $(grep -v '^#' .env | xargs)
-elif [ -f backend/.env ]; then
-    echo "Loading environment variables from backend/.env file..."
-    export $(grep -v '^#' backend/.env | xargs)
+# Create/check .env file
+if [ ! -f backend/.env ]; then
+    echo "No backend/.env file found. Creating one with default values..."
+    cp backend/.env.production.example backend/.env
+    echo "Updating database password..."
+    
+    # Use single quotes to avoid shell interpretation of special characters
+    echo 'DB_PASSWORD=H6o$-Tt6U@>oBIfU' >> backend/.env
+    echo "Environment file created at backend/.env"
+else 
+    echo "Using existing backend/.env file"
 fi
 
 # Step 1: Deploy the backend

@@ -22,17 +22,31 @@ DB_PRIVATE_IP=${DB_PRIVATE_IP:-"172.26.144.3"}
 DB_NAME=${DB_NAME:-"servitec_map"}
 DB_USER=${DB_USER:-"postgres"}
 
-# Load environment variables if not already loaded
-if [ -f .env ]; then
-    echo "Loading environment variables from .env file..."
-    export $(grep -v '^#' .env | xargs)
-fi
+# Set default password (will be used if not found in env or .env file)
+DEFAULT_DB_PASSWORD="H6o\$-Tt6U@>oBIfU"
 
-# Check if DB_PASSWORD is set
+# Check if password exists in environment
 if [ -z "$DB_PASSWORD" ]; then
-    echo "Error: DB_PASSWORD environment variable is not set."
-    echo "Please set it in your .env file or export it before running this script."
-    exit 1
+    echo "DB_PASSWORD not found in environment, checking .env file..."
+    
+    # Load environment variables if not already loaded
+    if [ -f .env ]; then
+        echo "Found .env file in current directory"
+        # Use grep to extract the password line and cut to get just the value
+        DB_PASSWORD=$(grep -E "^DB_PASSWORD=" .env | cut -d'=' -f2-)
+        echo "Loaded password from .env file"
+    elif [ -f ../.env ]; then
+        echo "Found .env file in parent directory"
+        # Use grep to extract the password line and cut to get just the value
+        DB_PASSWORD=$(grep -E "^DB_PASSWORD=" ../.env | cut -d'=' -f2-)
+        echo "Loaded password from ../.env file"
+    fi
+    
+    # If still not found, use default
+    if [ -z "$DB_PASSWORD" ]; then
+        echo "DB_PASSWORD not found in .env file either, using default password"
+        DB_PASSWORD="$DEFAULT_DB_PASSWORD"
+    fi
 fi
 
 # Print banner
