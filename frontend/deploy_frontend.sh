@@ -40,115 +40,124 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Get the backend URL
-BACKEND_URL=$(gcloud run services describe $BACKEND_SERVICE --platform managed --region $REGION --format 'value(status.url)')
-if [ -z "$BACKEND_URL" ]; then
-    echo "Error: Could not get the backend URL. Make sure the backend is deployed."
-    exit 1
-fi
-
-echo "Using backend URL: $BACKEND_URL"
-
-# Create environment configuration file for building frontend
-ENV_FILE=".env.production"
-cat > $ENV_FILE << EOF
-# Production environment variables
-REACT_APP_API_URL=${BACKEND_URL}/api/v1
-GENERATE_SOURCEMAP=false
-EOF
-
-echo "Created production environment file with API URL: ${BACKEND_URL}/api/v1"
-
-# Create a temporary .env file to ensure it's used during build
-cp $ENV_FILE .env
-echo "Copied environment to .env to ensure it's used during build"
-
-# Build the frontend
-echo "Building the frontend..."
-npm install
-REACT_APP_API_URL="${BACKEND_URL}/api/v1" npm run build
-
-# Update Nginx config to add correct CSP headers
-echo "Updating Nginx configuration with security headers..."
-NGINX_CONF="nginx.conf"
-cat > $NGINX_CONF << EOF
-server {
-    listen \${PORT};
-    server_name localhost;
-    server_tokens off;
-
-    # Gzip compression for improved performance
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-    gzip_comp_level 6;
-    gzip_min_length 1000;
-
-    # Security headers
-    add_header X-Content-Type-Options "nosniff";
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-XSS-Protection "1; mode=block";
-    add_header Referrer-Policy "strict-origin-when-cross-origin";
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net data:; connect-src 'self' ${BACKEND_URL} ${BACKEND_URL}/api/v1 https:;";
-
-    # Cache control for static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-        root /usr/share/nginx/html;
-        expires 30d;
-        add_header Cache-Control "public, max-age=2592000";
-        try_files \$uri =404;
-    }
-
-    # Match all routes and serve index.html for client-side routing
-    location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files \$uri \$uri/ /index.html;
-    }
-
-    # Serve index.html for root path
-    location = / {
-        root /usr/share/nginx/html;
-        index index.html;
-    }
-
-    # Handle 404 errors
-    error_page 404 /index.html;
-
-    # Additional security settings
-    location ~ /\.(?!well-known) {
-        deny all;
-    }
-}
-EOF
-
-# Create Cloud Build configuration
-CONFIG_YAML="cloudbuild.frontend.yaml"
-cat > $CONFIG_YAML << EOF
-steps:
-  # Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$SERVICE_NAME', '-f', 'Dockerfile.prod', '.']
-  
-  # Push the container image to Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/$SERVICE_NAME']
-
-# Save the image to GCR
-images:
-  - 'gcr.io/$PROJECT_ID/$SERVICE_NAME'
-EOF
-
 # Set project
 echo "Setting project to $PROJECT_ID..."
 gcloud config set project $PROJECT_ID
 
-# Enable required services
-echo "Enabling required services..."
-gcloud services enable cloudbuild.googleapis.com run.googleapis.com
+# Get backend URL
+echo "Retrieving backend URL..."
+BACKEND_URL=$(gcloud run services describe $BACKEND_SERVICE --platform managed --region $REGION --format 'value(status.url)')
 
-# Build and deploy using Cloud Build
-echo "Building and deploying with Cloud Build..."
-gcloud builds submit --config $CONFIG_YAML .
+if [ -z "$BACKEND_URL" ]; then
+    echo "ERROR: Could not retrieve backend URL. Make sure the backend service '$BACKEND_SERVICE' is deployed."
+    exit 1
+fi
+
+echo "Backend URL: $BACKEND_URL"
+
+# Update backend CORS settings to allow the frontend domain
+echo "Updating backend CORS settings..."
+# First, get the frontend URL if it already exists
+FRONTEND_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)' 2>/dev/null || echo "")
+
+# Set frontend URL to a placeholder if it doesn't exist yet
+if [ -z "$FRONTEND_URL" ]; then
+    # Use the expected URL format
+    FRONTEND_URL="https://$SERVICE_NAME-$(gcloud config get-value project | tr : -).a.run.app"
+    echo "Frontend URL not found, using expected URL format: $FRONTEND_URL"
+fi
+
+# Update backend CORS settings
+echo "Updating backend CORS settings to include frontend URL: $FRONTEND_URL"
+gcloud run services update $BACKEND_SERVICE \
+    --platform managed \
+    --region $REGION \
+    --update-env-vars "CORS_ORIGINS=$FRONTEND_URL,https://*.a.run.app,*"
+
+# Create an environment configuration file for production
+ENV_CONFIG="env-config.production.js"
+echo "Creating environment configuration..."
+cat > $ENV_CONFIG << EOF
+window.ENV = {
+  REACT_APP_API_URL: "${BACKEND_URL}/api/v1",
+  NODE_ENV: "production"
+};
+EOF
+
+# Build the application
+echo "Building application with production settings..."
+REACT_APP_API_URL="${BACKEND_URL}/api/v1" npm run build
+
+# Include the environment config in the build
+cp $ENV_CONFIG build/
+
+# Create nginx configuration with proper headers and redirects
+cat > nginx.conf.template << EOF
+server {
+    listen \${PORT};
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_disable "msie6";
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+    gzip_min_length 256;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/vnd.ms-fontobject application/x-font-ttf font/opentype image/svg+xml image/x-icon;
+
+    # Security headers
+    add_header X-Content-Type-Options nosniff;
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ${BACKEND_URL} ${BACKEND_URL}/api/v1 https:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; media-src 'self' https:; worker-src 'self' blob:; frame-src 'self';";
+    
+    # Cache static assets
+    location ~* \.(?:jpg|jpeg|gif|png|ico|svg|webp)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+    
+    location ~* \.(?:css|js)$ {
+        expires 7d;
+        add_header Cache-Control "public, no-transform";
+    }
+    
+    # Serve SPA for all routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # Health check endpoint
+    location = /health.html {
+        add_header Content-Type text/plain;
+        return 200 'ok';
+    }
+}
+EOF
+
+# Create Dockerfile for frontend
+cat > Dockerfile.deploy << EOF
+FROM node:18-alpine as build
+WORKDIR /app
+COPY build ./build
+
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+EXPOSE 8080
+ENV PORT=8080
+EOF
+
+# Build and push to Cloud Run
+echo "Building and deploying to Cloud Run..."
+gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME \
+                     --project=$PROJECT_ID \
+                     --file Dockerfile.deploy .
 
 # Deploy to Cloud Run
 echo "Deploying to Cloud Run..."
@@ -164,15 +173,16 @@ gcloud run deploy $SERVICE_NAME \
     --concurrency $CONCURRENCY \
     --timeout $TIMEOUT
 
-# Clean up - for security, immediately remove files with sensitive information
-rm -f $CONFIG_YAML
+# Cleanup
+echo "Cleaning up temporary files..."
+rm -f $ENV_CONFIG nginx.conf.template Dockerfile.deploy
 
 # Get URL
-SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
+FRONTEND_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
 
 echo
 echo "=============================================="
 echo "Servitec Map Frontend deployment completed successfully!"
-echo "Frontend URL: $SERVICE_URL"
-echo "Backend API URL: ${BACKEND_URL}/api/v1"
+echo "Frontend URL: $FRONTEND_URL"
+echo "Backend API: $BACKEND_URL"
 echo "==============================================" 

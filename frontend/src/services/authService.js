@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api/v1/auth';
+// Use environment variable for API URL
+// Note: REACT_APP_API_URL already includes /api/v1
+const API_URL = `${process.env.REACT_APP_API_URL}/auth`;
 
 // Create instance with default config
 const api = axios.create({
@@ -10,6 +12,11 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+// Log API URL in development for debugging
+if (process.env.NODE_ENV === 'development') {
+  console.log('Auth Service API URL:', API_URL);
+}
 
 export const login = async (username, password) => {
   try {
