@@ -24,6 +24,15 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
+# Load environment variables from .env file if it exists
+if [ -f .env ]; then
+    echo "Loading environment variables from .env file..."
+    export $(grep -v '^#' .env | xargs)
+elif [ -f backend/.env ]; then
+    echo "Loading environment variables from backend/.env file..."
+    export $(grep -v '^#' backend/.env | xargs)
+fi
+
 # Step 1: Deploy the backend
 echo
 echo "=============================================="
@@ -31,18 +40,9 @@ echo "STEP 1: Deploying Backend API"
 echo "=============================================="
 echo
 
-# Ask for the database password for the backend deployment
-read -s -p "Enter database password for backend deployment: " DB_PASSWORD
-echo
-
-# Export the password as an environment variable for the backend deployment script
-export DB_PASSWORD
-
 cd backend
 ./deploy_final.sh
 BACKEND_RESULT=$?
-# Immediately clear the password from environment variables for security
-unset DB_PASSWORD
 # If deployment was cancelled by the user, exit
 if [ $BACKEND_RESULT -ne 0 ]; then
     echo "Backend deployment was cancelled or failed. Exiting."

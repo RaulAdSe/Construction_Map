@@ -21,14 +21,18 @@ CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE:-"deep-responder-444017-h2:us-central1:m
 DB_PRIVATE_IP=${DB_PRIVATE_IP:-"172.26.144.3"}
 DB_NAME=${DB_NAME:-"servitec_map"}
 DB_USER=${DB_USER:-"postgres"}
-# Do not hardcode the password, prompt for it or use environment variable
+
+# Load environment variables if not already loaded
+if [ -f .env ]; then
+    echo "Loading environment variables from .env file..."
+    export $(grep -v '^#' .env | xargs)
+fi
+
+# Check if DB_PASSWORD is set
 if [ -z "$DB_PASSWORD" ]; then
-    read -s -p "Enter database password: " DB_PASSWORD
-    echo
-    if [ -z "$DB_PASSWORD" ]; then
-        echo "Error: Database password cannot be empty"
-        exit 1
-    fi
+    echo "Error: DB_PASSWORD environment variable is not set."
+    echo "Please set it in your .env file or export it before running this script."
+    exit 1
 fi
 
 # Print banner
