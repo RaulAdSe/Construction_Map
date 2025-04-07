@@ -192,6 +192,63 @@ def update_system_metrics(memory_bytes: float, cpu_percent: float) -> None:
     MEMORY_USAGE.set(memory_bytes)
     CPU_USAGE.set(cpu_percent)
 
+def update_database_metrics(connection_count: int, active_queries: int, idle_connections: int = 0, 
+                            dead_tuples: int = 0, idle_in_transaction: int = 0) -> None:
+    """
+    Update database performance metrics.
+    
+    Args:
+        connection_count: Total number of database connections
+        active_queries: Number of active queries
+        idle_connections: Number of idle connections
+        dead_tuples: Number of dead tuples (for vacuum analysis)
+        idle_in_transaction: Number of connections idle in transaction
+    """
+    # Define gauge metrics for these database stats if not already defined
+    global DB_CONNECTION_COUNT, DB_ACTIVE_QUERIES, DB_IDLE_CONNECTIONS, DB_DEAD_TUPLES, DB_IDLE_IN_TRANSACTION
+    
+    if not globals().get('DB_CONNECTION_COUNT'):
+        DB_CONNECTION_COUNT = Gauge(
+            'app_db_connection_count',
+            'Number of database connections',
+            registry=REGISTRY
+        )
+    
+    if not globals().get('DB_ACTIVE_QUERIES'):
+        DB_ACTIVE_QUERIES = Gauge(
+            'app_db_active_queries',
+            'Number of active database queries',
+            registry=REGISTRY
+        )
+    
+    if not globals().get('DB_IDLE_CONNECTIONS'):
+        DB_IDLE_CONNECTIONS = Gauge(
+            'app_db_idle_connections',
+            'Number of idle database connections',
+            registry=REGISTRY
+        )
+    
+    if not globals().get('DB_DEAD_TUPLES'):
+        DB_DEAD_TUPLES = Gauge(
+            'app_db_dead_tuples',
+            'Number of dead tuples',
+            registry=REGISTRY
+        )
+    
+    if not globals().get('DB_IDLE_IN_TRANSACTION'):
+        DB_IDLE_IN_TRANSACTION = Gauge(
+            'app_db_idle_in_transaction',
+            'Number of connections idle in transaction',
+            registry=REGISTRY
+        )
+    
+    # Update the metrics
+    DB_CONNECTION_COUNT.set(connection_count)
+    DB_ACTIVE_QUERIES.set(active_queries)
+    DB_IDLE_CONNECTIONS.set(idle_connections)
+    DB_DEAD_TUPLES.set(dead_tuples)
+    DB_IDLE_IN_TRANSACTION.set(idle_in_transaction)
+
 def update_active_users(count: int) -> None:
     """
     Update the active users metric.

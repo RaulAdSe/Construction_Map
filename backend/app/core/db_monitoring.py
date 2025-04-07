@@ -37,8 +37,7 @@ def after_cursor_execute(conn, cursor, statement, parameters, context, executema
     total_time = time.time() - conn.info['query_start_time'].pop(-1)
     
     # Record metrics for this query
-    operation_type = get_operation_type(statement)
-    record_database_query(operation_type, total_time)
+    record_database_query(statement, parameters, total_time)
     
     # Log all queries if in debug mode
     if settings.DEBUG:
@@ -53,7 +52,7 @@ def after_cursor_execute(conn, cursor, statement, parameters, context, executema
             "query": statement,
             "parameters": str(parameters),
             "duration": total_time,
-            "operation_type": operation_type
+            "operation_type": get_operation_type(statement)
         }
         
         # Add to global list for in-memory access
@@ -102,7 +101,17 @@ def get_slow_queries_from_log(limit=50):
 def get_database_metrics():
     """Return summary metrics about database operations"""
     # Update metrics in the Prometheus registry
-    update_database_metrics(len(slow_queries))
+    # Provide the required parameters for update_database_metrics:
+    # connection_count, active_queries, idle_connections, dead_tuples, idle_in_transaction
+    connection_count = len(slow_queries)  # Use as a proxy for connection count
+    update_database_metrics(
+        connection_count=connection_count,
+        active_queries=0,  # We don't have real-time data for this in this implementation
+        idle_connections=0,  # We don't have real-time data for this in this implementation
+        dead_tuples=0,      # We don't have real-time data for this in this implementation
+        idle_in_transaction=0  # We don't have real-time data for this in this implementation
+    )
+    
     return {
         "slow_queries_count": len(slow_queries),
         "recent_slow_queries": get_slow_queries(5),
