@@ -69,10 +69,12 @@ fi
 
 # Update backend CORS settings
 echo "Updating backend CORS settings to include frontend URL: $FRONTEND_URL"
+# Properly escape the wildcard characters for gcloud command
+CORS_ORIGINS="${FRONTEND_URL}"
 gcloud run services update $BACKEND_SERVICE \
     --platform managed \
     --region $REGION \
-    --update-env-vars="CORS_ORIGINS=${FRONTEND_URL},https://servitec-map-frontend-*.a.run.app,https://servitec-map-api-*.a.run.app"
+    --update-env-vars CORS_ORIGINS="$CORS_ORIGINS"
 
 # Create an environment configuration file for production
 ENV_CONFIG="env-config.production.js"
