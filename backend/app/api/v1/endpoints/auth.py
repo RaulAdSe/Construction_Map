@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.config import settings
 from app.core.security import create_access_token
+from app.core.rate_limiter import check_ip_blocked, record_failed_attempt, clear_failed_attempts
 from app.services.auth import authenticate_user, create_user, get_user_by_username
 from app.schemas.user import User, UserCreate, Token
 from app.api.v1.endpoints.monitoring import log_user_activity
@@ -24,8 +25,14 @@ def login_access_token(
     """
     OAuth2 compatible token login, get an access token for future requests
     """
+    # Check if IP is blocked due to too many failed attempts
+    check_ip_blocked(request)
+    
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
+        # Record the failed attempt for rate limiting
+        record_failed_attempt(request, form_data.username)
+        
         # Log failed login attempt
         log_user_activity(
             user_id=None,
@@ -53,6 +60,9 @@ def login_access_token(
         )
         
         raise HTTPException(status_code=400, detail="Inactive user")
+    
+    # Clear failed attempts on successful login
+    clear_failed_attempts(request, form_data.username)
     
     # Log successful login
     log_user_activity(
@@ -92,8 +102,14 @@ def register_user(
     """
     Register a new user
     """
+    # Check if IP is blocked due to too many failed attempts
+    check_ip_blocked(request)
+    
     # Check if the username already exists
     if get_user_by_username(db, user_in.username):
+        # Record failed attempt (to prevent registration brute forcing)
+        record_failed_attempt(request, user_in.username)
+        
         # Log registration attempt with existing username
         log_user_activity(
             user_id=None,
@@ -116,6 +132,9 @@ def register_user(
         password=user_in.password, 
         is_admin=user_in.is_admin
     )
+    
+    # Clear failed attempts for this username/IP
+    clear_failed_attempts(request, user_in.username)
     
     # Log successful registration
     log_user_activity(
