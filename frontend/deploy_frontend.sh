@@ -159,7 +159,7 @@ EOF
 echo "Building and deploying to Cloud Run..."
 gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME \
                      --project=$PROJECT_ID \
-                     --file Dockerfile.deploy .
+                     --dockerfile=Dockerfile.deploy .
 
 # Deploy to Cloud Run
 echo "Deploying to Cloud Run..."
