@@ -5,7 +5,41 @@
 
 set -e
 
-# Configuration variables
+# Look for environment files in priority order
+if [ -f .env.production ]; then
+    echo "Loading environment variables from .env.production..."
+    set -a # automatically export all variables
+    source .env.production
+    set +a
+    ENV_FILE=".env.production"
+elif [ -f .env ]; then
+    echo "Loading environment variables from .env..."
+    set -a # automatically export all variables
+    source .env
+    set +a
+    ENV_FILE=".env"
+elif [ -f ../.env.production ]; then
+    echo "Loading environment variables from parent directory .env.production..."
+    set -a # automatically export all variables
+    source ../.env.production
+    set +a
+    ENV_FILE="../.env.production"
+elif [ -f ../.env ]; then
+    echo "Loading environment variables from parent directory .env..."
+    set -a # automatically export all variables
+    source ../.env
+    set +a
+    ENV_FILE="../.env"
+else
+    echo "No environment file found!"
+    echo "Please create either .env or .env.production in the backend directory."
+    exit 1
+fi
+
+echo "Using environment configuration from: $ENV_FILE"
+
+# Set configuration variables from environment with fallbacks
+# (only non-sensitive defaults are hardcoded)
 PROJECT_ID=${PROJECT_ID:-"deep-responder-444017-h2"}
 REGION=${REGION:-"us-central1"}
 SERVICE_NAME=${SERVICE_NAME:-"servitec-map-api"}
@@ -15,39 +49,28 @@ MEMORY=${MEMORY:-"1Gi"}
 CPU=${CPU:-"1"}
 TIMEOUT=${TIMEOUT:-"300"}
 CONCURRENCY=${CONCURRENCY:-"80"}
-SERVICE_ACCOUNT=${SERVICE_ACCOUNT:-"map-service-account@deep-responder-444017-h2.iam.gserviceaccount.com"}
-VPC_CONNECTOR=${VPC_CONNECTOR:-"cloudrun-sql-connector"}
-CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE:-"deep-responder-444017-h2:us-central1:map-view-servitec"}
-DB_PRIVATE_IP=${DB_PRIVATE_IP:-"172.26.144.3"}
-DB_NAME=${DB_NAME:-"servitec_map"}
-DB_USER=${DB_USER:-"postgres"}
+SERVICE_ACCOUNT=${SERVICE_ACCOUNT}
+VPC_CONNECTOR=${VPC_CONNECTOR}
+CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE}
+DB_PRIVATE_IP=${DB_HOST}
+DB_NAME=${DB_NAME}
+DB_USER=${DB_USER}
 
-# Check if password exists in environment
-if [ -z "$DB_PASSWORD" ]; then
-    echo "DB_PASSWORD not found in environment, checking .env file..."
-    
-    # Load environment variables if not already loaded
-    if [ -f .env ]; then
-        echo "Found .env file in current directory"
-        # Use grep to extract the password line and cut to get just the value
-        DB_PASSWORD=$(grep -E "^DB_PASSWORD=" .env | cut -d'=' -f2-)
-        echo "Loaded password from .env file"
-    elif [ -f ../.env ]; then
-        echo "Found .env file in parent directory"
-        # Use grep to extract the password line and cut to get just the value
-        DB_PASSWORD=$(grep -E "^DB_PASSWORD=" ../.env | cut -d'=' -f2-)
-        echo "Loaded password from ../.env file"
+# Check if required variables are set
+REQUIRED_VARS="DB_PASSWORD DB_HOST DB_NAME DB_USER SERVICE_ACCOUNT VPC_CONNECTOR CLOUD_SQL_INSTANCE"
+MISSING_VARS=""
+
+for var in $REQUIRED_VARS; do
+    if [ -z "${!var}" ]; then
+        MISSING_VARS="$MISSING_VARS $var"
     fi
-    
-    # If still not found, show error
-    if [ -z "$DB_PASSWORD" ]; then
-        echo "ERROR: Database password not found!"
-        echo "Please set up your environment by doing one of the following:"
-        echo "1. Create a .env file in the backend directory with DB_PASSWORD=your_password"
-        echo "2. Set the DB_PASSWORD environment variable: export DB_PASSWORD=your_password"
-        echo "3. Run deploy_app.sh from the project root, which will create the .env file for you"
-        exit 1
-    fi
+done
+
+if [ ! -z "$MISSING_VARS" ]; then
+    echo "ERROR: The following required variables are missing from your environment file:"
+    echo "$MISSING_VARS"
+    echo "Please add them to your $ENV_FILE file."
+    exit 1
 fi
 
 # Print banner
@@ -59,6 +82,7 @@ echo
 # Confirm deployment
 echo "This script will deploy the full Servitec Map API to Cloud Run."
 echo "Configuration:"
+echo "  Environment File: $ENV_FILE"
 echo "  Project ID: $PROJECT_ID"
 echo "  Region: $REGION"
 echo "  Service Name: $SERVICE_NAME"
@@ -66,7 +90,7 @@ echo "  Memory: $MEMORY"
 echo "  CPU: $CPU"
 echo "  VPC Connector: $VPC_CONNECTOR"
 echo "  Cloud SQL Instance: $CLOUD_SQL_INSTANCE"
-echo "  Database IP (Private): $DB_PRIVATE_IP"
+echo "  Database IP: $DB_PRIVATE_IP"
 echo
 read -p "Do you want to continue? (y/n) " -n 1 -r
 echo
@@ -81,12 +105,13 @@ cat > $ENV_YAML_FILE << EOF
 # Generated environment variables for production deployment
 ENVIRONMENT: "production"
 DB_HOST: "$DB_PRIVATE_IP"
-DB_PORT: "5432"
+DB_PORT: "${DB_PORT:-5432}"
 DB_NAME: "$DB_NAME"
 DB_USER: "$DB_USER"
 DB_PASS: "${DB_PASSWORD}"
-CORS_ORIGINS: "*"
-LOG_LEVEL: "INFO"
+CORS_ORIGINS: "${CORS_ORIGINS:-*}"
+LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+SECRET_KEY: "${SECRET_KEY}"
 EOF
 
 echo "Created environment YAML file with ${DB_NAME} database connection"

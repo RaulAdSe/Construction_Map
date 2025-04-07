@@ -24,13 +24,27 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Create/check .env file
-if [ ! -f backend/.env ]; then
-    echo "No backend/.env file found. Creating one with default values..."
-    cp backend/.env.production.example backend/.env
-    echo "Backend environment file created at backend/.env"
+# Check for environment files in the backend directory
+if [ -f backend/.env.production ]; then
+    echo "Found backend/.env.production file"
+    ENV_FILE="backend/.env.production"
+elif [ -f backend/.env ]; then
+    echo "Found backend/.env file"
+    ENV_FILE="backend/.env"
+else
+    echo "No environment file found in backend directory."
+    echo "Creating one from the production example..."
     
-    # Ask for password instead of hardcoding it
+    if [ ! -f backend/.env.production.example ]; then
+        echo "ERROR: backend/.env.production.example does not exist!"
+        echo "Please make sure you have the correct repository structure."
+        exit 1
+    fi
+    
+    cp backend/.env.production.example backend/.env.production
+    ENV_FILE="backend/.env.production"
+    
+    # Ask for password
     read -s -p "Enter database password: " DB_PASSWORD
     echo
     
@@ -39,12 +53,12 @@ if [ ! -f backend/.env ]; then
         exit 1
     fi
     
-    # Use sed to replace the placeholder password in the .env file
-    sed -i -e "s/DB_PASSWORD=your_secure_production_password/DB_PASSWORD=$DB_PASSWORD/" backend/.env
-    echo "Database password updated in environment file"
-else 
-    echo "Using existing backend/.env file"
+    # Use sed to replace the placeholder password in the .env.production file
+    sed -i -e "s/DB_PASSWORD=your_secure_production_password/DB_PASSWORD=$DB_PASSWORD/" backend/.env.production
+    echo "Created and configured backend/.env.production with your database password"
 fi
+
+echo "Using environment file: $ENV_FILE"
 
 # Step 1: Deploy the backend
 echo
