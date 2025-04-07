@@ -62,7 +62,7 @@ echo "Updating backend CORS settings to include frontend URL: $FRONTEND_URL"
 gcloud run services update $BACKEND_SERVICE \
     --platform managed \
     --region $REGION \
-    --update-env-vars CORS_ORIGINS="$FRONTEND_URL"
+    --update-env-vars CORS_ORIGINS="*"
 
 # Build the application locally
 echo "Building the React application..."
