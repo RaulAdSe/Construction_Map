@@ -46,7 +46,7 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 
 # Add metrics middleware
-app.add_middleware(MetricsMiddleware, exclude_paths=["/metrics", "/health"])
+app.add_middleware(MetricsMiddleware)
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")

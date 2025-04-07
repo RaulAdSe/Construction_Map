@@ -268,21 +268,12 @@ def collect_metrics() -> bytes:
     return generate_latest(REGISTRY)
 
 class MetricsMiddleware:
-    """
-    Middleware for collecting request metrics.
-    
-    Collects metrics for each request including count, latency, and errors.
-    """
-    
-    def __init__(self, exclude_paths: Optional[list] = None):
-        """
-        Initialize the middleware.
-        
-        Args:
-            exclude_paths: List of paths to exclude from metrics collection (e.g., ['/metrics'])
-        """
-        self.exclude_paths = exclude_paths or ['/metrics']
-    
+    """Middleware for collecting request metrics."""
+
+    def __init__(self, app=None):
+        self.app = app
+        self.exclude_paths = ["/metrics", "/health"]
+
     async def __call__(self, request, call_next):
         # Check if the path should be excluded
         path = request.url.path
