@@ -137,6 +137,20 @@ class SimpleSettings(BaseSettings):
                 self.ENABLE_ERROR_REPORTING = True
                 self.LOG_PATH = os.environ.get("LOG_PATH", "/app/logs")
                 
+                # Database monitoring settings
+                self.MAX_SLOW_QUERIES = int(os.environ.get("MAX_SLOW_QUERIES", "100"))
+                self.SLOW_QUERY_THRESHOLD = float(os.environ.get("SLOW_QUERY_THRESHOLD", "0.5"))  # in seconds
+                self.DB_MONITORING_ENABLED = os.environ.get("DB_MONITORING_ENABLED", "true").lower() in ("true", "1", "yes")
+                self.DB_LOG_ALL_QUERIES = os.environ.get("DB_LOG_ALL_QUERIES", "false").lower() in ("true", "1", "yes")
+                self.DB_METRICS_INTERVAL = int(os.environ.get("DB_METRICS_INTERVAL", "60"))  # in seconds
+                
+                # User activity monitoring
+                self.ACTIVITY_RETENTION_DAYS = int(os.environ.get("ACTIVITY_RETENTION_DAYS", "30"))
+                self.MAX_ACTIVITIES_PER_USER = int(os.environ.get("MAX_ACTIVITIES_PER_USER", "100"))
+                
+                # Logging level
+                self.LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+        
         self.monitoring = MonitoringConfig()
     
     def init_cloud_db_config(self):
@@ -148,6 +162,32 @@ class SimpleSettings(BaseSettings):
                 self.CONNECTION_TIMEOUT = int(os.environ.get("CLOUD_DB_CONNECTION_TIMEOUT", "30"))
                 self.RETRY_LIMIT = int(os.environ.get("CLOUD_DB_RETRY_LIMIT", "3"))
                 self.SOCKET_PATH = os.environ.get("CLOUD_DB_SOCKET_PATH", "")
+                
+                # Connection string and pool settings
+                db_host = os.environ.get("DB_HOST")
+                db_port = os.environ.get("DB_PORT", "5432")
+                db_name = os.environ.get("DB_NAME")
+                db_user = os.environ.get("DB_USER")
+                db_pass = os.environ.get("DB_PASS")
+                
+                # Build database URL for cloud if parameters exist
+                if db_host and db_name and db_user and db_pass:
+                    import urllib.parse
+                    encoded_pass = urllib.parse.quote_plus(db_pass)
+                    self.CONNECTION_STRING = f"postgresql://{db_user}:{encoded_pass}@{db_host}:{db_port}/{db_name}"
+                else:
+                    # Default to None if not provided
+                    self.CONNECTION_STRING = None
+                
+                # Pool settings (same as database config for consistency)
+                self.POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
+                self.MAX_OVERFLOW = int(os.environ.get("DB_POOL_OVERFLOW", "10"))
+                self.POOL_TIMEOUT = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
+                self.POOL_RECYCLE = int(os.environ.get("DB_POOL_RECYCLE", "1800"))
+                
+                # SSL settings
+                self.SSL_MODE = os.environ.get("DB_SSL_MODE", "")
+                self.SSL_CA_CERT = os.environ.get("DB_SSL_CA_CERT", "")
         
         self.cloud_db = CloudDBConfig()
     
@@ -183,6 +223,9 @@ class SimpleSettings(BaseSettings):
                 self.BUCKET_NAME = os.environ.get("GCP_STORAGE_BUCKET", "")
                 self.PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
                 self.UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/app/uploads")
+                self.CLOUD_STORAGE_ENABLED = os.environ.get("CLOUD_STORAGE_ENABLED", "true").lower() in ("true", "1", "yes")
+                self.GCP_STORAGE_BUCKET = os.environ.get("GCP_STORAGE_BUCKET", "")
+                self.GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
         
         self.storage = StorageConfig()
     
@@ -303,6 +346,20 @@ class HardcodedSettings:
             self.ENABLE_REQUEST_LOGGING = True
             self.ENABLE_ERROR_REPORTING = True
             self.LOG_PATH = os.environ.get("LOG_PATH", "/app/logs")
+            
+            # Database monitoring settings
+            self.MAX_SLOW_QUERIES = int(os.environ.get("MAX_SLOW_QUERIES", "100"))
+            self.SLOW_QUERY_THRESHOLD = float(os.environ.get("SLOW_QUERY_THRESHOLD", "0.5"))  # in seconds
+            self.DB_MONITORING_ENABLED = os.environ.get("DB_MONITORING_ENABLED", "true").lower() in ("true", "1", "yes")
+            self.DB_LOG_ALL_QUERIES = os.environ.get("DB_LOG_ALL_QUERIES", "false").lower() in ("true", "1", "yes")
+            self.DB_METRICS_INTERVAL = int(os.environ.get("DB_METRICS_INTERVAL", "60"))  # in seconds
+            
+            # User activity monitoring
+            self.ACTIVITY_RETENTION_DAYS = int(os.environ.get("ACTIVITY_RETENTION_DAYS", "30"))
+            self.MAX_ACTIVITIES_PER_USER = int(os.environ.get("MAX_ACTIVITIES_PER_USER", "100"))
+            
+            # Logging level
+            self.LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
     
     # Cloud DB configuration
     class CloudDBConfig:
@@ -312,6 +369,32 @@ class HardcodedSettings:
             self.CONNECTION_TIMEOUT = int(os.environ.get("CLOUD_DB_CONNECTION_TIMEOUT", "30"))
             self.RETRY_LIMIT = int(os.environ.get("CLOUD_DB_RETRY_LIMIT", "3"))
             self.SOCKET_PATH = os.environ.get("CLOUD_DB_SOCKET_PATH", "")
+            
+            # Connection string and pool settings
+            db_host = os.environ.get("DB_HOST")
+            db_port = os.environ.get("DB_PORT", "5432")
+            db_name = os.environ.get("DB_NAME")
+            db_user = os.environ.get("DB_USER")
+            db_pass = os.environ.get("DB_PASS")
+            
+            # Build database URL for cloud if parameters exist
+            if db_host and db_name and db_user and db_pass:
+                import urllib.parse
+                encoded_pass = urllib.parse.quote_plus(db_pass)
+                self.CONNECTION_STRING = f"postgresql://{db_user}:{encoded_pass}@{db_host}:{db_port}/{db_name}"
+            else:
+                # Default to None if not provided
+                self.CONNECTION_STRING = None
+            
+            # Pool settings (same as database config for consistency)
+            self.POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
+            self.MAX_OVERFLOW = int(os.environ.get("DB_POOL_OVERFLOW", "10"))
+            self.POOL_TIMEOUT = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
+            self.POOL_RECYCLE = int(os.environ.get("DB_POOL_RECYCLE", "1800"))
+            
+            # SSL settings
+            self.SSL_MODE = os.environ.get("DB_SSL_MODE", "")
+            self.SSL_CA_CERT = os.environ.get("DB_SSL_CA_CERT", "")
     
     # Security configuration
     class SecurityConfig:
@@ -338,6 +421,9 @@ class HardcodedSettings:
             self.BUCKET_NAME = os.environ.get("GCP_STORAGE_BUCKET", "")
             self.PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
             self.UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/app/uploads")
+            self.CLOUD_STORAGE_ENABLED = os.environ.get("CLOUD_STORAGE_ENABLED", "true").lower() in ("true", "1", "yes")
+            self.GCP_STORAGE_BUCKET = os.environ.get("GCP_STORAGE_BUCKET", "")
+            self.GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "")
     
     def __init__(self):
         # Initialize the database configuration
