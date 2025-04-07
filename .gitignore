@@ -76,6 +76,7 @@ token.txt
 # Production and sensitive data
 *.env.yaml
 *.env.yml
+*.env.prod
 cloudbuild*.yaml
 cloudbuild*.yml
 *secret*
