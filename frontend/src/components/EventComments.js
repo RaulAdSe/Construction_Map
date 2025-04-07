@@ -321,7 +321,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                   {hasImageAttachment && (
                     <div className="comment-attachment mt-3">
                       <Image 
-                        src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'http://localhost:8000'}${comment.image_url}`} 
+                        src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '')}`}
                         alt={translate('Comment attachment')} 
                         fluid 
                         className="comment-image" 
@@ -338,7 +338,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                           <Button 
                             variant="link" 
                             onClick={() => {
-                              const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
+                              const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/v1', '');
                               const fullUrl = `${baseUrl}${comment.image_url}`;
                               window.open(fullUrl, '_blank');
                             }}

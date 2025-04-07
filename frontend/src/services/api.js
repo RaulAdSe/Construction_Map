@@ -1,9 +1,10 @@
 import axios from 'axios';
 
 // Add debug flag to control console output
-const DEBUG = true; // Set to true to help troubleshoot the current issues
+const DEBUG = process.env.NODE_ENV === 'development';
 
-const API_URL = 'http://localhost:8000/api/v1';
+// Use environment variable for API_URL with no fallback to localhost
+const API_URL = process.env.REACT_APP_API_URL;
 
 // Create axios instance with default config
 const apiClient = axios.create({

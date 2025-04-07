@@ -321,9 +321,7 @@ const ViewEventModal = ({
                         className="mb-2 shadow-sm rounded"
                         style={{ cursor: 'pointer', maxHeight: '200px', width: 'auto', display: 'block', margin: '0 auto' }}
                         onClick={() => {
-                          const imageUrl = memoizedEvent.image_url.startsWith('http')
-                            ? memoizedEvent.image_url
-                            : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+                          const imageUrl = process.env.REACT_APP_API_URL?.replace('/api/v1', '') + `/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
                           window.open(imageUrl, '_blank');
                         }}
                       />

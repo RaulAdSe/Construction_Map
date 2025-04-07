@@ -53,15 +53,73 @@ echo "Using backend URL: $BACKEND_URL"
 ENV_FILE=".env.production"
 cat > $ENV_FILE << EOF
 # Production environment variables
-REACT_APP_API_URL=$BACKEND_URL
+REACT_APP_API_URL=${BACKEND_URL}/api/v1
+GENERATE_SOURCEMAP=false
 EOF
 
-echo "Created production environment file with API URL: $BACKEND_URL"
+echo "Created production environment file with API URL: ${BACKEND_URL}/api/v1"
+
+# Create a temporary .env file to ensure it's used during build
+cp $ENV_FILE .env
+echo "Copied environment to .env to ensure it's used during build"
 
 # Build the frontend
 echo "Building the frontend..."
 npm install
-npm run build
+REACT_APP_API_URL="${BACKEND_URL}/api/v1" npm run build
+
+# Update Nginx config to add correct CSP headers
+echo "Updating Nginx configuration with security headers..."
+NGINX_CONF="nginx.conf"
+cat > $NGINX_CONF << EOF
+server {
+    listen \${PORT};
+    server_name localhost;
+    server_tokens off;
+
+    # Gzip compression for improved performance
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_comp_level 6;
+    gzip_min_length 1000;
+
+    # Security headers
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Referrer-Policy "strict-origin-when-cross-origin";
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net data:; connect-src 'self' ${BACKEND_URL} ${BACKEND_URL}/api/v1 https:;";
+
+    # Cache control for static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        root /usr/share/nginx/html;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+        try_files \$uri =404;
+    }
+
+    # Match all routes and serve index.html for client-side routing
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    # Serve index.html for root path
+    location = / {
+        root /usr/share/nginx/html;
+        index index.html;
+    }
+
+    # Handle 404 errors
+    error_page 404 /index.html;
+
+    # Additional security settings
+    location ~ /\.(?!well-known) {
+        deny all;
+    }
+}
+EOF
 
 # Create Cloud Build configuration
 CONFIG_YAML="cloudbuild.frontend.yaml"
@@ -107,7 +165,7 @@ gcloud run deploy $SERVICE_NAME \
     --timeout $TIMEOUT
 
 # Clean up - for security, immediately remove files with sensitive information
-rm -f $CONFIG_YAML $ENV_FILE
+rm -f $CONFIG_YAML
 
 # Get URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
@@ -116,5 +174,5 @@ echo
 echo "=============================================="
 echo "Servitec Map Frontend deployment completed successfully!"
 echo "Frontend URL: $SERVICE_URL"
-echo "Backend API URL: $BACKEND_URL"
+echo "Backend API URL: ${BACKEND_URL}/api/v1"
 echo "==============================================" 

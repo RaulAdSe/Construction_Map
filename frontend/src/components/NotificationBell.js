@@ -7,8 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import '../styles/global.css';
 
-// Define API URL constant
-const API_URL = 'http://localhost:8000/api/v1';
+// Update the API_URL to use environment variables
+const API_URL = process.env.REACT_APP_API_URL;
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
