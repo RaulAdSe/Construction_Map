@@ -17,6 +17,7 @@ pytz>=2023.3
 psutil==5.9.5
 prometheus-client==0.17.1
 structlog>=23.1.0
+pandas>=2.1.0
 
 # Testing dependencies
 pytest==7.4.0
