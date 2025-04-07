@@ -83,14 +83,15 @@ app.mount("/events", StaticFiles(directory=events_dir), name="events")
 app.mount("/comments", StaticFiles(directory=comments_dir), name="comments")
 
 @app.get("/health")
-async def health_check():
-    """Health check endpoint for Cloud Run and load balancers"""
-    return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "timestamp": datetime.now().isoformat()
-    }
+async def health_redirect():
+    """Redirect /health to /api/v1/health for backward compatibility"""
+    return RedirectResponse(url="/api/v1/health")
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Construction Map API"}
+    return {
+        "message": "Welcome to the Servitec Construction Map API",
+        "version": "1.0.0",
+        "status": "online",
+        "documentation": "/docs"
+    }
