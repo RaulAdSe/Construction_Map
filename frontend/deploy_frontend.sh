@@ -118,7 +118,8 @@ gcloud run deploy $SERVICE_NAME \
     --allow-unauthenticated \
     --memory $MEMORY \
     --cpu $CPU \
-    --port 8080
+    --port 8080 \
+    --clear-command
 
 # Clean up
 echo "Cleaning up..."
