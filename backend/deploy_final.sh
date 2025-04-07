@@ -22,9 +22,6 @@ DB_PRIVATE_IP=${DB_PRIVATE_IP:-"172.26.144.3"}
 DB_NAME=${DB_NAME:-"servitec_map"}
 DB_USER=${DB_USER:-"postgres"}
 
-# Set default password (will be used if not found in env or .env file)
-DEFAULT_DB_PASSWORD="H6o\$-Tt6U@>oBIfU"
-
 # Check if password exists in environment
 if [ -z "$DB_PASSWORD" ]; then
     echo "DB_PASSWORD not found in environment, checking .env file..."
@@ -42,10 +39,14 @@ if [ -z "$DB_PASSWORD" ]; then
         echo "Loaded password from ../.env file"
     fi
     
-    # If still not found, use default
+    # If still not found, show error
     if [ -z "$DB_PASSWORD" ]; then
-        echo "DB_PASSWORD not found in .env file either, using default password"
-        DB_PASSWORD="$DEFAULT_DB_PASSWORD"
+        echo "ERROR: Database password not found!"
+        echo "Please set up your environment by doing one of the following:"
+        echo "1. Create a .env file in the backend directory with DB_PASSWORD=your_password"
+        echo "2. Set the DB_PASSWORD environment variable: export DB_PASSWORD=your_password"
+        echo "3. Run deploy_app.sh from the project root, which will create the .env file for you"
+        exit 1
     fi
 fi
 

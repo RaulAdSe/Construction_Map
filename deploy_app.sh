@@ -28,11 +28,20 @@ fi
 if [ ! -f backend/.env ]; then
     echo "No backend/.env file found. Creating one with default values..."
     cp backend/.env.production.example backend/.env
-    echo "Updating database password..."
+    echo "Backend environment file created at backend/.env"
     
-    # Use single quotes to avoid shell interpretation of special characters
-    echo 'DB_PASSWORD=H6o$-Tt6U@>oBIfU' >> backend/.env
-    echo "Environment file created at backend/.env"
+    # Ask for password instead of hardcoding it
+    read -s -p "Enter database password: " DB_PASSWORD
+    echo
+    
+    if [ -z "$DB_PASSWORD" ]; then
+        echo "Error: Database password cannot be empty"
+        exit 1
+    fi
+    
+    # Use sed to replace the placeholder password in the .env file
+    sed -i -e "s/DB_PASSWORD=your_secure_production_password/DB_PASSWORD=$DB_PASSWORD/" backend/.env
+    echo "Database password updated in environment file"
 else 
     echo "Using existing backend/.env file"
 fi
