@@ -1,53 +1,37 @@
 #!/bin/bash
 
-# Servitec Map API - Final Production Deployment Script
-# This deploys the full application to Cloud Run with VPC Connector and Cloud SQL
+# Servitec Map Frontend - Production Deployment Script
+# This deploys the frontend to Cloud Run
 
 set -e
 
 # Configuration variables
 PROJECT_ID=${PROJECT_ID:-"deep-responder-444017-h2"}
 REGION=${REGION:-"us-central1"}
-SERVICE_NAME=${SERVICE_NAME:-"servitec-map-api"}
+SERVICE_NAME=${SERVICE_NAME:-"servitec-map-frontend"}
 MIN_INSTANCES=${MIN_INSTANCES:-"0"}
-MAX_INSTANCES=${MAX_INSTANCES:-"5"}
-MEMORY=${MEMORY:-"1Gi"}
+MAX_INSTANCES=${MAX_INSTANCES:-"2"}
+MEMORY=${MEMORY:-"512Mi"}
 CPU=${CPU:-"1"}
 TIMEOUT=${TIMEOUT:-"300"}
 CONCURRENCY=${CONCURRENCY:-"80"}
-SERVICE_ACCOUNT=${SERVICE_ACCOUNT:-"map-service-account@deep-responder-444017-h2.iam.gserviceaccount.com"}
-VPC_CONNECTOR=${VPC_CONNECTOR:-"cloudrun-sql-connector"}
-CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE:-"deep-responder-444017-h2:us-central1:map-view-servitec"}
-DB_PRIVATE_IP=${DB_PRIVATE_IP:-"172.26.144.3"}
-DB_NAME=${DB_NAME:-"servitec_map"}
-DB_USER=${DB_USER:-"postgres"}
-# Do not hardcode the password, prompt for it or use environment variable
-if [ -z "$DB_PASSWORD" ]; then
-    read -s -p "Enter database password: " DB_PASSWORD
-    echo
-    if [ -z "$DB_PASSWORD" ]; then
-        echo "Error: Database password cannot be empty"
-        exit 1
-    fi
-fi
+BACKEND_SERVICE=${BACKEND_SERVICE:-"servitec-map-api"}
 
 # Print banner
 echo "=============================================="
-echo "  Servitec Map API - Production Deployment  "
+echo "  Servitec Map Frontend - Production Deployment  "
 echo "=============================================="
 echo
 
 # Confirm deployment
-echo "This script will deploy the full Servitec Map API to Cloud Run."
+echo "This script will deploy the Servitec Map Frontend to Cloud Run."
 echo "Configuration:"
 echo "  Project ID: $PROJECT_ID"
 echo "  Region: $REGION"
 echo "  Service Name: $SERVICE_NAME"
 echo "  Memory: $MEMORY"
 echo "  CPU: $CPU"
-echo "  VPC Connector: $VPC_CONNECTOR"
-echo "  Cloud SQL Instance: $CLOUD_SQL_INSTANCE"
-echo "  Database IP (Private): $DB_PRIVATE_IP"
+echo "  Backend API: $BACKEND_SERVICE"
 echo
 read -p "Do you want to continue? (y/n) " -n 1 -r
 echo
@@ -56,24 +40,31 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Create simplified environment file for Cloud Run deployment
-ENV_YAML_FILE=".env.yaml"
-cat > $ENV_YAML_FILE << EOF
-# Generated environment variables for production deployment
-ENVIRONMENT: "production"
-DB_HOST: "$DB_PRIVATE_IP"
-DB_PORT: "5432"
-DB_NAME: "$DB_NAME"
-DB_USER: "$DB_USER"
-DB_PASS: "${DB_PASSWORD}"
-CORS_ORIGINS: "*"
-LOG_LEVEL: "INFO"
+# Get the backend URL
+BACKEND_URL=$(gcloud run services describe $BACKEND_SERVICE --platform managed --region $REGION --format 'value(status.url)')
+if [ -z "$BACKEND_URL" ]; then
+    echo "Error: Could not get the backend URL. Make sure the backend is deployed."
+    exit 1
+fi
+
+echo "Using backend URL: $BACKEND_URL"
+
+# Create environment configuration file for building frontend
+ENV_FILE=".env.production"
+cat > $ENV_FILE << EOF
+# Production environment variables
+REACT_APP_API_URL=$BACKEND_URL
 EOF
 
-echo "Created environment YAML file with ${DB_NAME} database connection"
+echo "Created production environment file with API URL: $BACKEND_URL"
+
+# Build the frontend
+echo "Building the frontend..."
+npm install
+npm run build
 
 # Create Cloud Build configuration
-CONFIG_YAML="cloudbuild.final.yaml"
+CONFIG_YAML="cloudbuild.frontend.yaml"
 cat > $CONFIG_YAML << EOF
 steps:
   # Build the container image
@@ -113,23 +104,17 @@ gcloud run deploy $SERVICE_NAME \
     --min-instances $MIN_INSTANCES \
     --max-instances $MAX_INSTANCES \
     --concurrency $CONCURRENCY \
-    --timeout $TIMEOUT \
-    --service-account $SERVICE_ACCOUNT \
-    --env-vars-file $ENV_YAML_FILE \
-    --vpc-connector $VPC_CONNECTOR \
-    --vpc-egress all-traffic \
-    --add-cloudsql-instances $CLOUD_SQL_INSTANCE
+    --timeout $TIMEOUT
 
 # Clean up - for security, immediately remove files with sensitive information
-rm -f $CONFIG_YAML $ENV_YAML_FILE
+rm -f $CONFIG_YAML $ENV_FILE
 
 # Get URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
 
 echo
 echo "=============================================="
-echo "Servitec Map API deployment completed successfully!"
-echo "Service URL: $SERVICE_URL"
-echo "Health Check: $SERVICE_URL/health"
-echo "API Documentation: $SERVICE_URL/docs"
+echo "Servitec Map Frontend deployment completed successfully!"
+echo "Frontend URL: $SERVICE_URL"
+echo "Backend API URL: $BACKEND_URL"
 echo "==============================================" 

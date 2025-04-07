@@ -71,4 +71,35 @@ htmlcov/
 
 # Project specific
 .server_pids
-token.txt 
+token.txt
+
+# Production and sensitive data
+*.env.yaml
+*.env.yml
+cloudbuild*.yaml
+cloudbuild*.yml
+*secret*
+*password*
+*credential*
+*key*
+*token*
+*.pem
+*.key
+*.crt
+*.cert
+*auth*
+.gcloud/
+.config/
+backend/.env*
+frontend/.env*
+.env.production
+.service-account-*.json
+*firebase*.json
+
+# Deployment temporary files
+.deploy/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraformrc
+terraform.rc 
