@@ -69,34 +69,27 @@ fi
 
 # Update backend CORS settings
 echo "Updating backend CORS settings to include frontend URL: $FRONTEND_URL"
-# Properly escape the wildcard characters for gcloud command
-CORS_ORIGINS="${FRONTEND_URL}"
 gcloud run services update $BACKEND_SERVICE \
     --platform managed \
     --region $REGION \
-    --update-env-vars CORS_ORIGINS="$CORS_ORIGINS"
+    --update-env-vars "CORS_ORIGINS=$FRONTEND_URL"
 
-# Create an environment configuration file for production
-ENV_CONFIG="env-config.production.js"
-echo "Creating environment configuration..."
-cat > $ENV_CONFIG << EOF
-window.ENV = {
-  REACT_APP_API_URL: "${BACKEND_URL}/api/v1",
-  NODE_ENV: "production"
-};
+# Create production environment file
+echo "Creating production environment file..."
+cat > .env.production << EOF
+REACT_APP_API_URL=${BACKEND_URL}/api/v1
+GENERATE_SOURCEMAP=false
 EOF
 
-# Build the application
-echo "Building application with production settings..."
-REACT_APP_API_URL="${BACKEND_URL}/api/v1" npm run build
+echo "Building the frontend application..."
+npm ci
+npm run build
 
-# Include the environment config in the build
-cp $ENV_CONFIG build/
-
-# Create nginx configuration with proper headers and redirects
-cat > nginx.conf.template << EOF
+# Create nginx configuration
+echo "Creating Nginx configuration..."
+cat > nginx.conf << EOF
 server {
-    listen \${PORT};
+    listen 8080;
     server_name localhost;
     root /usr/share/nginx/html;
     index index.html;
@@ -135,30 +128,26 @@ server {
     }
     
     # Health check endpoint
-    location = /health.html {
+    location = /health {
         add_header Content-Type text/plain;
         return 200 'ok';
     }
 }
 EOF
 
-# Create Dockerfile for frontend
+# Create Dockerfile
+echo "Creating Dockerfile..."
 cat > Dockerfile << EOF
-FROM node:18-alpine as build
-WORKDIR /app
-COPY build ./build
-
 FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
-COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8080
-ENV PORT=8080
+CMD ["nginx", "-g", "daemon off;"]
 EOF
 
-# Build and push to Cloud Run
-echo "Building and deploying to Cloud Run..."
-gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME \
-                     --project=$PROJECT_ID .
+# Build and push container image
+echo "Building and pushing container image..."
+gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME
 
 # Deploy to Cloud Run
 echo "Deploying to Cloud Run..."
@@ -172,11 +161,11 @@ gcloud run deploy $SERVICE_NAME \
     --min-instances $MIN_INSTANCES \
     --max-instances $MAX_INSTANCES \
     --concurrency $CONCURRENCY \
-    --timeout $TIMEOUT
+    --timeout ${TIMEOUT}s
 
-# Cleanup
-echo "Cleaning up temporary files..."
-rm -f $ENV_CONFIG nginx.conf.template Dockerfile
+# Clean up
+echo "Cleaning up..."
+rm -f nginx.conf Dockerfile
 
 # Get URL
 FRONTEND_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
