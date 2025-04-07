@@ -1,0 +1,9 @@
+FROM node:18-alpine as build
+WORKDIR /app
+COPY build ./build
+
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+EXPOSE 8080
+ENV PORT=8080
