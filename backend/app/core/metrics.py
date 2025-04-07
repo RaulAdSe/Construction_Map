@@ -115,6 +115,62 @@ def track_database_query(operation: str, table: str, duration: float) -> None:
     DATABASE_QUERY_COUNT.labels(operation=operation, table=table).inc()
     DATABASE_QUERY_LATENCY.labels(operation=operation, table=table).observe(duration)
 
+def record_database_query(query: str, parameters: Optional[Dict] = None, duration: float = 0.0) -> None:
+    """
+    Record metrics for a database query with query text.
+    
+    Args:
+        query: SQL query text
+        parameters: Query parameters (optional)
+        duration: Query execution time in seconds
+    """
+    # Extract operation type from query
+    operation = "UNKNOWN"
+    if query:
+        query_upper = query.strip().upper()
+        if query_upper.startswith("SELECT"):
+            operation = "SELECT"
+        elif query_upper.startswith("INSERT"):
+            operation = "INSERT"
+        elif query_upper.startswith("UPDATE"):
+            operation = "UPDATE"
+        elif query_upper.startswith("DELETE"):
+            operation = "DELETE"
+        elif query_upper.startswith("CREATE"):
+            operation = "CREATE"
+        elif query_upper.startswith("ALTER"):
+            operation = "ALTER"
+    
+    # Extract table name if possible (simplified)
+    table = "unknown"
+    try:
+        # Very basic table name extraction
+        words = query.strip().upper().split()
+        if operation == "SELECT" and "FROM" in words:
+            from_index = words.index("FROM")
+            if from_index + 1 < len(words):
+                table = words[from_index + 1].strip(',;')
+        elif operation == "INSERT" and "INTO" in words:
+            into_index = words.index("INTO")
+            if into_index + 1 < len(words):
+                table = words[into_index + 1].strip(',;')
+        elif operation == "UPDATE":
+            if len(words) > 1:
+                table = words[1].strip(',;')
+        elif operation == "DELETE" and "FROM" in words:
+            from_index = words.index("FROM")
+            if from_index + 1 < len(words):
+                table = words[from_index + 1].strip(',;')
+    except Exception as e:
+        logger.warning(f"Error extracting table name from query: {e}")
+    
+    # Record the database query metrics
+    track_database_query(operation, table, duration)
+    
+    # Log the query for debugging in development environments
+    log_level = logger.debug if duration < 0.5 else logger.info
+    log_level(f"DB Query ({operation} on {table}) took {duration:.4f}s: {query[:100]}...")
+
 def record_error(error_type: str, endpoint: str) -> None:
     """
     Record an error occurrence.
