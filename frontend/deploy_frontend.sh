@@ -29,12 +29,6 @@ echo "  Memory: $MEMORY"
 echo "  CPU: $CPU"
 echo "  Backend API: $BACKEND_SERVICE"
 echo
-read -p "Do you want to continue? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Deployment cancelled."
-    exit 0
-fi
 
 # Set project
 echo "Setting project to $PROJECT_ID..."
