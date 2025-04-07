@@ -108,6 +108,19 @@ class SimpleSettings(BaseSettings):
                 self.POOL_OVERFLOW = int(os.environ.get("DB_POOL_OVERFLOW", "10"))
                 self.POOL_TIMEOUT = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
                 self.POOL_RECYCLE = int(os.environ.get("DB_POOL_RECYCLE", "1800"))
+                
+                # SQLAlchemy engine arguments
+                self.ENGINE_ARGS = {
+                    "pool_pre_ping": True,
+                    "pool_size": self.POOL_SIZE,
+                    "max_overflow": self.POOL_OVERFLOW,
+                    "pool_timeout": self.POOL_TIMEOUT,
+                    "pool_recycle": self.POOL_RECYCLE,
+                    "connect_args": {
+                        "connect_timeout": 10,
+                        "options": "-c statement_timeout=60000"  # 60 seconds timeout
+                    }
+                }
         
         self.database = DatabaseConfig(self)
     
@@ -199,6 +212,17 @@ class SimpleSettings(BaseSettings):
             return self.database.DATABASE_URL
         if name == "DB_URI":
             return self.database.DATABASE_URL
+        if name == "ENGINE_ARGS":
+            return self.database.ENGINE_ARGS
+        if name == "DATABASE_URL" and hasattr(self, "database"):
+            return self.database.DATABASE_URL
+            
+        # Check for attributes in nested configs
+        for config_name in ["database", "monitoring", "cloud_db", "security", "email", "storage"]:
+            if hasattr(self, config_name):
+                config_obj = getattr(self, config_name)
+                if hasattr(config_obj, name):
+                    return getattr(config_obj, name)
             
         # Add more mappings as needed based on errors
         
@@ -254,6 +278,19 @@ class HardcodedSettings:
             self.POOL_OVERFLOW = int(os.environ.get("DB_POOL_OVERFLOW", "10"))
             self.POOL_TIMEOUT = int(os.environ.get("DB_POOL_TIMEOUT", "30"))
             self.POOL_RECYCLE = int(os.environ.get("DB_POOL_RECYCLE", "1800"))
+            
+            # SQLAlchemy engine arguments
+            self.ENGINE_ARGS = {
+                "pool_pre_ping": True,
+                "pool_size": self.POOL_SIZE,
+                "max_overflow": self.POOL_OVERFLOW,
+                "pool_timeout": self.POOL_TIMEOUT,
+                "pool_recycle": self.POOL_RECYCLE,
+                "connect_args": {
+                    "connect_timeout": 10,
+                    "options": "-c statement_timeout=60000"  # 60 seconds timeout
+                }
+            }
     
     # Monitoring configuration
     class MonitoringConfig:
@@ -338,7 +375,18 @@ class HardcodedSettings:
             return self.database.DATABASE_URL
         if name == "DB_URI":
             return self.database.DATABASE_URL
+        if name == "ENGINE_ARGS":
+            return self.database.ENGINE_ARGS
+        if name == "DATABASE_URL" and hasattr(self, "database"):
+            return self.database.DATABASE_URL
             
+        # Check for attributes in nested configs
+        for config_name in ["database", "monitoring", "cloud_db", "security", "email", "storage"]:
+            if hasattr(self, config_name):
+                config_obj = getattr(self, config_name)
+                if hasattr(config_obj, name):
+                    return getattr(config_obj, name)
+        
         # Add more mappings as needed based on errors
         
         # Raise attribute error if no mapping exists
