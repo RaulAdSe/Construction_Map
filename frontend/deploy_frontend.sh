@@ -143,7 +143,7 @@ server {
 EOF
 
 # Create Dockerfile for frontend
-cat > Dockerfile.deploy << EOF
+cat > Dockerfile << EOF
 FROM node:18-alpine as build
 WORKDIR /app
 COPY build ./build
@@ -158,8 +158,7 @@ EOF
 # Build and push to Cloud Run
 echo "Building and deploying to Cloud Run..."
 gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME \
-                     --project=$PROJECT_ID \
-                     --dockerfile=Dockerfile.deploy .
+                     --project=$PROJECT_ID .
 
 # Deploy to Cloud Run
 echo "Deploying to Cloud Run..."
@@ -177,7 +176,7 @@ gcloud run deploy $SERVICE_NAME \
 
 # Cleanup
 echo "Cleaning up temporary files..."
-rm -f $ENV_CONFIG nginx.conf.template Dockerfile.deploy
+rm -f $ENV_CONFIG nginx.conf.template Dockerfile
 
 # Get URL
 FRONTEND_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
