@@ -119,7 +119,8 @@ gcloud run deploy $SERVICE_NAME \
     --memory $MEMORY \
     --cpu $CPU \
     --port 8080 \
-    --clear-command
+    --command="nginx" \
+    --args="-g,daemon off;"
 
 # Clean up
 echo "Cleaning up..."
