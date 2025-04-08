@@ -86,14 +86,13 @@ server {
 
     # Proxy API requests to avoid CORS issues
     location /api/ {
-        # Remove /api from the path before forwarding to backend
-        # This prevents double /api/ paths
-        proxy_pass ${BACKEND_URL}/;
+        # Forward the full request including /api/ path
+        proxy_pass ${BACKEND_URL};
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
         # Send the correct host header (backend's hostname)
-        proxy_set_header Host \$proxy_host;
+        proxy_set_header Host \$host;
         proxy_cache_bypass \$http_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
