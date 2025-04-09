@@ -108,22 +108,6 @@ echo_blue "========================================"
 echo_blue "Deploying Backend API Service"
 echo_blue "========================================"
 
-# Create environment YAML file for backend deployment
-echo "Creating environment YAML file for Cloud Run deployment..."
-cat > backend/env.yaml << EOF
-DB_HOST: "$DB_HOST"
-DB_PORT: "$DB_PORT"
-DB_NAME: "$DB_NAME"
-DB_USER: "$DB_USER"
-DB_PASSWORD: "$DB_PASSWORD"
-CLOUD_SQL_INSTANCE: "$CLOUD_SQL_INSTANCE"
-ENVIRONMENT: "production"
-LOG_LEVEL: "INFO"
-GOOGLE_CLOUD_PROJECT: "$PROJECT_ID" 
-CLOUD_SQL_USE_PRIVATE_IP: "true"
-CORS_ORIGINS: "*"
-EOF
-
 # Create Cloud Build config for backend
 echo "Creating Cloud Build configuration YAML for backend..."
 cat > backend/cloudbuild.yaml << EOF
@@ -150,12 +134,11 @@ gcloud run deploy "$BACKEND_SERVICE_NAME" \
     --concurrency "80" \
     --min-instances "0" \
     --max-instances "5" \
-    --env-vars-file backend/env.yaml \
+    --set-env-vars="DB_HOST=$DB_HOST,DB_PORT=$DB_PORT,DB_NAME=$DB_NAME,DB_USER=$DB_USER,DB_PASSWORD=$DB_PASSWORD,CLOUD_SQL_INSTANCE=$CLOUD_SQL_INSTANCE,ENVIRONMENT=production,LOG_LEVEL=INFO,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,CLOUD_SQL_USE_PRIVATE_IP=true,CORS_ORIGINS=*" \
     --vpc-connector "$VPC_CONNECTOR" \
     --vpc-egress all-traffic \
     --allow-unauthenticated \
-    --add-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
-    --set-env-vars="CLOUD_SQL_USE_PRIVATE_IP=true"
+    --add-cloudsql-instances "$CLOUD_SQL_INSTANCE"
 
 # Deploy Frontend (optional)
 if [[ -d "frontend" ]]; then
@@ -207,7 +190,7 @@ fi
 
 # Clean up sensitive files
 echo_blue "Cleaning up sensitive files..."
-rm -f backend/env.yaml backend/cloudbuild.yaml
+rm -f backend/cloudbuild.yaml
 if [[ -f "frontend/cloudbuild.yaml" ]]; then
     rm -f frontend/cloudbuild.yaml
 fi
