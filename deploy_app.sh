@@ -1,113 +1,228 @@
 #!/bin/bash
 
-# Servitec Map Full Application Deployment Script
-# This script deploys both the backend API and frontend to Cloud Run
+# Servitec Map - Full Deployment Script
+# This script deploys both backend and frontend to Google Cloud
 
 set -e
 
-# Print banner
-echo "=============================================="
-echo "  Servitec Map - Full Application Deployment  "
-echo "=============================================="
-echo
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-echo "This script will deploy both the backend API and frontend to Cloud Run."
-echo "The process will deploy in this order:"
-echo "1. Backend API"
-echo "2. Frontend (using the backend API URL)"
-echo
+# Print functions
+echo_green() { echo -e "${GREEN}$1${NC}"; }
+echo_blue() { echo -e "${BLUE}$1${NC}"; }
+echo_yellow() { echo -e "${YELLOW}$1${NC}"; }
+echo_red() { echo -e "${RED}$1${NC}"; }
 
-read -p "Do you want to continue? (y/n) " -n 1 -r
+# Banner
+echo_blue "========================================"
+echo_blue "      SERVITEC MAP DEPLOYMENT          "
+echo_blue "========================================"
+
+# Check if Google Cloud SDK is installed
+if ! command -v gcloud &> /dev/null; then
+    echo_red "Error: Google Cloud SDK is not installed."
+    echo_yellow "Please install it from: https://cloud.google.com/sdk/docs/install"
+    exit 1
+fi
+
+# Check if user is logged in
+ACCOUNT=$(gcloud config get-value account 2>/dev/null)
+if [[ -z "$ACCOUNT" ]]; then
+    echo_yellow "You need to log in to Google Cloud first."
+    gcloud auth login
+fi
+
+# Load environment variables
+if [ -f .env.production ]; then
+    echo_blue "Using .env.production for deployment"
+    source .env.production
+elif [ -f .env ]; then
+    echo_yellow "WARNING: Using .env instead of .env.production"
+    source .env
+else
+    echo_red "ERROR: No environment file found (.env.production or .env)"
+    exit 1
+fi
+
+# Configuration variables with fallbacks
+PROJECT_ID=${GOOGLE_CLOUD_PROJECT:-$(gcloud config get-value project)}
+REGION=${CLOUD_REGION:-"us-central1"}
+BACKEND_SERVICE_NAME=${CLOUD_SERVICE_NAME:-"servitec-map-api"}
+FRONTEND_SERVICE_NAME=${FRONTEND_SERVICE_NAME:-"servitec-map-frontend"}
+VPC_CONNECTOR=${VPC_CONNECTOR:-"cloud-sql-connector"}
+CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE:-"$PROJECT_ID:$REGION:map-view-servitec"}
+DB_HOST=${DB_HOST:-"172.26.144.3"}  # Private IP of Cloud SQL instance
+DB_PORT=${DB_PORT:-"5432"}
+DB_NAME=${DB_NAME:-"servitec_map"}
+DB_USER=${DB_USER:-"postgres"}
+DB_PASSWORD=${DB_PASSWORD:-""}
+
+# Validate required variables
+if [[ -z "$DB_PASSWORD" ]]; then
+    echo_red "ERROR: DB_PASSWORD environment variable is required"
+    exit 1
+fi
+
+if [[ -z "$PROJECT_ID" ]]; then
+    echo_red "ERROR: PROJECT_ID or GOOGLE_CLOUD_PROJECT environment variable is required"
+    exit 1
+fi
+
+# Display deployment configuration
+echo_blue "Project ID:      $PROJECT_ID"
+echo_blue "Region:          $REGION"
+echo_blue "Backend Service: $BACKEND_SERVICE_NAME"
+echo_blue "Frontend Service: $FRONTEND_SERVICE_NAME"
+echo_blue "VPC Connector:   $VPC_CONNECTOR"
+echo_blue "Cloud SQL:       $CLOUD_SQL_INSTANCE"
+echo_blue "DB Host:         $DB_HOST"
+echo_blue "DB Name:         $DB_NAME"
+echo_blue "DB User:         $DB_USER"
+MASKED_PW="${DB_PASSWORD:0:2}***${DB_PASSWORD: -2}"
+echo_blue "DB Password:     $MASKED_PW (${#DB_PASSWORD} chars)"
+echo_blue "========================================"
+
+# Confirm deployment
+read -p "Do you want to proceed with deployment? (y/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Deployment cancelled."
+    echo_yellow "Deployment cancelled."
     exit 0
 fi
 
-# Check for environment files in the backend directory
-if [ -f backend/.env.production ]; then
-    echo "Found backend/.env.production file"
-    ENV_FILE="backend/.env.production"
-elif [ -f backend/.env ]; then
-    echo "Found backend/.env file"
-    ENV_FILE="backend/.env"
-else
-    echo "No environment file found in backend directory."
-    echo "Creating one from the production example..."
+# Set Google Cloud project
+echo_blue "Setting Google Cloud project to $PROJECT_ID..."
+gcloud config set project "$PROJECT_ID"
+
+# Enable required APIs
+echo_blue "Enabling required services..."
+gcloud services enable cloudbuild.googleapis.com run.googleapis.com vpcaccess.googleapis.com secretmanager.googleapis.com
+
+# Deploy Backend
+echo_blue "========================================"
+echo_blue "Deploying Backend API Service"
+echo_blue "========================================"
+
+# Create environment YAML file for backend deployment
+echo "Creating environment YAML file for Cloud Run deployment..."
+cat > backend/env.yaml << EOF
+DB_HOST: "$DB_HOST"
+DB_PORT: "$DB_PORT"
+DB_NAME: "$DB_NAME"
+DB_USER: "$DB_USER"
+DB_PASSWORD: "$DB_PASSWORD"
+CLOUD_SQL_INSTANCE: "$CLOUD_SQL_INSTANCE"
+ENVIRONMENT: "production"
+LOG_LEVEL: "INFO"
+GOOGLE_CLOUD_PROJECT: "$PROJECT_ID" 
+CLOUD_SQL_USE_PRIVATE_IP: "true"
+CORS_ORIGINS: "*"
+EOF
+
+# Create Cloud Build config for backend
+echo "Creating Cloud Build configuration YAML for backend..."
+cat > backend/cloudbuild.yaml << EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$BACKEND_SERVICE_NAME', '-f', 'Dockerfile.prod', '.']
+images:
+  - 'gcr.io/$PROJECT_ID/$BACKEND_SERVICE_NAME'
+EOF
+
+# Submit backend build
+echo_blue "Building backend container image..."
+(cd backend && gcloud builds submit --config cloudbuild.yaml)
+
+# Deploy backend to Cloud Run
+echo_blue "Deploying backend to Cloud Run..."
+gcloud run deploy "$BACKEND_SERVICE_NAME" \
+    --image "gcr.io/$PROJECT_ID/$BACKEND_SERVICE_NAME" \
+    --platform managed \
+    --region "$REGION" \
+    --memory "1Gi" \
+    --cpu "1" \
+    --timeout "300s" \
+    --concurrency "80" \
+    --min-instances "0" \
+    --max-instances "5" \
+    --env-vars-file backend/env.yaml \
+    --vpc-connector "$VPC_CONNECTOR" \
+    --vpc-egress all-traffic \
+    --allow-unauthenticated \
+    --add-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
+    --set-env-vars="CLOUD_SQL_USE_PRIVATE_IP=true"
+
+# Deploy Frontend (optional)
+if [[ -d "frontend" ]]; then
+    echo_blue "========================================"
+    echo_blue "Deploying Frontend Service"
+    echo_blue "========================================"
     
-    if [ ! -f backend/.env.production.example ]; then
-        echo "ERROR: backend/.env.production.example does not exist!"
-        echo "Please make sure you have the correct repository structure."
-        exit 1
-    fi
+    # Get backend URL for frontend configuration
+    BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE_NAME" --region "$REGION" --format='value(status.url)')
     
-    cp backend/.env.production.example backend/.env.production
-    ENV_FILE="backend/.env.production"
+    # Create environment file for frontend
+    echo "Creating environment file for frontend build..."
+    cat > frontend/.env.production << EOF
+NEXT_PUBLIC_API_URL=$BACKEND_URL
+NEXT_PUBLIC_ENVIRONMENT=production
+EOF
     
-    # Ask for password
-    read -s -p "Enter database password: " DB_PASSWORD
-    echo
+    # Build frontend
+    echo_blue "Building frontend application..."
+    (cd frontend && npm install && npm run build)
     
-    if [ -z "$DB_PASSWORD" ]; then
-        echo "Error: Database password cannot be empty"
-        exit 1
-    fi
+    # Create Cloud Build config for frontend
+    echo "Creating Cloud Build configuration YAML for frontend..."
+    cat > frontend/cloudbuild.yaml << EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/$FRONTEND_SERVICE_NAME', '-f', 'Dockerfile.prod', '.']
+images:
+  - 'gcr.io/$PROJECT_ID/$FRONTEND_SERVICE_NAME'
+EOF
     
-    # Use sed to replace the placeholder password in the .env.production file
-    sed -i -e "s/DB_PASSWORD=your_secure_production_password/DB_PASSWORD=$DB_PASSWORD/" backend/.env.production
-    echo "Created and configured backend/.env.production with your database password"
+    # Submit frontend build
+    echo_blue "Building frontend container image..."
+    (cd frontend && gcloud builds submit --config cloudbuild.yaml)
+    
+    # Deploy frontend to Cloud Run
+    echo_blue "Deploying frontend to Cloud Run..."
+    gcloud run deploy "$FRONTEND_SERVICE_NAME" \
+        --image "gcr.io/$PROJECT_ID/$FRONTEND_SERVICE_NAME" \
+        --platform managed \
+        --region "$REGION" \
+        --memory "512Mi" \
+        --cpu "1" \
+        --concurrency "80" \
+        --min-instances "0" \
+        --max-instances "5" \
+        --allow-unauthenticated
 fi
 
-echo "Using environment file: $ENV_FILE"
-
-# Step 1: Deploy the backend
-echo
-echo "=============================================="
-echo "STEP 1: Deploying Backend API"
-echo "=============================================="
-echo
-
-cd backend
-./deploy_final.sh
-BACKEND_RESULT=$?
-# If deployment was cancelled by the user, exit
-if [ $BACKEND_RESULT -ne 0 ]; then
-    echo "Backend deployment was cancelled or failed. Exiting."
-    exit 1
+# Clean up sensitive files
+echo_blue "Cleaning up sensitive files..."
+rm -f backend/env.yaml backend/cloudbuild.yaml
+if [[ -f "frontend/cloudbuild.yaml" ]]; then
+    rm -f frontend/cloudbuild.yaml
 fi
-cd ..
 
-# Step 2: Deploy the frontend
-echo
-echo "=============================================="
-echo "STEP 2: Deploying Frontend"
-echo "=============================================="
-echo
+# Get service URLs
+BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE_NAME" --region "$REGION" --format='value(status.url)')
+echo_green "Backend API deployment complete! Service is running at: $BACKEND_URL"
+echo_green "Health Check: ${BACKEND_URL}/health"
+echo_green "API Documentation: ${BACKEND_URL}/docs"
 
-cd frontend
-./deploy_frontend.sh
-# If deployment was cancelled by the user, exit
-if [ $? -ne 0 ]; then
-    echo "Frontend deployment was cancelled or failed. Exiting."
-    exit 1
+if [[ -d "frontend" ]]; then
+    FRONTEND_URL=$(gcloud run services describe "$FRONTEND_SERVICE_NAME" --region "$REGION" --format='value(status.url)')
+    echo_green "Frontend deployment complete! Service is running at: $FRONTEND_URL"
 fi
-cd ..
 
-# Get the URLs
-BACKEND_URL=$(gcloud run services describe servitec-map-api --platform managed --region us-central1 --format 'value(status.url)')
-FRONTEND_URL=$(gcloud run services describe servitec-map-frontend --platform managed --region us-central1 --format 'value(status.url)')
-
-echo
-echo "=============================================="
-echo "Servitec Map Full Application Deployment Complete!"
-echo "=============================================="
-echo
-echo "Backend API URL: $BACKEND_URL"
-echo "API Documentation: $BACKEND_URL/docs"
-echo "Health Check: $BACKEND_URL/health"
-echo
-echo "Frontend URL: $FRONTEND_URL"
-echo "=============================================="
-echo
-echo "Your Servitec Map application is now fully deployed!"
-echo "Open the Frontend URL in your browser to start using the application." 
+echo_green "========================================" 
+echo_green "      DEPLOYMENT COMPLETE!             "
+echo_green "========================================" 
