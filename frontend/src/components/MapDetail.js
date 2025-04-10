@@ -522,54 +522,60 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     };
   }, [isMobile, isPinching, mobilePanZoomScale, isSelectingLocation]);
   
-  // Special handler for mobile clicks 
+  // Add a unified touch handler for mobile that handles both modes
   useEffect(() => {
-    if (!isMobile || !isSelectingLocation || !mapContainerRef.current) return;
-    
-    console.log('MapDetail: Setting up special mobile click handler for location selection');
+    if (!isMobile || !mapContainerRef.current) return;
     
     const container = mapContainerRef.current;
     
-    const handleMobileClick = (e) => {
-      console.log('MapDetail: Mobile click detected in location selection mode');
+    const handleUnifiedTouchEnd = (e) => {
+      console.log(`MapDetail: Touch end detected, isSelectingLocation=${isSelectingLocation}`);
       
-      // Stop event propagation to prevent other handlers from interfering
-      e.stopPropagation();
-      
-      if (!mapContentRef.current) {
-        console.log('MapDetail: mapContentRef is null, cannot process click');
-        return;
-      }
-      
-      // Get touch coordinates
-      const touchX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : null);
-      const touchY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : null);
-      
-      if (touchX === null || touchY === null) {
-        console.log('MapDetail: Could not get touch coordinates');
-        return;
-      }
-      
-      // Calculate position relative to map content
-      const rect = mapContentRef.current.getBoundingClientRect();
-      const x = (touchX - rect.left) / (viewportScale * mobilePanZoomScale);
-      const y = (touchY - rect.top) / (viewportScale * mobilePanZoomScale);
-      
-      console.log(`MapDetail: Mobile tap at (${x.toFixed(2)}, ${y.toFixed(2)})`);
-      
-      if (onMapClick) {
-        console.log('MapDetail: Calling parent onMapClick handler from mobile tap');
-        onMapClick(map, x, y);
+      // Only handle single-finger touches for location selection
+      if (isSelectingLocation && e.changedTouches && e.changedTouches.length === 1) {
+        console.log('MapDetail: Processing touch end in location selection mode');
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!mapContentRef.current) return;
+        
+        const touch = e.changedTouches[0];
+        const rect = mapContentRef.current.getBoundingClientRect();
+        
+        // Calculate position relative to map content
+        const x = (touch.clientX - rect.left) / (viewportScale * mobilePanZoomScale);
+        const y = (touch.clientY - rect.top) / (viewportScale * mobilePanZoomScale);
+        
+        // Check if the touch is within the map content bounds
+        if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+          console.log(`MapDetail: Valid map location selected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+          
+          // Calculate coordinates as percentages of the map
+          const xPercent = (x / contentSize.width) * 100;
+          const yPercent = (y / contentSize.height) * 100;
+          
+          if (onMapClick) {
+            console.log('MapDetail: Calling parent onMapClick handler');
+            // Create enhanced map object with visible maps
+            const mapWithVisibleLayers = {
+              ...map,
+              visibleMaps: visibleMaps
+            };
+            onMapClick(mapWithVisibleLayers, xPercent, yPercent);
+          }
+        } else {
+          console.log('MapDetail: Touch outside map bounds, ignoring');
+        }
       }
     };
     
-    // Use touchend instead of click for better mobile handling
-    container.addEventListener('touchend', handleMobileClick, { passive: false });
+    // Add the unified touch end listener with passive:false to allow preventDefault
+    container.addEventListener('touchend', handleUnifiedTouchEnd, { passive: false });
     
     return () => {
-      container.removeEventListener('touchend', handleMobileClick);
+      container.removeEventListener('touchend', handleUnifiedTouchEnd);
     };
-  }, [isMobile, isSelectingLocation, map, onMapClick, viewportScale, mobilePanZoomScale]);
+  }, [isMobile, isSelectingLocation, map, onMapClick, viewportScale, mobilePanZoomScale, contentSize, visibleMaps]);
   
   // Function to toggle mobile map layer controls
   const toggleMobileControls = () => {
@@ -689,27 +695,33 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         onClick={(e) => {
           console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
           
-          // For mobile devices, let the special mobile handler handle it
-          if (isMobile && isSelectingLocation) {
-            console.log('MapDetail: Mobile click detected, letting special handler process it');
-            
-            // Still need to prevent default to avoid conflicts
-            e.preventDefault();
+          // Skip all click handling on mobile - we handle it with touch events
+          if (isMobile) {
+            console.log('MapDetail: Ignoring click event on mobile - using touch events instead');
             return;
           }
           
-          // For desktop or when not in location selection mode:
+          // Desktop click handling:
           if (isSelectingLocation && mapContentRef.current) {
             // Calculate click position relative to map content
             const rect = mapContentRef.current.getBoundingClientRect();
-            const x = (e.clientX - rect.left) / (viewportScale * (isMobile ? mobilePanZoomScale : 1));
-            const y = (e.clientY - rect.top) / (viewportScale * (isMobile ? mobilePanZoomScale : 1));
+            const x = (e.clientX - rect.left) / viewportScale;
+            const y = (e.clientY - rect.top) / viewportScale;
             
-            console.log(`MapDetail: Calculated click position (${x.toFixed(2)}, ${y.toFixed(2)}) with scale=${viewportScale}, mobilePanZoomScale=${mobilePanZoomScale}`);
+            console.log(`MapDetail: Calculated click position (${x.toFixed(2)}, ${y.toFixed(2)}) with scale=${viewportScale}`);
+            
+            // Calculate as percentages for consistency
+            const xPercent = (x / contentSize.width) * 100;
+            const yPercent = (y / contentSize.height) * 100;
             
             if (onMapClick) {
               console.log('MapDetail: Calling parent onMapClick handler');
-              onMapClick(map, x, y);
+              // Create enhanced map object with visible maps
+              const mapWithVisibleLayers = {
+                ...map,
+                visibleMaps: visibleMaps
+              };
+              onMapClick(mapWithVisibleLayers, xPercent, yPercent);
             } else {
               console.log('MapDetail: No onMapClick handler provided');
             }

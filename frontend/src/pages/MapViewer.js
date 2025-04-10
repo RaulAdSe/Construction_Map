@@ -386,7 +386,8 @@ const MapViewer = ({ onLogout }) => {
     
     // For mobile, add a slight delay to ensure UI updates before entering selection mode
     if (isMobile) {
-      showNotification(translate('Tap on the map to place your event or press the Cancel button to cancel.'), 'info');
+      // Clearer instructions specific to mobile
+      showNotification(translate('Tap directly on the map to place your event. Tap the Cancel button to cancel.'), 'info', 5000);
       
       // Use timeout to ensure UI is ready for selection
       setTimeout(() => {
@@ -397,7 +398,7 @@ const MapViewer = ({ onLogout }) => {
         document.body.classList.add('map-adding-event');
         
         console.log('MapViewer: Mobile event creation mode activated');
-      }, 100);
+      }, 200); // Increased delay for better reliability
     } else {
       // Desktop flow - immediate activation
       // Store reference to map and set selecting location mode
@@ -570,11 +571,11 @@ const MapViewer = ({ onLogout }) => {
     setVisibleEvents(updatedVisibleEvents);
   };
   
-  const showNotification = (message, type = 'success') => {
+  const showNotification = (message, type = 'success', duration = 3000) => {
     setNotification({ show: true, message, type });
     setTimeout(() => {
       setNotification({ ...notification, show: false });
-    }, 3000);
+    }, duration);
   };
   
   // Add a debug function to check and fix admin status
@@ -1078,28 +1079,16 @@ const MapViewer = ({ onLogout }) => {
           
           {/* Cancel overlay for location selection mode */}
           {mapForEvent && (
-            <div className="selecting-location-cancel-overlay" onClick={(e) => {
-              // Add check to prevent cancelling when tapping on the map itself
-              console.log('MapViewer: Cancel overlay clicked, checking target');
-              const mapContainer = e.target.closest('.map-container');
-              const mapContent = e.target.closest('.map-content-container');
-              
-              // Only cancel if not clicking on map container or content
-              if (!mapContainer && !mapContent) {
-                console.log('MapViewer: Cancelling location selection - clicked outside map');
-                cancelLocationSelection();
-              } else {
-                console.log('MapViewer: Click passed through to map container');
-                // Let the click pass through to the map
-                e.stopPropagation();
-              }
-            }}>
+            <div className="selecting-location-cancel-overlay">
               <Button 
                 variant="danger" 
                 size="sm"
                 className="cancel-selection-btn"
                 onClick={(e) => {
+                  // Make sure to stop propagation to prevent any parent handlers
+                  e.preventDefault();
                   e.stopPropagation();
+                  console.log('MapViewer: Cancel button clicked explicitly');
                   cancelLocationSelection();
                 }}
               >
