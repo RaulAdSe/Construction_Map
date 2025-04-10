@@ -533,6 +533,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     const handleMobileClick = (e) => {
       console.log('MapDetail: Mobile click detected in location selection mode');
       
+      // Stop event propagation to prevent other handlers from interfering
+      e.stopPropagation();
+      
       if (!mapContentRef.current) {
         console.log('MapDetail: mapContentRef is null, cannot process click');
         return;
@@ -560,11 +563,11 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       }
     };
     
-    // Use click and touchend to ensure we catch all interactions
-    container.addEventListener('click', handleMobileClick);
+    // Use touchend instead of click for better mobile handling
+    container.addEventListener('touchend', handleMobileClick, { passive: false });
     
     return () => {
-      container.removeEventListener('click', handleMobileClick);
+      container.removeEventListener('touchend', handleMobileClick);
     };
   }, [isMobile, isSelectingLocation, map, onMapClick, viewportScale, mobilePanZoomScale]);
   
@@ -685,6 +688,17 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         data-scale={viewportScale.toFixed(3)}
         onClick={(e) => {
           console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
+          
+          // For mobile devices, let the special mobile handler handle it
+          if (isMobile && isSelectingLocation) {
+            console.log('MapDetail: Mobile click detected, letting special handler process it');
+            
+            // Still need to prevent default to avoid conflicts
+            e.preventDefault();
+            return;
+          }
+          
+          // For desktop or when not in location selection mode:
           if (isSelectingLocation && mapContentRef.current) {
             // Calculate click position relative to map content
             const rect = mapContentRef.current.getBoundingClientRect();
