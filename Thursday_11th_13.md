@@ -18,7 +18,7 @@ The Servitec Map API deployment to Cloud Run was failing with database connectio
 
 ## Solutions Implemented
 
-### 1. Fixed Router Path
+### 1. Fixed Backend Router Path
 Created a patched version of the `db-test.js` router that explicitly imports `db-socket.js` to ensure socket connections in Cloud Run.
 
 ### 2. Environment Variable Handling
@@ -26,20 +26,29 @@ Created a patched version of the `db-test.js` router that explicitly imports `db
 - Added code to copy `.env.production` to the temporary deployment directory
 - Ensured database credentials were correctly passed to the Cloud Run service
 
-### 3. Deployment Script Improvements
+### 3. Backend Deployment Script Improvements
 Created an improved deployment script with:
 - Better error handling and logging
 - Proper environment variable loading
 - Explicit database connection testing
 - Cleaner temporary file management
 
+### 4. Frontend Deployment Improvements
+Updated the frontend deployment script to:
+- Properly load environment variables from `.env.production`
+- Create and configure build-specific environment variables
+- Add appropriate health check endpoint testing
+- Configure NGINX for API proxying to avoid CORS issues
+- Add better error handling and logging
+
 ## Scripts Used/Modified
-1. `deploy_nodejs.sh` - Our new improved deployment script
-2. `db-socket.js` - Examined but not modified
-3. `routes/db-test.js` - Created a patched version for deployment
+1. `deploy_nodejs.sh` - Our new improved backend deployment script
+2. `frontend/deploy_frontend.sh` - Updated frontend deployment script
+3. `db-socket.js` - Examined but not modified
+4. `routes/db-test.js` - Created a patched version for deployment
 
 ## Changes Made
-1. Created a new temporary router file during deployment:
+1. Created a new temporary router file during backend deployment:
 ```javascript
 // Path: temp_src/routes/db-test.js
 const express = require('express');
@@ -114,7 +123,7 @@ router.get('/', async (req, res) => {
 module.exports = router;
 ```
 
-2. Updated deployment script to properly handle environment variables and deployment:
+2. Updated backend deployment script to properly handle environment variables:
 ```bash
 # Load environment variables
 if [ -f ".env.production" ]; then 
@@ -132,12 +141,78 @@ if [ -f ".env.production" ]; then
 fi
 ```
 
-## Results
-The API now successfully connects to the Cloud SQL database using the Unix socket method through the Cloud SQL Auth Proxy. The `/db-test` endpoint returns a successful response confirming the database connection is working.
+3. Updated frontend deployment script with improved environment handling:
+```bash
+# Load environment variables from .env.production
+if [ -f ".env.production" ]; then
+  source .env.production
+  echo "Loaded environment variables from .env.production"
+elif [ -f ".env" ]; then
+  source .env
+  echo "Loaded environment variables from .env"
+fi
 
-Service URL: https://servitec-map-api-ypzdt6srya-uc.a.run.app
+# Create a .env file for the build process with the appropriate API URL
+echo "REACT_APP_API_URL=${BACKEND_URL}/api/v1" > .env.production.build
+echo "REACT_APP_ENVIRONMENT=production" >> .env.production.build
+cp .env.production.build .env.production
+cp .env.production.build .env
+```
+
+4. Added NGINX configuration for frontend API proxying:
+```nginx
+server {
+    listen 8080;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Health check endpoint
+    location = /health {
+        access_log off;
+        return 200 'ok';
+    }
+
+    # Proxy API requests to avoid CORS issues
+    location /api/v1/ {
+        # Ensure the full path is passed to the backend
+        proxy_pass ${BACKEND_URL}/api/v1/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $proxy_host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Increase timeouts for longer requests
+        proxy_connect_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # Serve static files
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+## Results
+Both the API and frontend have been successfully deployed to Cloud Run:
+
+1. Backend API:
+   - Successfully connects to the Cloud SQL database using Unix socket method
+   - Responds correctly to health checks and database tests
+   - Service URL: https://servitec-map-api-ypzdt6srya-uc.a.run.app
+
+2. Frontend:
+   - Successfully deployed with NGINX configuration
+   - Properly proxies API requests to the backend
+   - Responds correctly to health checks
+   - Service URL: https://servitec-map-frontend-ypzdt6srya-uc.a.run.app
 
 ## Next Steps
-- Deploy the frontend application to connect with the now-functional backend API
-- Verify end-to-end functionality
-- Document the complete deployment process for future reference 
+- Add automated tests for both frontend and backend deployments
+- Set up CI/CD pipeline for continuous deployment
+- Add monitoring and alerting for the services
+- Document the deployment process more thoroughly for future reference 
