@@ -178,10 +178,18 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
     setLoadingComments(true);
     try {
       const response = await api.get(`/events/${eventId}/comments`);
-      setComments(response.data);
-      setCommentError('');
+      // Check if response.data exists and is an array
+      if (response.data && Array.isArray(response.data)) {
+        setComments(response.data);
+        setCommentError('');
+      } else {
+        console.error('Invalid comments data format:', response.data);
+        setComments([]);
+        setCommentError(translate('Failed to load comments - invalid data format'));
+      }
     } catch (err) {
       console.error('Error fetching comments:', err);
+      setComments([]);
       setCommentError(translate('Failed to load comments'));
     } finally {
       setLoadingComments(false);
