@@ -369,12 +369,17 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleAddEvent = () => {
+    console.log('MapViewer: handleAddEvent called, isMobile=', isMobile);
+    
     if (!selectedMap) {
+      console.log('MapViewer: No map selected, cannot add event');
       showNotification(translate('Please select a map first before adding an event.'), 'warning');
       // Maybe direct them to map selection
       setActiveTab('project-maps');
       return;
     }
+    
+    console.log('MapViewer: Starting event creation process with map:', selectedMap?.id);
     
     // Close any open sidebar or overlays
     setShowMobileSidebar(false);
@@ -433,16 +438,34 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleMapClick = (map, x, y) => {
+    console.log(`MapViewer: handleMapClick called with coordinates (${x}, ${y}), isMobile=${isMobile}, mapForEvent=${!!mapForEvent}`);
+    
     if (mapForEvent && mapForEvent.id === map.id) {
+      console.log('MapViewer: Setting event position and preparing to show modal');
       setEventPosition({ x, y });
-      setMapForEvent(prev => ({
-        ...prev,
-        visibleMaps: map.visibleMaps || []
-      }));
-      setShowAddEventModal(true);
+      setMapForEvent(prev => {
+        console.log('MapViewer: Updating mapForEvent with visible maps', map.visibleMaps || []);
+        return {
+          ...prev,
+          visibleMaps: map.visibleMaps || []
+        };
+      });
       
-      // Remove the class when the modal is shown
-      document.body.classList.remove('map-adding-event');
+      // Add small delay on mobile to ensure event coordinates are processed
+      if (isMobile) {
+        console.log('MapViewer: Mobile view - adding slight delay before showing modal');
+        setTimeout(() => {
+          setShowAddEventModal(true);
+          document.body.classList.remove('map-adding-event');
+        }, 50);
+      } else {
+        setShowAddEventModal(true);
+        document.body.classList.remove('map-adding-event');
+      }
+    } else {
+      console.log('MapViewer: Map click ignored - not in event creation mode or wrong map');
+      console.log('MapForEvent:', mapForEvent);
+      console.log('Clicked map:', map);
     }
   };
   
@@ -1064,7 +1087,10 @@ const MapViewer = ({ onLogout }) => {
             <Button 
               className="add-event-fab"
               variant="success"
-              onClick={handleAddEvent}
+              onClick={() => {
+                console.log('MapViewer: Mobile FAB Add Event button clicked');
+                handleAddEvent();
+              }}
               aria-label={translate('Add Event')}
             >
               <i className="bi bi-plus-lg"></i>
