@@ -5,7 +5,15 @@
 
 set -e
 
-# Configuration variables
+# Configuration variables - Load from environment if available
+if [ -f ".env.production" ]; then
+  source .env.production
+  echo "Loaded environment variables from .env.production"
+elif [ -f ".env" ]; then
+  source .env
+  echo "Loaded environment variables from .env"
+fi
+
 PROJECT_ID=${PROJECT_ID:-"deep-responder-444017-h2"}
 REGION=${REGION:-"us-central1"}
 SERVICE_NAME=${SERVICE_NAME:-"servitec-map-frontend"}
@@ -44,6 +52,9 @@ if [ -z "$BACKEND_URL" ]; then
 fi
 
 echo "Backend URL: $BACKEND_URL"
+# Save to .env.production for the build
+echo "REACT_APP_API_URL=${BACKEND_URL}/api/v1" > .env.production.build
+echo "REACT_APP_ENVIRONMENT=production" >> .env.production.build
 
 # Update backend CORS settings to allow the frontend domain
 echo "Updating backend CORS settings..."
@@ -66,10 +77,26 @@ gcloud run services update $BACKEND_SERVICE \
 
 # Build the application locally
 echo "Building the React application..."
-# Use relative URL to leverage nginx proxy
-export REACT_APP_API_URL="/api/v1"
+# Create a .env file for the build process with the appropriate API URL
+echo "REACT_APP_API_URL=${BACKEND_URL}/api/v1" > .env.production.build
+echo "REACT_APP_ENVIRONMENT=production" >> .env.production.build
+cp .env.production.build .env.production
+cp .env.production.build .env
+
+# Install dependencies and build
+echo "Installing dependencies..."
 npm ci
+
+echo "Building application..."
 npm run build
+
+# Verify that build completed successfully
+if [ ! -d "build" ]; then
+    echo "ERROR: Build directory not found. The build may have failed."
+    exit 1
+fi
+
+echo "Build completed successfully."
 
 # Create a simple nginx.conf for Cloud Run
 cat > nginx.conf << EOF
@@ -85,14 +112,15 @@ server {
     }
 
     # Proxy API requests to avoid CORS issues
-    location /api/ {
-        # Forward the full request including /api/ path
-        proxy_pass ${BACKEND_URL};
+    # Match the specific API prefix used by the frontend
+    location /api/v1/ {
+        # Ensure the full path is passed to the backend
+        proxy_pass ${BACKEND_URL}/api/v1/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
         # Send the correct host header (backend's hostname)
-        proxy_set_header Host \$host;
+        proxy_set_header Host \$proxy_host;
         proxy_cache_bypass \$http_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -132,20 +160,31 @@ gcloud run deploy $SERVICE_NAME \
     --allow-unauthenticated \
     --memory $MEMORY \
     --cpu $CPU \
-    --port 8080 \
     --command="nginx" \
     --args="-g,daemon off;"
 
 # Clean up
 echo "Cleaning up..."
-rm -f nginx.conf Dockerfile
+rm -f nginx.conf Dockerfile .env.production.build
 
-# Get URL
+# Test the frontend health endpoint
+echo "Testing frontend health endpoint..."
 FRONTEND_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
+HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL/health")
+
+if [ "$HEALTH_RESPONSE" == "200" ]; then
+    echo "Frontend health check: SUCCESS (HTTP 200)"
+else
+    echo "Frontend health check: FAILED (HTTP $HEALTH_RESPONSE)"
+    echo "The frontend may not be functioning correctly. Check the logs."
+fi
 
 echo
 echo "=============================================="
 echo "Servitec Map Frontend deployment completed successfully!"
 echo "Frontend URL: $FRONTEND_URL"
 echo "Backend API: $BACKEND_URL"
+echo
+echo "To view the frontend logs, run:"
+echo "gcloud run services logs read $SERVICE_NAME --region $REGION"
 echo "==============================================" 
