@@ -1321,11 +1321,12 @@ const MapViewer = ({ onLogout }) => {
   // Handle event type filter change
   const handleEventTypeFilterChange = (filteredEvts) => {
     if (DEBUG) console.log("Event type filter changed, events count:", filteredEvts.length);
+    // First update the type-filtered events
     setFilteredByTypeEvents(filteredEvts);
-    // Don't update filteredEvents if it's the same array reference
-    if (filteredEvts !== filteredEvents) {
-      setFilteredEvents(filteredEvts);
-    }
+    
+    // Then update the main filtered events list
+    // Make sure we're using filteredEvts not filteredEvents to avoid referencing the current state
+    setFilteredEvents(filteredEvts);
   };
   
   if (loading) {

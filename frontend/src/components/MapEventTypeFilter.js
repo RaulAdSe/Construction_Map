@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
@@ -12,6 +12,7 @@ import { useMobile } from './common/MobileProvider';
  */
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
+  const prevFilteredEventsRef = useRef([]);
   
   // Default all types to checked
   const [selectedTypes, setSelectedTypes] = useState({
@@ -26,10 +27,25 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
       event.state && selectedTypes[event.state]
     );
     
+    // Only call onFilterChange if the filtered events have actually changed
     if (onFilterChange) {
-      onFilterChange(filteredEvents);
+      // Simple length check first for quick comparison
+      const prevEvents = prevFilteredEventsRef.current;
+      if (prevEvents.length !== filteredEvents.length) {
+        prevFilteredEventsRef.current = filteredEvents;
+        onFilterChange(filteredEvents);
+      } else {
+        // If same length, check if the event IDs are the same
+        const prevIds = new Set(prevEvents.map(e => e.id));
+        const hasChanged = filteredEvents.some(e => !prevIds.has(e.id));
+        
+        if (hasChanged) {
+          prevFilteredEventsRef.current = filteredEvents;
+          onFilterChange(filteredEvents);
+        }
+      }
     }
-  }, [selectedTypes, events, onFilterChange]);
+  }, [selectedTypes, events]); // onFilterChange intentionally omitted
 
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
