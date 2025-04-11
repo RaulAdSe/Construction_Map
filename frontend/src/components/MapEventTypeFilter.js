@@ -47,46 +47,46 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
   };
 
   return (
-    <div className="map-event-filter p-2" style={{ 
+    <div className="map-event-filter p-1" style={{ 
       fontSize: '0.85em',
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-      borderRadius: '8px',
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      borderRadius: '4px',
       border: '1px solid #dee2e6',
-      marginBottom: '10px',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+      marginBottom: '5px',
+      display: 'flex',
+      justifyContent: 'center',
+      flexWrap: 'wrap'
     }}>
-      <div className="d-flex flex-wrap align-items-center">
-        <Form.Check 
-          type="checkbox"
-          id="filter-incidence"
-          name="incidence"
-          label={`${translate('Incidences')} (${typeCounts['incidence']})`}
-          checked={selectedTypes['incidence']}
-          onChange={handleTypeChange}
-          className="me-2 mb-1"
-          style={{ whiteSpace: 'nowrap' }}
-        />
-        <Form.Check 
-          type="checkbox"
-          id="filter-periodic-check"
-          name="periodic check"
-          label={`${translate('Checks')} (${typeCounts['periodic check']})`}
-          checked={selectedTypes['periodic check']}
-          onChange={handleTypeChange}
-          className="me-2 mb-1"
-          style={{ whiteSpace: 'nowrap' }}
-        />
-        <Form.Check 
-          type="checkbox"
-          id="filter-request"
-          name="request"
-          label={`${translate('Requests')} (${typeCounts['request']})`}
-          checked={selectedTypes['request']}
-          onChange={handleTypeChange}
-          className="mb-1"
-          style={{ whiteSpace: 'nowrap' }}
-        />
-      </div>
+      <Form.Check 
+        type="checkbox"
+        id="filter-incidence"
+        name="incidence"
+        label={translate('Incidences')}
+        checked={selectedTypes['incidence']}
+        onChange={handleTypeChange}
+        className="me-2 mb-0"
+        style={{ whiteSpace: 'nowrap' }}
+      />
+      <Form.Check 
+        type="checkbox"
+        id="filter-periodic-check"
+        name="periodic check"
+        label={translate('Checks')}
+        checked={selectedTypes['periodic check']}
+        onChange={handleTypeChange}
+        className="me-2 mb-0"
+        style={{ whiteSpace: 'nowrap' }}
+      />
+      <Form.Check 
+        type="checkbox"
+        id="filter-request"
+        name="request"
+        label={translate('Requests')}
+        checked={selectedTypes['request']}
+        onChange={handleTypeChange}
+        className="mb-0"
+        style={{ whiteSpace: 'nowrap' }}
+      />
     </div>
   );
 };

@@ -114,6 +114,9 @@ const MapViewer = ({ onLogout }) => {
   
   // Update visible events whenever events or visible maps change
   useEffect(() => {
+    // Skip this effect if no events or maps yet
+    if (!events.length || !maps.length) return;
+
     // Filter events based on visible maps
     const filteredEvents = events.filter(event => {
       if (!event || !event.map_id) return false;
@@ -137,7 +140,7 @@ const MapViewer = ({ onLogout }) => {
     setFilteredByTypeEvents(filteredEvents);
     
     if (DEBUG) console.log("Updated visible events:", filteredEvents.length, "out of", events.length);
-  }, [events, visibleMapIds, maps]);
+  }, [events.length, visibleMapIds, maps.length]); // Use .length to avoid full comparison of arrays
   
   useEffect(() => {
     if (projectId) {
@@ -1148,7 +1151,7 @@ const MapViewer = ({ onLogout }) => {
       map: selectedMap,
       events: filteredEvents,
       onMapClick: handleMapClick,
-      isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap?.id,
+      isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap.id,
       onEventClick: handleViewEvent,
       allMaps: maps,
       projectId: projectId,
@@ -1160,7 +1163,24 @@ const MapViewer = ({ onLogout }) => {
       return (
         <div className="mobile-map-container">
           {selectedMap ? (
-            <MapDetail {...mapDetailProps} />
+            <>
+              {/* Show filter at the top of the map container for mobile */}
+              <div className="mobile-filter-container" style={{
+                position: 'absolute', 
+                top: '10px', 
+                left: '50%', 
+                transform: 'translateX(-50%)',
+                zIndex: 2000,
+                maxWidth: '100%',
+                padding: '0 10px'
+              }}>
+                <MapEventTypeFilter 
+                  events={filteredEvents} 
+                  onFilterChange={handleEventTypeFilterChange} 
+                />
+              </div>
+              <MapDetail {...mapDetailProps} />
+            </>
           ) : (
             <div className="text-center p-3 bg-light rounded">
               <h5>{translate('No map selected')}</h5>
@@ -1170,37 +1190,6 @@ const MapViewer = ({ onLogout }) => {
               </Button>
             </div>
           )}
-          
-          {/* Mobile filters button */}
-          <div className="mobile-filters-btn">
-            <Button 
-              variant="light" 
-              size="sm" 
-              onClick={() => setShowMobileSidebar(true)}
-              className="rounded-circle shadow"
-            >
-              <i className="bi bi-funnel"></i>
-            </Button>
-          </div>
-          
-          {/* Mobile filters sidebar */}
-          <Offcanvas 
-            show={showMobileSidebar} 
-            onHide={() => setShowMobileSidebar(false)}
-            placement="end"
-            className="mobile-filters-offcanvas"
-          >
-            <Offcanvas.Header closeButton>
-              <Offcanvas.Title>{translate('Filters')}</Offcanvas.Title>
-            </Offcanvas.Header>
-            <Offcanvas.Body>
-              {/* Event Type Filter only */}
-              <MapEventTypeFilter 
-                events={filteredEvents} 
-                onFilterChange={handleEventTypeFilterChange} 
-              />
-            </Offcanvas.Body>
-          </Offcanvas>
           
           {/* Cancel overlay for location selection mode */}
           {mapForEvent && (
@@ -1223,7 +1212,7 @@ const MapViewer = ({ onLogout }) => {
             </div>
           )}
           
-          {/* Add Event button in bottom left corner */}
+          {/* Add Event button in bottom right corner */}
           {selectedMap && (
             <Button 
               className="add-event-fab"
@@ -1289,7 +1278,7 @@ const MapViewer = ({ onLogout }) => {
       );
     }
     
-    // For desktop, use the sidebar layout
+    // For desktop, update the filter position
     return (
       <Row className="map-content-container">
         <Col md={3} lg={3} className="position-relative map-sidebar">
@@ -1301,12 +1290,6 @@ const MapViewer = ({ onLogout }) => {
               onMapSelect={handleMapSelect}
               visibleMapIds={visibleMapIds}
               onVisibleMapsChanged={handleVisibleMapsChanged}
-            />
-            
-            {/* Event Type Filter only */}
-            <MapEventTypeFilter 
-              events={filteredEvents} 
-              onFilterChange={handleEventTypeFilterChange} 
             />
             
             {/* Add Map Button for Admins */}
@@ -1325,7 +1308,22 @@ const MapViewer = ({ onLogout }) => {
         </Col>
         
         {/* Map Display Area */}
-        <Col md={9} lg={9} className="map-content-area">
+        <Col md={9} lg={9} className="map-content-area position-relative">
+          {/* Show filter at the top of the map area for desktop */}
+          <div className="desktop-filter-container" style={{ 
+            position: 'absolute', 
+            top: '10px', 
+            left: '50%', 
+            transform: 'translateX(-50%)',
+            zIndex: 2000,
+            maxWidth: '100%'
+          }}>
+            <MapEventTypeFilter 
+              events={filteredEvents} 
+              onFilterChange={handleEventTypeFilterChange} 
+            />
+          </div>
+        
           {selectedMap ? (
             <MapDetail {...mapDetailProps} />
           ) : (

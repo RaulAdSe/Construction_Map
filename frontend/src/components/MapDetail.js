@@ -359,7 +359,10 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     const fileExt = url.split('.').pop().toLowerCase();
     const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
     
-    console.log(`Rendering map: ${currentMap.name}, ID: ${currentMap.id}, URL: ${url}, Extension: ${fileExt}`);
+    // Only log when debugging to avoid console spam
+    if (DEBUG) {
+      console.log(`Rendering map: ${currentMap.name}, ID: ${currentMap.id}, URL: ${url}, Extension: ${fileExt}`);
+    }
     
     const layerStyle = {
       position: 'absolute',
@@ -372,10 +375,13 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       pointerEvents: 'none', // Let clicks pass through to the base container
     };
     
+    // Use a reference to track if this layer has already been loaded
+    const layerKey = `map-layer-${currentMap.id}`;
+    
     if (fileExt === 'pdf') {
       // For PDFs, use an iframe with direct embed and hide UI controls
       return (
-        <div key={currentMap.id} style={layerStyle} className="pdf-container">
+        <div key={layerKey} style={layerStyle} className="pdf-container">
           <iframe 
             src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
             title={currentMap.name}
@@ -386,7 +392,12 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               backgroundColor: 'transparent'
             }}
             frameBorder="0"
-            onLoad={(e) => handleImageLoad(e)}
+            onLoad={(e) => {
+              // Only trigger handleImageLoad once per iframe to prevent re-rendering loops
+              if (!imageLoaded) {
+                handleImageLoad(e);
+              }
+            }}
             onError={() => handleImageError()}
             className="consistent-pdf-view"
           />
@@ -395,7 +406,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(fileExt)) {
       // For images, contain them in their container with consistent scaling
       return (
-        <div key={currentMap.id} style={layerStyle} className="map-image-container">
+        <div key={layerKey} style={layerStyle} className="map-image-container">
           <img 
             src={url} 
             alt={currentMap.name} 
@@ -404,7 +415,12 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               height: '100%', 
               objectFit: 'contain'
             }}
-            onLoad={(e) => handleImageLoad(e)}
+            onLoad={(e) => {
+              // Only trigger handleImageLoad once per image to prevent re-rendering loops
+              if (!imageLoaded) {
+                handleImageLoad(e);
+              }
+            }}
             onError={() => handleImageError()}
             className="consistent-map-image"
           />
@@ -413,13 +429,18 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     } else {
       // For other file types, use a generic iframe
       return (
-        <div key={currentMap.id} style={layerStyle}>
+        <div key={layerKey} style={layerStyle}>
           <iframe 
             src={url} 
             className="map-iframe-container consistent-iframe-view"
             title={currentMap.name}
             style={{ width: '100%', height: '100%', border: 'none' }}
-            onLoad={(e) => handleImageLoad(e)}
+            onLoad={(e) => {
+              // Only trigger handleImageLoad once per iframe to prevent re-rendering loops
+              if (!imageLoaded) {
+                handleImageLoad(e);
+              }
+            }}
             onError={() => handleImageError()}
           />
         </div>
