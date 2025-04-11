@@ -1167,12 +1167,15 @@ const MapViewer = ({ onLogout }) => {
               {/* Show filter at the top of the map container for mobile */}
               <div className="mobile-filter-container" style={{
                 position: 'absolute', 
-                top: '10px', 
+                top: '15px', 
                 left: '50%', 
                 transform: 'translateX(-50%)',
                 zIndex: 2000,
                 maxWidth: '100%',
-                padding: '0 10px'
+                padding: '0 10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '6px',
+                boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)'
               }}>
                 <MapEventTypeFilter 
                   events={filteredEvents} 

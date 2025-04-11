@@ -1059,13 +1059,13 @@ iframe[src*=".pdf"] {
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: #fff;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: space-around;
-  padding: 10px 0;
-  z-index: 1070;
-  transition: transform 0.3s ease;
+  background-color: white;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 8px 0;
+  height: 60px;
 }
 
 /* Hide tab navigation when adding an event */
@@ -1101,14 +1101,16 @@ iframe[src*=".pdf"] {
 /* Adjust content for mobile tab navigation */
 .mobile-view.has-tab-navigation .map-container,
 .mobile-view.has-tab-navigation .content-fit-view {
-  height: calc(100vh - 56px - 60px); /* Navbar height + Tab navigation height */
+  height: calc(100vh - 150px) !important;
+  margin-bottom: 60px !important;
 }
 
 /* Full-width map container for mobile */
 .mobile-map-container {
   position: relative;
   width: 100%;
-  height: calc(100vh - 56px); /* Subtract mobile navbar height */
+  height: calc(100vh - 135px) !important;
+  margin-bottom: 55px !important;
   overflow: hidden;
 }
 
@@ -1130,20 +1132,19 @@ iframe[src*=".pdf"] {
 /* Add Event FAB positioned at bottom left */
 .add-event-fab {
   position: fixed;
-  bottom: 90px; /* Lowered from 130px */
-  left: 20px;
-  width: 50px;
-  height: 50px;
+  bottom: 70px; /* Increased to be above the bottom nav bar */
+  right: 16px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  z-index: 1050;
-  background-color: #28a745; /* Bootstrap success color */
-  border-color: #28a745;
-  color: white;
+  z-index: 1000;
+  transition: all 0.2s ease-in-out;
   padding: 0;
+  border: none;
 }
 
 .add-event-fab:hover, 
@@ -1163,10 +1164,28 @@ iframe[src*=".pdf"] {
 
 /* Modify map container height for mobile */
 .mobile-view .map-container {
-  height: calc(100vh - 56px); /* Full height minus mobile navbar */
-  min-height: auto;
-  border: none;
-  border-radius: 0;
+  height: calc(100vh - 135px) !important;
+  margin-bottom: 55px !important;
+}
+
+.mobile-view.has-tab-navigation .map-container {
+  height: calc(100vh - 150px) !important;
+  margin-bottom: 60px !important;
+}
+
+/* Adjust the tab navigation to be more visible */
+.mobile-view .tab-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  background-color: white;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  padding: 8px 0;
+  height: 60px;
 }
 
 /* Adjust modals for mobile */
@@ -1264,7 +1283,7 @@ iframe[src*=".pdf"] {
 
 /* Ensure maps are properly sized in mobile */
 .mobile-view .content-fit-view {
-  height: calc(100vh - 56px);
+  height: calc(100vh - 150px);
 }
 
 .mobile-view .map-detail-container {
@@ -1273,7 +1292,7 @@ iframe[src*=".pdf"] {
 
 /* Map view height adjustment for mobile */
 .mobile-view .consistent-map-view {
-  height: calc(100vh - 56px);
+  height: calc(100vh - 150px);
 }
 
 /* Mobile map controls */
