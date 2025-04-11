@@ -15,15 +15,9 @@ const DEBUG = false;
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
   
-  // Store original events to ensure a consistent starting point
-  const allEventsRef = useRef(events || []);
-  
-  // Update stored events when prop changes
-  useEffect(() => {
-    if (events && Array.isArray(events)) {
-      allEventsRef.current = events;
-    }
-  }, [events]);
+  // Track original events list with direct access to the prop
+  // This ensures we're always filtering the most current events
+  const eventsSnapshot = useMemo(() => events || [], [events]);
   
   // Default all types to checked (true)
   const [selectedTypes, setSelectedTypes] = useState({
@@ -32,20 +26,20 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
-  // Calculate counts for each type - recalculate whenever allEventsRef changes
+  // Calculate counts for each type directly from the current events prop
   const typeCounts = useMemo(() => ({
-    'incidence': allEventsRef.current.filter(e => e?.state === 'incidence').length || 0,
-    'periodic check': allEventsRef.current.filter(e => e?.state === 'periodic check').length || 0,
-    'request': allEventsRef.current.filter(e => e?.state === 'request').length || 0
-  }), [allEventsRef.current]);
+    'incidence': events?.filter(e => e?.state === 'incidence').length || 0,
+    'periodic check': events?.filter(e => e?.state === 'periodic check').length || 0,
+    'request': events?.filter(e => e?.state === 'request').length || 0
+  }), [events]);
 
-  // Apply filter whenever selection changes
+  // Apply filter whenever selection changes or events change
   useEffect(() => {
-    // Skip if no callback
-    if (!onFilterChange) return;
+    // Skip if no callback or no events
+    if (!onFilterChange || !events || !Array.isArray(events)) return;
     
-    // Filter based on currently selected types
-    const filteredEvents = allEventsRef.current.filter(event => {
+    // Filter based on currently selected types - using the current events prop directly
+    const filteredEvents = events.filter(event => {
       // Skip if event has no state
       if (!event || !event.state) return false;
       
@@ -53,24 +47,16 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
       return selectedTypes[event.state] === true;
     });
     
-    // Apply the filter
+    // Apply the filter with the direct filtered events
     onFilterChange(filteredEvents);
     
     // Debug log to verify filter application
-    if (DEBUG) {
-      console.log(`Filter applied: ${Object.entries(selectedTypes)
-        .filter(([_, checked]) => checked)
-        .map(([type]) => type)
-        .join(', ')}`);
-    } else {
-      // Always log this one because it's helpful for debugging
-      console.log(`Filter applied: ${Object.entries(selectedTypes)
-        .filter(([_, checked]) => checked)
-        .map(([type]) => type)
-        .join(', ')}`);
-    }
+    console.log(`Filter applied: ${Object.entries(selectedTypes)
+      .filter(([_, checked]) => checked)
+      .map(([type]) => type)
+      .join(', ')}`);
       
-  }, [selectedTypes, onFilterChange]);
+  }, [selectedTypes, events, onFilterChange]);
 
   // Handle checkbox state changes - simple and direct
   const handleTypeChange = (e) => {
