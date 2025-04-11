@@ -924,18 +924,18 @@ const MapViewer = ({ onLogout }) => {
     activeEventModalTab
   ]);
   
-  // Handle event type filter change with simple, direct approach
+  // Handle event type filter change - simple direct approach with guaranteed state updates
   const handleEventTypeFilterChange = useCallback((filteredEvts) => {
     // Skip update if no events provided
     if (!filteredEvts || !Array.isArray(filteredEvts)) return;
     
     console.log(`Filter changed: now showing ${filteredEvts.length} events`);
     
-    // Create a brand new timestamp to force component updates
+    // ALWAYS create a new timestamp to force component updates
     const newFilterKey = Date.now();
     
-    // Apply the filtered events directly
-    setFilteredEvents(filteredEvts);
+    // Apply filtered events directly - no equality checks to ensure updates always happen
+    setFilteredEvents([...filteredEvts]);
     setFilterKey(newFilterKey);
   }, []);
   

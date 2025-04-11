@@ -5,7 +5,7 @@ import { useMobile } from './common/MobileProvider';
 
 /**
  * MapEventTypeFilter - Filter component for event types on the map
- * Simplified version that only tracks selections and notifies parent
+ * Uses a direct approach to track selected types and notify parent
  */
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
@@ -24,29 +24,29 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
   
-  // Notify parent when selection changes
+  // Notify parent when selection changes - DIRECTLY - no equality checks
   useEffect(() => {
     if (onFilterChange) {
-      // Create filtered events array based on selection
+      // Simply filter events based on current selection
       const filteredEvents = events.filter(event => 
         event && event.state && selectedTypes[event.state] === true
       );
       
-      // Pass filtered events to parent
+      // No equality checks, just pass the filtered events directly
       onFilterChange(filteredEvents);
       
-      // Log which types are selected
+      // Log for debugging
       console.log(`Filter applied: ${Object.entries(selectedTypes)
         .filter(([_, checked]) => checked)
         .map(([type]) => type)
-        .join(', ')}`);
+        .join(', ')} - ${filteredEvents.length} events`);
     }
   }, [selectedTypes, events, onFilterChange]);
 
   // Handle checkbox changes
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
-    console.log(`Filter changed: ${name} = ${checked}`);
+    console.log(`Filter toggled: ${name} = ${checked}`);
     
     // Update selected types
     setSelectedTypes(prev => ({

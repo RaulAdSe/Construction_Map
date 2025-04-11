@@ -19,6 +19,8 @@ const MapDetail = ({
   const mapContainerRef = useRef(null);
   const mapContentRef = useRef(null);
   const initialContentSize = useRef(null);
+  const lastEventKeyRef = useRef(null); // Add a ref to track last event key
+  const visibleEventsKeyRef = useRef(null); // Add a ref to track visible events calculation
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -254,18 +256,20 @@ const MapDetail = ({
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
-  // Calculate which events should be visible on the map, ensuring key dependency
+  // Calculate which events should be visible on the map - simplified approach
   const visibleEvents = useMemo(() => {
     if (!events || !Array.isArray(events)) {
       return [];
     }
     
-    // Key is needed in dependency array to force recalculation when filters change
-    const currentKey = eventKey || 'default';
-    console.log(`Recalculating visible events (key: ${currentKey})`);
+    // Create a simple timestamp ID for logging that doesn't log on every render
+    if (eventKey !== visibleEventsKeyRef.current) {
+      console.log(`Recalculating visible events with key: ${eventKey}`);
+      visibleEventsKeyRef.current = eventKey;
+    }
     
-    // Apply map-based filtering logic
-    return events.filter(event => {
+    // Apply map-based filtering logic - return a new array to ensure React detects the change
+    return [...events].filter(event => {
       if (!event || !event.map_id) return false;
       
       // Skip closed events regardless of map
@@ -279,7 +283,7 @@ const MapDetail = ({
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
-  }, [events, implantationMap?.id, visibleMaps, eventKey]); // Key in dependencies is critical
+  }, [events, implantationMap?.id, visibleMaps, eventKey]);
   
   // Log when visible events change - only with DEBUG flag
   useEffect(() => {
@@ -745,26 +749,27 @@ const MapDetail = ({
     );
   };
   
-  // Render event markers with proper click handling
+  // Render event markers with proper click handling - simplified to ensure proper updates
   const renderEventMarkers = () => {
     if (!visibleEvents || visibleEvents.length === 0) {
-      console.log('No visible events to render');
       return null;
     }
     
-    console.log(`Rendering ${visibleEvents.length} event markers with key: ${eventKey || Date.now()}`);
+    // Log marker rendering - only once per eventKey
+    if (eventKey !== lastEventKeyRef.current) {
+      console.log(`Rendering ${visibleEvents.length} markers with key: ${eventKey}`);
+      lastEventKeyRef.current = eventKey;
+    }
     
-    // Use a unique container key to force complete replacement of all markers
-    // Note: Using a div instead of React.Fragment because we need to apply a key
+    // Use a React key with the eventKey to force complete remounting of all event markers
     return (
       <div 
         className="event-markers-container"
-        key={`event-marker-container-${eventKey || Date.now()}`}
-        data-marker-count={visibleEvents.length}
+        key={`marker-container-${eventKey}`}
       >
         {visibleEvents.map(event => (
           <EventMarker 
-            key={`event-marker-${event.id}-${eventKey || Date.now()}`}
+            key={`marker-${event.id}-${eventKey}`}
             event={event} 
             onClick={handleEventClick}
             disabled={isSelectingLocation}
