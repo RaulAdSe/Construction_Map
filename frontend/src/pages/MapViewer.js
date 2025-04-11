@@ -211,13 +211,43 @@ const MapViewer = ({ onLogout }) => {
     return settings;
   };
   
-  // Reload map data when switching to Map View tab
+  // Reload map data when switching to Map View tab - with optimization
   useEffect(() => {
     if (activeTab === 'map-view' && projectId) {
       // We only want to reload the maps to get any updated main map
       const refreshMaps = async () => {
+        // Don't refresh if we're already loading or if it's been less than 5s since last update
+        const lastRefresh = sessionStorage.getItem(`last_map_refresh_${projectId}`);
+        const now = Date.now();
+        
+        if (lastRefresh && (now - parseInt(lastRefresh, 10)) < 5000) {
+          if (DEBUG) console.log('Skipping map refresh - throttled');
+          return;
+        }
+        
         try {
-          const mapsData = await fetchMaps(parseInt(projectId, 10));
+          // Use cached data if available and recent
+          const mapsCacheKey = `maps_cache_${projectId}`;
+          const cachedMapsData = sessionStorage.getItem(mapsCacheKey);
+          let mapsData;
+          
+          if (cachedMapsData && (now - JSON.parse(cachedMapsData).timestamp < 5000)) {
+            // Use cached data
+            mapsData = JSON.parse(cachedMapsData).data;
+            if (DEBUG) console.log('Using cached maps data for tab switch');
+          } else {
+            // Fetch new data
+            mapsData = await fetchMaps(parseInt(projectId, 10));
+            
+            // Update cache
+            sessionStorage.setItem(mapsCacheKey, JSON.stringify({
+              timestamp: now,
+              data: mapsData
+            }));
+          }
+          
+          // Record last refresh time
+          sessionStorage.setItem(`last_map_refresh_${projectId}`, now.toString());
           
           // If the map types have changed, we need to update our state
           const mainMap = mapsData.find(map => map.map_type === 'implantation');
@@ -247,8 +277,27 @@ const MapViewer = ({ onLogout }) => {
       const projectData = await fetchProjectById(pid);
       setProject(projectData);
       
-      // Fetch maps for the project
-      const mapsData = await fetchMaps(pid);
+      // Use a debounce mechanism to prevent multiple rapid calls
+      const mapsCacheKey = `maps_cache_${pid}`;
+      const cachedMapsData = sessionStorage.getItem(mapsCacheKey);
+      let mapsData;
+      
+      if (cachedMapsData && Date.now() - JSON.parse(cachedMapsData).timestamp < 5000) {
+        // Use cached data if it's less than 5 seconds old
+        mapsData = JSON.parse(cachedMapsData).data;
+        console.log('Using cached maps data');
+      } else {
+        // Fetch maps for the project
+        mapsData = await fetchMaps(pid);
+        
+        // Cache the maps data with timestamp
+        sessionStorage.setItem(mapsCacheKey, JSON.stringify({
+          timestamp: Date.now(),
+          data: mapsData
+        }));
+      }
+      
+      // Set maps state
       setMaps(mapsData);
       
       // Fetch events for each map
@@ -298,8 +347,21 @@ const MapViewer = ({ onLogout }) => {
   window.refreshMapsData = async () => {
     if (projectId) {
       try {
+        const now = Date.now();
+        const mapsCacheKey = `maps_cache_${projectId}`;
+        
         // Only fetch maps, not the entire project data
         const mapsData = await fetchMaps(parseInt(projectId, 10));
+        
+        // Update the cache
+        sessionStorage.setItem(mapsCacheKey, JSON.stringify({
+          timestamp: now,
+          data: mapsData
+        }));
+        
+        // Record last refresh time
+        sessionStorage.setItem(`last_map_refresh_${projectId}`, now.toString());
+        
         setMaps(mapsData);
         showNotification(translate('Maps updated successfully!'), 'success');
       } catch (error) {
@@ -369,24 +431,47 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleAddEvent = () => {
+    console.log('MapViewer: handleAddEvent called, isMobile=', isMobile);
+    
     if (!selectedMap) {
+      console.log('MapViewer: No map selected, cannot add event');
       showNotification(translate('Please select a map first before adding an event.'), 'warning');
       // Maybe direct them to map selection
       setActiveTab('project-maps');
       return;
     }
     
+    console.log('MapViewer: Starting event creation process with map:', selectedMap?.id);
+    
     // Close any open sidebar or overlays
     setShowMobileSidebar(false);
     
-    // Store reference to map and set selecting location mode
-    setMapForEvent(selectedMap);
-    
-    // Add a class to the root element to hide the nav bar while selecting location
-    document.body.classList.add('map-adding-event');
-    
-    // Notify user to click on the map
-    showNotification(translate('Click on the map to place your event or press ESC to cancel.'), 'info');
+    // For mobile, add a slight delay to ensure UI updates before entering selection mode
+    if (isMobile) {
+      // Clearer instructions specific to mobile
+      showNotification(translate('Tap directly on the map to place your event. Tap the Cancel button to cancel.'), 'info', 5000);
+      
+      // Use timeout to ensure UI is ready for selection
+      setTimeout(() => {
+        // Store reference to map and set selecting location mode
+        setMapForEvent(selectedMap);
+        
+        // Add a class to the root element to hide the nav bar while selecting location
+        document.body.classList.add('map-adding-event');
+        
+        console.log('MapViewer: Mobile event creation mode activated');
+      }, 200); // Increased delay for better reliability
+    } else {
+      // Desktop flow - immediate activation
+      // Store reference to map and set selecting location mode
+      setMapForEvent(selectedMap);
+      
+      // Add a class to the root element to hide the nav bar while selecting location
+      document.body.classList.add('map-adding-event');
+      
+      // Notify user to click on the map
+      showNotification(translate('Click on the map to place your event or press ESC to cancel.'), 'info');
+    }
   };
   
   // Cancel location selection mode
@@ -433,16 +518,34 @@ const MapViewer = ({ onLogout }) => {
   };
   
   const handleMapClick = (map, x, y) => {
+    console.log(`MapViewer: handleMapClick called with coordinates (${x}, ${y}), isMobile=${isMobile}, mapForEvent=${!!mapForEvent}`);
+    
     if (mapForEvent && mapForEvent.id === map.id) {
+      console.log('MapViewer: Setting event position and preparing to show modal');
       setEventPosition({ x, y });
-      setMapForEvent(prev => ({
-        ...prev,
-        visibleMaps: map.visibleMaps || []
-      }));
-      setShowAddEventModal(true);
+      setMapForEvent(prev => {
+        console.log('MapViewer: Updating mapForEvent with visible maps', map.visibleMaps || []);
+        return {
+          ...prev,
+          visibleMaps: map.visibleMaps || []
+        };
+      });
       
-      // Remove the class when the modal is shown
-      document.body.classList.remove('map-adding-event');
+      // Add small delay on mobile to ensure event coordinates are processed
+      if (isMobile) {
+        console.log('MapViewer: Mobile view - adding slight delay before showing modal');
+        setTimeout(() => {
+          setShowAddEventModal(true);
+          document.body.classList.remove('map-adding-event');
+        }, 50);
+      } else {
+        setShowAddEventModal(true);
+        document.body.classList.remove('map-adding-event');
+      }
+    } else {
+      console.log('MapViewer: Map click ignored - not in event creation mode or wrong map');
+      console.log('MapForEvent:', mapForEvent);
+      console.log('Clicked map:', map);
     }
   };
   
@@ -530,11 +633,11 @@ const MapViewer = ({ onLogout }) => {
     setVisibleEvents(updatedVisibleEvents);
   };
   
-  const showNotification = (message, type = 'success') => {
+  const showNotification = (message, type = 'success', duration = 3000) => {
     setNotification({ show: true, message, type });
     setTimeout(() => {
       setNotification({ ...notification, show: false });
-    }, 3000);
+    }, duration);
   };
   
   // Add a debug function to check and fix admin status
@@ -583,6 +686,16 @@ const MapViewer = ({ onLogout }) => {
       // Skip if the user has manually closed the modal
       if (userClosedModal) return;
       
+      // Skip if we're in the middle of loading data to prevent cascading API calls
+      if (loading) return;
+      
+      // Use local variable to track if we need to update maps
+      let shouldUpdateSelectedMap = false;
+      let mapToSelect = null;
+      let shouldShowModal = false;
+      let eventToShow = null;
+      let commentToHighlight = null;
+      
       // Check if we have highlight info in location state (from programmatic navigation)
       const highlightEventId = location.state?.highlightEventId;
       const highlightCommentId = location.state?.highlightCommentId;
@@ -598,24 +711,18 @@ const MapViewer = ({ onLogout }) => {
           // Select the event's map
           const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
           if (eventMap) {
-            setSelectedMap(eventMap);
-            
-            // Make sure this map is visible
-            if (!visibleMapIds.includes(eventMap.id)) {
-              setVisibleMapIds(prev => [...prev, eventMap.id]);
-            }
+            shouldUpdateSelectedMap = true;
+            mapToSelect = eventMap;
           }
           
-          // Set the selected event and show the event modal
-          setSelectedEvent(eventToHighlight);
+          // Set the event to show in modal
+          shouldShowModal = true;
+          eventToShow = eventToHighlight;
           
           // Store the comment ID for highlighting
           if (highlightCommentId) {
-            // Store the highlight comment ID in a state variable
-            setHighlightCommentId(parseInt(highlightCommentId, 10));
+            commentToHighlight = parseInt(highlightCommentId, 10);
           }
-          
-          setShowViewEventModal(true);
           
           // Clear the highlight info from location state after processing
           try {
@@ -631,7 +738,7 @@ const MapViewer = ({ onLogout }) => {
       const eventIdFromUrl = urlParams.get('event');
       const commentIdFromUrl = urlParams.get('comment');
       
-      if (eventIdFromUrl && events.length > 0) {
+      if (eventIdFromUrl && events.length > 0 && !shouldShowModal) {
         if (DEBUG) console.log(`Highlighting event ${eventIdFromUrl} from URL parameters`);
         
         // Find the event
@@ -641,39 +748,52 @@ const MapViewer = ({ onLogout }) => {
           // Select the event's map
           const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
           if (eventMap) {
-            setSelectedMap(eventMap);
-            
-            // Make sure this map is visible
-            if (!visibleMapIds.includes(eventMap.id)) {
-              setVisibleMapIds(prev => [...prev, eventMap.id]);
-            }
+            shouldUpdateSelectedMap = true;
+            mapToSelect = eventMap;
           }
           
-          // Set the selected event and show the event modal
-          setSelectedEvent(eventToHighlight);
+          // Set the event to show in modal
+          shouldShowModal = true;
+          eventToShow = eventToHighlight;
           
           // If we have a comment to highlight, set it
           if (commentIdFromUrl) {
-            setHighlightCommentId(parseInt(commentIdFromUrl, 10));
+            commentToHighlight = parseInt(commentIdFromUrl, 10);
             
             // Also set the active tab to comments
             setActiveEventModalTab('comments');
           }
-          
-          setShowViewEventModal(true);
           
           // Remove the parameters from the URL to prevent issues on refresh
           const newUrl = window.location.pathname;
           window.history.replaceState({}, document.title, newUrl);
         }
       }
+      
+      // Batch state updates to prevent cascading renders
+      if (shouldUpdateSelectedMap && mapToSelect) {
+        setSelectedMap(mapToSelect);
+        
+        // Make sure this map is visible
+        if (!visibleMapIds.includes(mapToSelect.id)) {
+          setVisibleMapIds(prev => [...prev, mapToSelect.id]);
+        }
+      }
+      
+      if (shouldShowModal && eventToShow) {
+        setSelectedEvent(eventToShow);
+        if (commentToHighlight !== null) {
+          setHighlightCommentId(commentToHighlight);
+        }
+        setShowViewEventModal(true);
+      }
     };
     
-    // Only run this effect after events are loaded
+    // Only run this effect after events are loaded and we're not in a loading state
     if (events.length > 0 && !loading) {
       checkForHighlightedEvent();
     }
-  }, [events, maps, location.state, loading, userClosedModal]);
+  }, [events, maps, location.state, loading, userClosedModal, visibleMapIds]);
   
   const handleCloseViewEventModal = useCallback(() => {
     // Reset state
@@ -1038,18 +1158,16 @@ const MapViewer = ({ onLogout }) => {
           
           {/* Cancel overlay for location selection mode */}
           {mapForEvent && (
-            <div className="selecting-location-cancel-overlay" onClick={(e) => {
-              // Only cancel if clicking outside the map container
-              if (!e.target.closest('.map-container')) {
-                cancelLocationSelection();
-              }
-            }}>
+            <div className="selecting-location-cancel-overlay">
               <Button 
                 variant="danger" 
                 size="sm"
                 className="cancel-selection-btn"
                 onClick={(e) => {
+                  // Make sure to stop propagation to prevent any parent handlers
+                  e.preventDefault();
                   e.stopPropagation();
+                  console.log('MapViewer: Cancel button clicked explicitly');
                   cancelLocationSelection();
                 }}
               >
@@ -1064,7 +1182,10 @@ const MapViewer = ({ onLogout }) => {
             <Button 
               className="add-event-fab"
               variant="success"
-              onClick={handleAddEvent}
+              onClick={() => {
+                console.log('MapViewer: Mobile FAB Add Event button clicked');
+                handleAddEvent();
+              }}
               aria-label={translate('Add Event')}
             >
               <i className="bi bi-plus-lg"></i>

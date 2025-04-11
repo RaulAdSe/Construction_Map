@@ -69,7 +69,9 @@ export const fetchProjectById = async (projectId) => {
 export const fetchMaps = async (projectId) => {
   try {
     console.log(`Fetching maps for project ${projectId}`);
-    const response = await api.get(`${API_URL}/maps?project_id=${projectId}`);
+    // Ensure clean URL without trailing slash and properly encoded query parameter
+    const url = `${API_URL}/maps?project_id=${encodeURIComponent(projectId)}`.replace(/\/+$/, '');
+    const response = await api.get(url);
     return response.data;
   } catch (error) {
     console.error(`Error fetching maps for project ${projectId}:`, error);

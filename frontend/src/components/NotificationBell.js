@@ -151,51 +151,58 @@ const NotificationBell = () => {
     
     // Navigate to the link destination if it exists
     if (notification.link) {
-      // Parse the link to extract parameters
       try {
+        // Parse the link URL, ensuring it's properly formatted
         const linkUrl = new URL(notification.link, window.location.origin);
         
         // Reset any userClosedModal flag when navigating to new event
         if (window.resetModalClosedFlag && typeof window.resetModalClosedFlag === 'function') {
           window.resetModalClosedFlag();
         }
+
+        // Extract path segments and query parameters
+        const pathSegments = linkUrl.pathname.split('/').filter(Boolean);
+        const params = Object.fromEntries(linkUrl.searchParams.entries());
         
-        // Handle navigation based on the link structure
-        if (linkUrl.pathname.startsWith('/project/')) {
-          const projectId = linkUrl.pathname.split('/').pop();
-          const eventId = linkUrl.searchParams.get('event');
-          const commentId = linkUrl.searchParams.get('comment');
-          
-          // Navigate and include any query parameters
-          navigate(`/project/${projectId}`, { 
-            state: { 
-              highlightEventId: eventId,
-              highlightCommentId: commentId
-            }
-          });
-        } else if (linkUrl.pathname.startsWith('/events/')) {
-          // Legacy format: extract event ID from path and convert to new format
-          const eventId = linkUrl.pathname.split('/').pop();
-          const commentId = linkUrl.searchParams.get('comment');
-          
-          // Find project ID from the event ID in the event store or re-fetch if needed
-          // For simplicity, we'll navigate directly to the event in the current project
-          const currentProjectId = window.location.pathname.split('/').pop();
-          
-          navigate(`/project/${currentProjectId}`, {
+        // Handle project-specific navigation
+        if (pathSegments[0] === 'project') {
+          const projectId = pathSegments[1];
+          navigate(`/project/${projectId}`, {
             state: {
-              highlightEventId: eventId,
-              highlightCommentId: commentId
+              highlightEventId: params.event,
+              highlightCommentId: params.comment
             }
           });
-        } else {
-          // For other links, navigate directly
-          navigate(notification.link);
+          return;
         }
+        
+        // Handle legacy event-specific navigation
+        if (pathSegments[0] === 'events' && pathSegments[1]) {
+          const eventId = pathSegments[1];
+          // Get current project ID from URL
+          const currentPath = window.location.pathname;
+          const currentProjectId = currentPath.split('/').filter(Boolean).pop();
+          
+          if (currentProjectId) {
+            navigate(`/project/${currentProjectId}`, {
+              state: {
+                highlightEventId: eventId,
+                highlightCommentId: params.comment
+              }
+            });
+            return;
+          }
+        }
+        
+        // For any other links, navigate directly without trailing slash
+        const cleanPath = linkUrl.pathname.replace(/\/$/, '');
+        navigate(cleanPath + (linkUrl.search || ''));
+        
       } catch (error) {
-        console.error('Error parsing notification link:', error);
-        // Fallback to direct navigation
-        navigate(notification.link);
+        console.error('Error handling notification navigation:', error);
+        // Fallback to direct navigation without trailing slash
+        const cleanLink = notification.link.replace(/\/$/, '');
+        navigate(cleanLink);
       }
     } else {
       console.warn('Notification has no link to navigate to');

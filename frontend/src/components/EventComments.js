@@ -27,10 +27,18 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     setLoading(true);
     try {
       const response = await api.get(`/events/${eventId}/comments`);
-      setComments(response.data || []);
-      setError('');
+      // Check if response.data exists and is an array
+      if (response.data && Array.isArray(response.data)) {
+        setComments(response.data);
+        setError('');
+      } else {
+        console.error('Invalid comments data format:', response.data);
+        setComments([]);
+        setError(translate('Failed to load comments - invalid data format'));
+      }
     } catch (err) {
       console.error('Error fetching comments:', err);
+      setComments([]);
       setError(translate('Failed to load comments'));
     } finally {
       setLoading(false);

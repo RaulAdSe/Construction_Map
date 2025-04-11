@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user, verify_project_access
 from app.services import event_history as event_history_service
 from app.models.user import User
+from app.models.project import ProjectUser
 
 router = APIRouter()
 

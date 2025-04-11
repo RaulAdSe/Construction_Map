@@ -240,19 +240,22 @@ iframe.clean-pdf-view {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 999; /* Below modals but above most content */
-  pointer-events: all;
+  background-color: rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 20px;
 }
 
 .cancel-selection-btn {
+  pointer-events: auto;
   position: fixed;
-  top: 15px;
-  right: 15px;
-  padding: 8px 12px;
-  font-size: 0.9rem;
-  border-radius: 20px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-  z-index: 1000;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1010;
 }
 
 /* For mobile, position the cancel button at the bottom */
