@@ -5,7 +5,17 @@ import { useMobile } from './common/MobileProvider';
 
 const DEBUG = false; // Set to true only when debugging is needed
 
-const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick, allMaps = [], projectId, onVisibleMapsChanged }) => {
+const MapDetail = ({
+  map,
+  events,
+  eventKey,
+  onMapClick,
+  isSelectingLocation = false,
+  onEventClick,
+  allMaps = [],
+  projectId,
+  onVisibleMapsChanged = () => {}
+}) => {
   const mapContainerRef = useRef(null);
   const mapContentRef = useRef(null);
   const initialContentSize = useRef(null);
@@ -736,11 +746,10 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       <div className="event-markers-container" key={`markers-container-${renderKey}`}>
         {visibleEvents.map(event => (
           <EventMarker 
-            key={`event-marker-${event.id}-${renderKey}`}
+            key={`${event.id}-${eventKey || 'default'}`}
             event={event} 
-            onClick={(e) => handleEventClick(event, e)}
-            scale={1}
-            isMobile={isMobile}
+            onClick={handleEventClick}
+            disabled={isSelectingLocation}
           />
         ))}
       </div>

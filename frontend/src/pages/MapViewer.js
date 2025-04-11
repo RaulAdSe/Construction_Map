@@ -918,18 +918,38 @@ const MapViewer = ({ onLogout }) => {
     activeEventModalTab
   ]);
   
-  // Let's also fix the handleVisibleMapsChanged function to prevent unnecessary re-renders
-  // by memoizing the props passed to MapDetail
+  // Handle event type filter change with proper key-based re-rendering
+  const handleEventTypeFilterChange = useCallback((filteredEvts) => {
+    // Skip update if no events provided
+    if (!filteredEvts || !Array.isArray(filteredEvts)) return;
+    
+    // Create new state references to ensure React detects the change
+    const newFilteredEvents = [...filteredEvts];
+    
+    // Force React to recognize the changes by using new array references
+    setFilteredByTypeEvents(newFilteredEvents);
+    setFilteredEvents(newFilteredEvents);
+    
+    console.log(`Filter changed: now showing ${newFilteredEvents.length} events`);
+  }, []);
+  
+  // Force markers to update when events change by adding a key based on selection
+  const mapEventKey = useMemo(() => {
+    return Date.now(); // Generate a unique key when events change
+  }, [filteredEvents]);
+  
+  // Make MapDetail take an eventKey prop to force redraw of markers
   const mapDetailProps = useMemo(() => ({
     map: selectedMap,
     events: filteredEvents,
+    eventKey: mapEventKey, // Add key for forcing rerenders
     onMapClick: handleMapClick,
     isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap.id,
     onEventClick: handleViewEvent,
     allMaps: maps,
     projectId: projectId,
     onVisibleMapsChanged: handleVisibleMapsChanged
-  }), [selectedMap, filteredEvents, handleMapClick, mapForEvent, handleViewEvent, maps, projectId, handleVisibleMapsChanged]);
+  }), [selectedMap, filteredEvents, mapEventKey, handleMapClick, mapForEvent, handleViewEvent, maps, projectId, handleVisibleMapsChanged]);
   
   // Create a toggle function for the mobile sidebar
   const toggleMobileSidebar = () => {
@@ -1154,6 +1174,7 @@ const MapViewer = ({ onLogout }) => {
     const mapDetailProps = {
       map: selectedMap,
       events: filteredEvents,
+      eventKey: mapEventKey, // Add key for forcing rerenders
       onMapClick: handleMapClick,
       isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap.id,
       onEventClick: handleViewEvent,
@@ -1317,25 +1338,6 @@ const MapViewer = ({ onLogout }) => {
     // Ensure the class is removed when the modal is closed
     document.body.classList.remove('map-adding-event');
   };
-  
-  // Handle event type filter change - properly memoized
-  const handleEventTypeFilterChange = useCallback((filteredEvts) => {
-    // Skip update if nothing changed or invalid data
-    if (!filteredEvts || !Array.isArray(filteredEvts)) return;
-    
-    // Use a string representation for comparison to avoid reference issues
-    const currentFilterKey = JSON.stringify(filteredEvts.map(e => e.id).sort());
-    if (previousFilterRef.current === currentFilterKey) return;
-    
-    // Update the reference for next comparison
-    previousFilterRef.current = currentFilterKey;
-    
-    // Update both state variables with the filtered events
-    setFilteredByTypeEvents(filteredEvts);
-    setFilteredEvents(filteredEvts);
-    
-    if (DEBUG) console.log(`Filter applied: showing ${filteredEvts.length} events`);
-  }, []);
   
   if (loading) {
     return (

@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
-
-const DEBUG = false; // Set to false for production
 
 /**
  * MapEventTypeFilter - Filter component for event types on the map
@@ -15,16 +13,13 @@ const DEBUG = false; // Set to false for production
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
   
-  // Store original events to filter against
-  const eventsRef = useRef(events || []);
+  // Store original events to ensure a consistent starting point
+  const allEventsRef = useRef(events || []);
   
-  // Track last filtered result to avoid duplicate updates
-  const lastFilteredRef = useRef(null);
-  
-  // Update ref when events prop changes (only store the reference, don't cause rerenders)
+  // Update stored events when prop changes
   useEffect(() => {
     if (events && Array.isArray(events)) {
-      eventsRef.current = events;
+      allEventsRef.current = events;
     }
   }, [events]);
   
@@ -35,54 +30,43 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
-  // Memoize the filter function to avoid recreating it on every render
-  const filterEvents = useCallback(() => {
-    const currentEvents = eventsRef.current || [];
+  // Calculate counts for each type
+  const typeCounts = {
+    'incidence': allEventsRef.current.filter(e => e?.state === 'incidence').length || 0,
+    'periodic check': allEventsRef.current.filter(e => e?.state === 'periodic check').length || 0,
+    'request': allEventsRef.current.filter(e => e?.state === 'request').length || 0
+  };
+
+  // Apply filter whenever selection changes
+  useEffect(() => {
+    // Skip if no callback
+    if (!onFilterChange) return;
     
-    return currentEvents.filter(event => {
+    // Filter based on currently selected types
+    const filteredEvents = allEventsRef.current.filter(event => {
       // Skip if event has no state
       if (!event || !event.state) return false;
       
       // Include event if its type is checked in the filter
       return selectedTypes[event.state] === true;
     });
-  }, [selectedTypes]);
-
-  // Only filter events when selectedTypes changes
-  useEffect(() => {
-    // Skip if no callback
-    if (!onFilterChange) return;
     
-    // Get filtered events
-    const filteredEvents = filterEvents();
-    
-    // Compare with last filtered result
-    const currentFilterKey = JSON.stringify(filteredEvents.map(e => e?.id).sort());
-    if (lastFilteredRef.current === currentFilterKey) {
-      if (DEBUG) console.log("Filter unchanged, skipping update");
-      return;
-    }
-    
-    // Update last filtered reference
-    lastFilteredRef.current = currentFilterKey;
-    
-    // Call the filter change handler with filtered events
-    if (DEBUG) console.log(`Filtering applied: ${filteredEvents.length} events selected`);
+    // Apply the filter
     onFilterChange(filteredEvents);
-  }, [filterEvents, onFilterChange]);
+    
+    // Debug log to verify filter application
+    console.log(`Filter applied: ${Object.entries(selectedTypes)
+      .filter(([_, checked]) => checked)
+      .map(([type]) => type)
+      .join(', ')}`);
+      
+  }, [selectedTypes, onFilterChange]);
 
-  // Calculate counts for each type
-  const typeCounts = {
-    'incidence': events?.filter(e => e?.state === 'incidence')?.length || 0,
-    'periodic check': events?.filter(e => e?.state === 'periodic check')?.length || 0,
-    'request': events?.filter(e => e?.state === 'request')?.length || 0
-  };
-
-  // Handle checkbox state changes
+  // Handle checkbox state changes - simple and direct
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
+    console.log(`Filter changed: ${name} = ${checked}`);
     
-    // Update the selected types state with the new checkbox value
     setSelectedTypes(prev => ({
       ...prev,
       [name]: checked
