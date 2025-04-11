@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
+
+const DEBUG = false; // Set to false for production
 
 /**
  * MapEventTypeFilter - Filter component for event types on the map
@@ -14,11 +16,16 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
   
   // Store original events to filter against
-  const eventsRef = useRef(events);
+  const eventsRef = useRef(events || []);
   
-  // Update ref when events prop changes
+  // Track last filtered result to avoid duplicate updates
+  const lastFilteredRef = useRef(null);
+  
+  // Update ref when events prop changes (only store the reference, don't cause rerenders)
   useEffect(() => {
-    eventsRef.current = events;
+    if (events && Array.isArray(events)) {
+      eventsRef.current = events;
+    }
   }, [events]);
   
   // Default all types to checked (true)
@@ -28,30 +35,48 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
-  // Calculate counts for each type
-  const typeCounts = {
-    'incidence': events?.filter(e => e?.state === 'incidence')?.length || 0,
-    'periodic check': events?.filter(e => e?.state === 'periodic check')?.length || 0,
-    'request': events?.filter(e => e?.state === 'request')?.length || 0
-  };
+  // Memoize the filter function to avoid recreating it on every render
+  const filterEvents = useCallback(() => {
+    const currentEvents = eventsRef.current || [];
+    
+    return currentEvents.filter(event => {
+      // Skip if event has no state
+      if (!event || !event.state) return false;
+      
+      // Include event if its type is checked in the filter
+      return selectedTypes[event.state] === true;
+    });
+  }, [selectedTypes]);
 
   // Only filter events when selectedTypes changes
   useEffect(() => {
     // Skip if no callback
     if (!onFilterChange) return;
     
-    // Filter events based on selected types
-    const filteredEvents = eventsRef.current?.filter(event => {
-      // Skip if event has no state
-      if (!event || !event.state) return false;
-      
-      // Include event if its type is checked in the filter
-      return selectedTypes[event.state] === true;
-    }) || [];
+    // Get filtered events
+    const filteredEvents = filterEvents();
+    
+    // Compare with last filtered result
+    const currentFilterKey = JSON.stringify(filteredEvents.map(e => e?.id).sort());
+    if (lastFilteredRef.current === currentFilterKey) {
+      if (DEBUG) console.log("Filter unchanged, skipping update");
+      return;
+    }
+    
+    // Update last filtered reference
+    lastFilteredRef.current = currentFilterKey;
     
     // Call the filter change handler with filtered events
+    if (DEBUG) console.log(`Filtering applied: ${filteredEvents.length} events selected`);
     onFilterChange(filteredEvents);
-  }, [selectedTypes, onFilterChange]);
+  }, [filterEvents, onFilterChange]);
+
+  // Calculate counts for each type
+  const typeCounts = {
+    'incidence': events?.filter(e => e?.state === 'incidence')?.length || 0,
+    'periodic check': events?.filter(e => e?.state === 'periodic check')?.length || 0,
+    'request': events?.filter(e => e?.state === 'request')?.length || 0
+  };
 
   // Handle checkbox state changes
   const handleTypeChange = (e) => {

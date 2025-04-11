@@ -73,6 +73,10 @@ const MapViewer = ({ onLogout }) => {
   // Add a state for mobile sidebar visibility
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   
+  // State for filtered events
+  const [allEvents, setAllEvents] = useState([]);
+  const previousFilterRef = useRef(null);
+  
   // Fetch current user info from token and get their admin status
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -1314,18 +1318,24 @@ const MapViewer = ({ onLogout }) => {
     document.body.classList.remove('map-adding-event');
   };
   
-  // Handle event type filter change
-  const handleEventTypeFilterChange = (filteredEvts) => {
-    // Skip update if nothing changed
-    if (!filteredEvts) return;
+  // Handle event type filter change - properly memoized
+  const handleEventTypeFilterChange = useCallback((filteredEvts) => {
+    // Skip update if nothing changed or invalid data
+    if (!filteredEvts || !Array.isArray(filteredEvts)) return;
     
-    // Use object reference comparison to avoid unnecessary updates
-    if (filteredEvents === filteredEvts) return;
+    // Use a string representation for comparison to avoid reference issues
+    const currentFilterKey = JSON.stringify(filteredEvts.map(e => e.id).sort());
+    if (previousFilterRef.current === currentFilterKey) return;
     
-    // Update state with the filtered events
+    // Update the reference for next comparison
+    previousFilterRef.current = currentFilterKey;
+    
+    // Update both state variables with the filtered events
     setFilteredByTypeEvents(filteredEvts);
     setFilteredEvents(filteredEvts);
-  };
+    
+    if (DEBUG) console.log(`Filter applied: showing ${filteredEvts.length} events`);
+  }, []);
   
   if (loading) {
     return (
