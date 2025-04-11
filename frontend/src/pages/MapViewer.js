@@ -16,6 +16,7 @@ import RoleSwitcher from '../components/RoleSwitcher';
 import ContactsTab from '../components/ContactsTab';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import MobileSwitcher from '../components/common/MobileSwitcher';
+import MapEventTypeFilter from '../components/MapEventTypeFilter';
 import { useMobile } from '../components/common/MobileProvider';
 import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
 import { fetchEvents } from '../services/eventService';
@@ -34,6 +35,8 @@ const MapViewer = ({ onLogout }) => {
   
   const [maps, setMaps] = useState([]);
   const [events, setEvents] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [filteredByTypeEvents, setFilteredByTypeEvents] = useState([]);
   const [project, setProject] = useState(null);
   const [selectedMap, setSelectedMap] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -108,8 +111,6 @@ const MapViewer = ({ onLogout }) => {
   
   // Add a visibleMapIds state variable to track which maps are currently visible
   const [visibleMapIds, setVisibleMapIds] = useState([]);
-  // Add a visibleEvents state to track events filtered by visible maps
-  const [visibleEvents, setVisibleEvents] = useState([]);
   
   // Update visible events whenever events or visible maps change
   useEffect(() => {
@@ -130,7 +131,11 @@ const MapViewer = ({ onLogout }) => {
       return visibleMapIds.includes(event.map_id);
     });
     
-    setVisibleEvents(filteredEvents);
+    setFilteredEvents(filteredEvents);
+    
+    // Initialize type filter with the map-filtered events
+    setFilteredByTypeEvents(filteredEvents);
+    
     if (DEBUG) console.log("Updated visible events:", filteredEvents.length, "out of", events.length);
   }, [events, visibleMapIds, maps]);
   
@@ -624,13 +629,13 @@ const MapViewer = ({ onLogout }) => {
     
     // Force update visibleEvents to reflect changes
     // This will trigger a rerender of the EventMarker components
-    const updatedVisibleEvents = visibleEvents.map(event => {
+    const updatedVisibleEvents = filteredEvents.map(event => {
       if (event.id === updatedEvent.id) {
         return { ...event, ...updatedEvent };
       }
       return event;
     });
-    setVisibleEvents(updatedVisibleEvents);
+    setFilteredEvents(updatedVisibleEvents);
   };
   
   const showNotification = (message, type = 'success', duration = 3000) => {
@@ -910,14 +915,14 @@ const MapViewer = ({ onLogout }) => {
   // by memoizing the props passed to MapDetail
   const mapDetailProps = useMemo(() => ({
     map: selectedMap,
-    events,
+    events: filteredEvents,
     onMapClick: handleMapClick,
     isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap.id,
     onEventClick: handleViewEvent,
     allMaps: maps,
     projectId: projectId,
     onVisibleMapsChanged: handleVisibleMapsChanged
-  }), [selectedMap, events, handleMapClick, mapForEvent, handleViewEvent, maps, projectId, handleVisibleMapsChanged]);
+  }), [selectedMap, filteredEvents, handleMapClick, mapForEvent, handleViewEvent, maps, projectId, handleVisibleMapsChanged]);
   
   // Create a toggle function for the mobile sidebar
   const toggleMobileSidebar = () => {
@@ -1042,7 +1047,7 @@ const MapViewer = ({ onLogout }) => {
                     </p>
                     <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
                     <p className="mb-0">
-                      <strong>{translate('Events')}:</strong> {visibleEvents.length}
+                      <strong>{translate('Events')}:</strong> {filteredEvents.length}
                     </p>
                   </div>
                 )}
@@ -1109,7 +1114,7 @@ const MapViewer = ({ onLogout }) => {
                 </div>
                 
                 <EventsTable 
-                  events={events} 
+                  events={filteredEvents} 
                   onViewEvent={(event) => {
                     handleViewEvent(event);
                     setShowMobileSidebar(false);
@@ -1138,14 +1143,24 @@ const MapViewer = ({ onLogout }) => {
   
   // Render map view content
   const renderMapViewContent = () => {
+    // Create props for MapDetail component to avoid repetition
+    const mapDetailProps = {
+      map: selectedMap,
+      events: filteredEvents,
+      onMapClick: handleMapClick,
+      isSelectingLocation: mapForEvent && mapForEvent.id === selectedMap?.id,
+      onEventClick: handleViewEvent,
+      allMaps: maps,
+      projectId: projectId,
+      onVisibleMapsChanged: handleVisibleMapsChanged
+    };
+
     // For mobile, use full width
     if (isMobile) {
       return (
         <div className="mobile-map-container">
           {selectedMap ? (
-            <MapDetail
-              {...mapDetailProps}
-            />
+            <MapDetail {...mapDetailProps} />
           ) : (
             <div className="text-center p-3 bg-light rounded">
               <h5>{translate('No map selected')}</h5>
@@ -1155,6 +1170,37 @@ const MapViewer = ({ onLogout }) => {
               </Button>
             </div>
           )}
+          
+          {/* Mobile filters button */}
+          <div className="mobile-filters-btn">
+            <Button 
+              variant="light" 
+              size="sm" 
+              onClick={() => setShowMobileSidebar(true)}
+              className="rounded-circle shadow"
+            >
+              <i className="bi bi-funnel"></i>
+            </Button>
+          </div>
+          
+          {/* Mobile filters sidebar */}
+          <Offcanvas 
+            show={showMobileSidebar} 
+            onHide={() => setShowMobileSidebar(false)}
+            placement="end"
+            className="mobile-filters-offcanvas"
+          >
+            <Offcanvas.Header closeButton>
+              <Offcanvas.Title>{translate('Filters')}</Offcanvas.Title>
+            </Offcanvas.Header>
+            <Offcanvas.Body>
+              {/* Event Type Filter only */}
+              <MapEventTypeFilter 
+                events={filteredEvents} 
+                onFilterChange={handleEventTypeFilterChange} 
+              />
+            </Offcanvas.Body>
+          </Offcanvas>
           
           {/* Cancel overlay for location selection mode */}
           {mapForEvent && (
@@ -1245,64 +1291,47 @@ const MapViewer = ({ onLogout }) => {
     
     // For desktop, use the sidebar layout
     return (
-      <Row>
-        <Col md={3}>
-          <div className="sidebar-panel">
-            <h5 className="mb-3">{translate('Map Controls')}</h5>
+      <Row className="map-content-container">
+        <Col md={3} lg={3} className="position-relative map-sidebar">
+          <div className="map-sidebar-content">
+            {/* Map Layer Controls */}
+            <MapList
+              maps={maps}
+              selectedMapId={selectedMap ? selectedMap.id : null}
+              onMapSelect={handleMapSelect}
+              visibleMapIds={visibleMapIds}
+              onVisibleMapsChanged={handleVisibleMapsChanged}
+            />
             
-            <div className="d-grid gap-2 mb-4">
-              <Button
-                variant="success"
-                onClick={handleAddEvent}
-              >
-                <i className="bi bi-pin-map me-2"></i>{translate('Add Event')}
-              </Button>
-            </div>
+            {/* Event Type Filter only */}
+            <MapEventTypeFilter 
+              events={filteredEvents} 
+              onFilterChange={handleEventTypeFilterChange} 
+            />
             
-            <hr />
-            
-            <div className="map-info-section">
-              <h6>{translate('Current View')}</h6>
-              {selectedMap && (
-                <div className="current-map-info mb-3">
-                  <p className="mb-1">
-                    <strong>{translate('Main Map')}:</strong> {selectedMap.name}
-                    {selectedMap.map_type === 'implantation' && (
-                      <span className="badge bg-success ms-2">{translate('Primary')}</span>
-                    )}
-                  </p>
-                  <p className="mb-1"><strong>{translate('Visible Layers')}:</strong> {visibleMapIds.length || 1}</p>
-                  <p className="mb-0">
-                    <strong>{translate('Events')}:</strong> {visibleEvents.length}
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            <hr />
-            
-            <div className="events-summary mb-3">
-              <h6>{translate('Event Categories')}</h6>
-              <ul className="list-unstyled">
-                {Array.from(new Set(events.flatMap(e => e.tags || []))).map(tag => (
-                  <li key={tag} className="mb-1">
-                    <span className="badge bg-secondary me-2">{tag}</span>
-                    <span>{events.filter(e => e.tags?.includes(tag)).length}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* Add Map Button for Admins */}
+            {effectiveIsAdmin && (
+              <div className="mt-3 d-grid">
+                <Button 
+                  variant="outline-primary" 
+                  size="sm"
+                  onClick={handleAddMap}
+                >
+                  {translate('Add Map')}
+                </Button>
+              </div>
+            )}
           </div>
         </Col>
-        <Col md={9}>
+        
+        {/* Map Display Area */}
+        <Col md={9} lg={9} className="map-content-area">
           {selectedMap ? (
-            <MapDetail
-              {...mapDetailProps}
-            />
+            <MapDetail {...mapDetailProps} />
           ) : (
-            <div className="text-center p-5 bg-light rounded">
+            <div className="no-map-selected text-center p-5 bg-light rounded">
               <h3>{translate('No map selected')}</h3>
-              <p>{translate('Please select a map from the Project Maps tab or add a new one.')}</p>
+              <p>{translate('Please select a map from the list or add a new one.')}</p>
             </div>
           )}
         </Col>
@@ -1316,6 +1345,13 @@ const MapViewer = ({ onLogout }) => {
     
     // Ensure the class is removed when the modal is closed
     document.body.classList.remove('map-adding-event');
+  };
+  
+  // Handle event type filter change
+  const handleEventTypeFilterChange = (filteredEvts) => {
+    if (DEBUG) console.log("Event type filter changed, events count:", filteredEvts.length);
+    setFilteredByTypeEvents(filteredEvts);
+    setFilteredEvents(filteredEvts);
   };
   
   if (loading) {
@@ -1401,7 +1437,7 @@ const MapViewer = ({ onLogout }) => {
                 </div>
                 
                 <EventsTable 
-                  events={events} 
+                  events={filteredEvents} 
                   onViewEvent={handleViewEvent}
                   onEditEvent={handleEditEvent}
                   onEventUpdated={handleEventUpdated}
