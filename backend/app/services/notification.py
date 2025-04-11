@@ -5,7 +5,9 @@ import re
 from app.models.notification import Notification
 from app.models.user import User
 from app.models.event import Event
+from app.models.user_preference import UserPreference
 from app.schemas.notification import NotificationCreate, NotificationUpdate
+from app.services.email_service import EmailService
 
 
 class NotificationService:
@@ -24,6 +26,15 @@ class NotificationService:
         db.add(db_notification)
         db.commit()
         db.refresh(db_notification)
+        
+        # Send email notification if enabled for user
+        NotificationService.send_email_if_enabled(
+            db, 
+            notification.user_id, 
+            notification.message, 
+            notification.link
+        )
+        
         return db_notification
     
     @staticmethod
@@ -40,6 +51,98 @@ class NotificationService:
             Notification.user_id == user_id,
             Notification.read == False
         ).count()
+    
+    @staticmethod
+    def send_email_if_enabled(db: Session, user_id: int, message: str, link: str) -> bool:
+        """
+        Send an email notification if the user has email notifications enabled
+        
+        Parameters:
+        - db: Database session
+        - user_id: User ID to send notification to
+        - message: The notification message
+        - link: Link to the notification
+        
+        Returns:
+        - True if email was sent, False otherwise
+        """
+        try:
+            # Get user
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or not user.email:
+                return False
+            
+            # Check if user has preferences set
+            preferences = db.query(UserPreference).filter(
+                UserPreference.user_id == user_id
+            ).first()
+            
+            # Create preferences if they don't exist
+            if not preferences:
+                preferences = UserPreference(user_id=user_id, email_notifications=True)
+                db.add(preferences)
+                db.commit()
+                db.refresh(preferences)
+            
+            # Check if email notifications are enabled
+            if not preferences.email_notifications:
+                return False
+            
+            # Construct full link URL
+            base_url = "http://localhost:3000"  # This should come from config
+            full_link = f"{base_url}{link}" if not link.startswith("http") else link
+            
+            # Get project name if event_id is available
+            project_name = "Servitec Planos App"
+            
+            # Extract event_id from link if available (e.g., /events/123)
+            event_id = None
+            event_match = re.search(r'/events/(\d+)', link)
+            if event_match:
+                event_id = int(event_match.group(1))
+                
+                # Query the event to get the project name
+                event = db.query(Event).filter(Event.id == event_id).first()
+                if event and event.title:
+                    project_name = event.title
+            
+            # Create email subject with project name
+            subject = f"Servitec Planos App - {project_name}, notificación"
+            
+            # Construct HTML message with improved styling
+            html_message = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h1 style="color: #3a51cc; margin: 0;">Servitec Planos App</h1>
+                            <p style="font-size: 18px; color: #666;">{project_name}</p>
+                        </div>
+                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                            <h2 style="margin-top: 0; color: #3a51cc;">Nueva Notificación</h2>
+                            <p style="font-size: 16px;">{message}</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <a href="{full_link}" style="display: inline-block; background-color: #3a51cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Ver Notificación</a>
+                        </div>
+                        <div style="margin-top: 30px; font-size: 12px; color: #999; text-align: center;">
+                            <p>Este es un mensaje automático, por favor no responda a este correo.</p>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
+            
+            # Send email notification
+            return EmailService.send_notification_email(
+                user.email,
+                subject,
+                message + "\n\nVer detalles: " + full_link,
+                html_message
+            )
+        except Exception as e:
+            print(f"Error sending email notification: {str(e)}")
+            return False
     
     @staticmethod
     def mark_as_read(db: Session, notification_id: int, user_id: int) -> Optional[Notification]:
