@@ -3,7 +3,7 @@ import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
 
-const DEBUG = false;
+const DEBUG = true; // Enable debugging to help diagnose filter issues
 
 /**
  * MapEventTypeFilter - Filter component for event types on the map
@@ -22,6 +22,10 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
   useEffect(() => {
     if (events && Array.isArray(events)) {
       allEventsRef.current = events;
+      
+      if (DEBUG) {
+        console.log(`Filter received ${events.length} events to filter`);
+      }
     }
   }, [events]);
   
@@ -31,6 +35,9 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'periodic check': true,
     'request': true
   });
+
+  // Track previous filter selections for debugging
+  const prevSelectedTypesRef = useRef(selectedTypes);
 
   // Recalculate counts from the current reference for accuracy
   const typeCounts = useMemo(() => {
@@ -42,12 +49,40 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
       'periodic check': allEvents.filter(e => e?.state === 'periodic check').length || 0,
       'request': allEvents.filter(e => e?.state === 'request').length || 0
     };
-  }, [allEventsRef.current]);
+  }, [events]);
 
   // Apply filter whenever selection changes
   useEffect(() => {
     // Skip if no callback or no events
     if (!onFilterChange || !allEventsRef.current.length) return;
+    
+    // Log filter changes for debugging
+    if (DEBUG) {
+      const addedTypes = [];
+      const removedTypes = [];
+      
+      // Check which types were added or removed
+      Object.entries(selectedTypes).forEach(([type, checked]) => {
+        const wasPreviouslyChecked = prevSelectedTypesRef.current[type];
+        
+        if (checked && !wasPreviouslyChecked) {
+          addedTypes.push(type);
+        } else if (!checked && wasPreviouslyChecked) {
+          removedTypes.push(type);
+        }
+      });
+      
+      if (addedTypes.length > 0) {
+        console.log(`Filter ADDED types: ${addedTypes.join(', ')}`);
+      }
+      
+      if (removedTypes.length > 0) {
+        console.log(`Filter REMOVED types: ${removedTypes.join(', ')}`);
+      }
+    }
+    
+    // Update the previous selected types reference
+    prevSelectedTypesRef.current = {...selectedTypes};
     
     // Filter using the most up-to-date events array from ref
     const filteredEvents = allEventsRef.current.filter(event => {
@@ -57,6 +92,10 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
       // Include event if its type is checked in the filter
       return selectedTypes[event.state] === true;
     });
+    
+    if (DEBUG) {
+      console.log(`Filter found ${filteredEvents.length} matching events`);
+    }
     
     // Apply the filter only if the result would be different
     onFilterChange(filteredEvents);

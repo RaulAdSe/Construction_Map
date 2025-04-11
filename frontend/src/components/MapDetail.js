@@ -261,11 +261,10 @@ const MapDetail = ({
     }
     
     // Include eventKey in the dependency array to force recalculation when filters change
-    if (DEBUG) {
-      console.log(`Calculating visible events from ${events.length} total events (key: ${eventKey})`);
-    }
+    console.log(`Recalculating visible events from ${events.length} total events (key: ${eventKey})`);
     
-    return events.filter(event => {
+    // Apply map-based filtering logic
+    const mapFilteredEvents = events.filter(event => {
       if (!event || !event.map_id) return false;
       
       // Skip closed events regardless of map
@@ -279,6 +278,10 @@ const MapDetail = ({
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
+    
+    console.log(`After map filtering: ${mapFilteredEvents.length} events remain visible`);
+    
+    return mapFilteredEvents;
   }, [events, implantationMap?.id, visibleMaps, eventKey]); // Added eventKey to force recalculation
   
   // Log when visible events change - only with DEBUG flag
@@ -748,8 +751,11 @@ const MapDetail = ({
   // Render event markers with proper click handling
   const renderEventMarkers = () => {
     if (!visibleEvents || visibleEvents.length === 0) {
+      console.log('No visible events to render');
       return null;
     }
+    
+    console.log(`Rendering ${visibleEvents.length} event markers with key: ${eventKey || Date.now()}`);
     
     // Use a unique container key to force complete replacement of all markers
     return (

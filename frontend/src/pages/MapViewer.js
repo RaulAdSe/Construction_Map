@@ -80,6 +80,9 @@ const MapViewer = ({ onLogout }) => {
   // Key to force re-renders when filter state changes
   const [filterKey, setFilterKey] = useState(Date.now());
   
+  // Flag to track if events are currently being filtered
+  const [isFiltering, setIsFiltering] = useState(false);
+  
   // Fetch current user info from token and get their admin status
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -943,6 +946,12 @@ const MapViewer = ({ onLogout }) => {
       return visibleMapIds.includes(event.map_id);
     });
     
+    console.log(`Original map filtered events: ${originalMapFilteredEvents.length}`);
+    console.log(`Type filtered events: ${filteredEvts.length}`);
+    
+    // Set filtering flag to true during the update process
+    setIsFiltering(true);
+    
     // Force a deep clone to ensure we break any references that might be causing React to miss changes
     const newFilteredEvents = JSON.parse(JSON.stringify(filteredEvts));
     
@@ -955,8 +964,11 @@ const MapViewer = ({ onLogout }) => {
       setFilteredByTypeEvents(newFilteredEvents);
       setFilteredEvents(newFilteredEvents);
       
+      // Turn off filtering flag
+      setIsFiltering(false);
+      
       console.log(`Filter changed: now showing ${newFilteredEvents.length} events (key: ${newFilterKey})`);
-    }, 10);
+    }, 20);
   }, [events, maps, visibleMapIds]);
   
   // Force markers to update when events change by adding a key based on selection
