@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
@@ -21,11 +21,20 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
+  // Filter events based on type - memoized to prevent unnecessary re-renders
+  const filterEvents = useCallback(() => {
+    return events.filter(event => {
+      // If event has no state property or it's null/undefined, skip it
+      if (!event || !event.state) return false;
+      
+      // Only include events whose state is checked in the filter
+      return selectedTypes[event.state] === true;
+    });
+  }, [events, selectedTypes]);
+
   // Filter events whenever selection changes
   useEffect(() => {
-    const filteredEvents = events.filter(event => 
-      event.state && selectedTypes[event.state]
-    );
+    const filteredEvents = filterEvents();
     
     // Only call onFilterChange if the filtered events have actually changed
     if (onFilterChange) {
@@ -45,7 +54,7 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
         }
       }
     }
-  }, [selectedTypes, events]); // onFilterChange intentionally omitted
+  }, [filterEvents, onFilterChange]); // We can safely include onFilterChange now
 
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;

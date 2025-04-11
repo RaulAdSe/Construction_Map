@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { Spinner, Alert, Form, ListGroup, Button } from 'react-bootstrap';
 import EventMarker from './EventMarker';
 import { useMobile } from './common/MobileProvider';
@@ -51,7 +51,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   }, [implantationMap?.id]); // Only rerun when the ID changes, not the whole object
   
   // Calculate viewport scaling and content positioning
-  const updateViewportScaling = () => {
+  const updateViewportScaling = useCallback(() => {
     if (!mapContainerRef.current || !mapContentRef.current) return;
     
     const container = mapContainerRef.current;
@@ -88,7 +88,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     if (DEBUG) {
       console.log(`Container: ${containerWidth}×${containerHeight}, Content: ${contentWidth}×${contentHeight}, Scale: ${newScale.toFixed(3)}`);
     }
-  };
+  }, []);
   
   // Initialize and update viewport scaling on mount and resize
   useEffect(() => {
@@ -110,7 +110,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         resizeObserver.unobserve(mapContainerRef.current);
       }
     };
-  }, [imageLoaded]); // Recalculate when image loads
+  }, [imageLoaded, updateViewportScaling]);
   
   // Track dependency on map types to refresh when they change
   useEffect(() => {
@@ -648,27 +648,70 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         )}
         
         <div 
-          ref={mapContentRef}
           className="map-content-container" 
-          style={contentStyle}
+          ref={setMapContainerRef}
+          style={containerSize}
+          onClick={(e) => {
+            console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
+            
+            // Skip all click handling on mobile - we handle it with touch events
+            if (isMobile) {
+              console.log('MapDetail: Ignoring click event on mobile - using touch events instead');
+              return;
+            }
+            
+            // Desktop click handling:
+            if (isSelectingLocation && mapContentRef.current) {
+              // Calculate click position relative to map content
+              const rect = mapContentRef.current.getBoundingClientRect();
+              const x = (e.clientX - rect.left) / viewportScale;
+              const y = (e.clientY - rect.top) / viewportScale;
+              
+              console.log(`MapDetail: Calculated click position (${x.toFixed(2)}, ${y.toFixed(2)}) with scale=${viewportScale}`);
+              
+              // Calculate as percentages for consistency
+              const xPercent = (x / contentSize.width) * 100;
+              const yPercent = (y / contentSize.height) * 100;
+              
+              if (onMapClick) {
+                console.log('MapDetail: Calling parent onMapClick handler');
+                // Create enhanced map object with visible maps
+                const mapWithVisibleLayers = {
+                  ...map,
+                  visibleMaps: visibleMaps
+                };
+                onMapClick(mapWithVisibleLayers, xPercent, yPercent);
+              } else {
+                console.log('MapDetail: No onMapClick handler provided');
+              }
+            } else {
+              console.log('MapDetail: Click ignored - not in location selection mode or mapContentRef is null');
+            }
+          }}
         >
-          {/* Always render main map first */}
-          {renderMapLayer(implantationMap, 10)}
-          
-          {/* Then render overlay maps */}
-          {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
-          
-          {/* Render event markers within the content container */}
-          <div className="event-markers-container">
-            {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
-              <EventMarker 
-                key={event.id} 
-                event={event} 
-                onClick={(e) => handleEventClick(event, e)}
-                scale={1} // No need to adjust scale as we're in the content coordinate system
-                isMobile={isMobile} // Pass mobile state to event marker
-              />
-            ))}
+          <div
+            className="map-content"
+            ref={setMapContentRef}
+            style={contentStyle}
+          >
+            {/* Always render main map first */}
+            {renderMapLayer(implantationMap, 10)}
+            
+            {/* Then render overlay maps */}
+            {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
+            
+            {/* Render event markers within the content container */}
+            <div className="event-markers-container">
+              {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
+                <EventMarker 
+                  key={event.id} 
+                  event={event} 
+                  onClick={(e) => handleEventClick(event, e)}
+                  scale={1} // No need to adjust scale as we're in the content coordinate system
+                  isMobile={isMobile} // Pass mobile state to event marker
+                />
+              ))}
+            </div>
           </div>
         </div>
       </>
@@ -709,10 +752,31 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array means this runs only on mount
   
+  // Use ref callbacks wrapped in useCallback to prevent unnecessary updates
+  const setMapContainerRef = useCallback(node => {
+    if (node !== null) {
+      mapContainerRef.current = node;
+      updateViewportScaling();
+    }
+  }, []);
+
+  const setMapContentRef = useCallback(node => {
+    if (node !== null) {
+      mapContentRef.current = node;
+      if (!initialContentSize.current && node.getBoundingClientRect) {
+        const rect = node.getBoundingClientRect();
+        initialContentSize.current = {
+          width: rect.width || 1200,
+          height: rect.height || 900
+        };
+      }
+    }
+  }, []);
+  
   return (
     <div className={`map-detail-container ${isMobile ? 'mobile-map-detail' : ''}`}>
       <div 
-        ref={mapContainerRef}
+        ref={setMapContainerRef}
         className="map-container content-fit-view" 
         data-map-id={map?.id}
         data-scale={viewportScale.toFixed(3)}
