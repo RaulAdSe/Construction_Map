@@ -52,7 +52,7 @@ const adjustBrightness = (hex, factor) => {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 };
 
-const EventMarker = ({ event, onClick, scale = 1, isMobile = false }) => {
+const EventMarker = ({ event, onClick, scale = 1, isMobile = false, disabled = false }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isTouched, setIsTouched] = useState(false);
   
@@ -60,6 +60,17 @@ const EventMarker = ({ event, onClick, scale = 1, isMobile = false }) => {
     console.warn("Invalid event data for marker:", event);
     return null;
   }
+  
+  // Handle click properly with explicit event data
+  const handleClick = (e) => {
+    if (disabled) return;
+    
+    // Ensure we have an event parameter to pass
+    if (onClick) {
+      e.stopPropagation(); // Stop propagation here to prevent map click
+      onClick(event, e);
+    }
+  };
   
   // Get the color based on event type and status
   let color;
@@ -172,20 +183,7 @@ const EventMarker = ({ event, onClick, scale = 1, isMobile = false }) => {
         style={markerStyle}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={(e) => {
-          // For mobile, delay the click to allow tooltip to show
-          if (isMobile) {
-            if (!isTouched) {
-              e.preventDefault();
-              e.stopPropagation();
-              handleTouchStart();
-            } else {
-              onClick(e);
-            }
-          } else {
-            onClick(e);
-          }
-        }}
+        onClick={handleClick}
         onTouchStart={isMobile ? handleTouchStart : undefined}
         {...dataAttributes}
       />

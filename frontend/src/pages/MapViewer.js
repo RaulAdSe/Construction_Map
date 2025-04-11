@@ -77,6 +77,9 @@ const MapViewer = ({ onLogout }) => {
   const [allEvents, setAllEvents] = useState([]);
   const previousFilterRef = useRef(null);
   
+  // Key to force map redraw when events are filtered
+  const [filterKey, setFilterKey] = useState(Date.now());
+  
   // Fetch current user info from token and get their admin status
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -930,13 +933,16 @@ const MapViewer = ({ onLogout }) => {
     setFilteredByTypeEvents(newFilteredEvents);
     setFilteredEvents(newFilteredEvents);
     
+    // Generate new key to force component redraw
+    setFilterKey(Date.now());
+    
     console.log(`Filter changed: now showing ${newFilteredEvents.length} events`);
   }, []);
   
   // Force markers to update when events change by adding a key based on selection
   const mapEventKey = useMemo(() => {
-    return Date.now(); // Generate a unique key when events change
-  }, [filteredEvents]);
+    return filterKey; // Use the filter key to force rerenders
+  }, [filterKey]);
   
   // Make MapDetail take an eventKey prop to force redraw of markers
   const mapDetailProps = useMemo(() => ({

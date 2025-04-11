@@ -329,13 +329,17 @@ const MapDetail = ({
     }
   }, [visibleEvents, imageLoaded]);
   
-  const handleEventClick = (event, e) => {
-    // Stop propagation to prevent map click handler from firing
-    e.stopPropagation();
-    if (onEventClick) {
-      onEventClick(event);
+  // Handle event click with proper parameter handling
+  const handleEventClick = useCallback((eventData, e) => {
+    // Safely handle the event object - it may be missing if triggered programmatically
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
     }
-  };
+    
+    if (onEventClick && eventData) {
+      onEventClick(eventData);
+    }
+  }, [onEventClick]);
   
   const toggleMapVisibility = (mapId) => {
     setVisibleMaps(prevMaps => {
@@ -733,22 +737,19 @@ const MapDetail = ({
     );
   };
   
-  // Function to render event markers
+  // Render event markers with proper click handling
   const renderEventMarkers = () => {
-    // Key by both ID and timestamp to force re-render when events change
-    const renderKey = new Date().getTime();
-    
     if (!visibleEvents || visibleEvents.length === 0) {
       return null;
     }
     
     return (
-      <div className="event-markers-container" key={`markers-container-${renderKey}`}>
+      <div className="event-markers-container">
         {visibleEvents.map(event => (
           <EventMarker 
-            key={`${event.id}-${eventKey || 'default'}`}
+            key={`${event.id}-${eventKey || Date.now()}`}
             event={event} 
-            onClick={handleEventClick}
+            onClick={(e) => handleEventClick(event, e)}
             disabled={isSelectingLocation}
           />
         ))}
