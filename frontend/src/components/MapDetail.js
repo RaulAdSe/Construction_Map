@@ -244,9 +244,17 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
-  // ALWAYS include events from the main map, plus any events from visible overlay maps
-  // BUT exclude events with 'closed' status
+  // Calculate which events should be visible on the map
   const visibleEvents = useMemo(() => {
+    if (!events || !Array.isArray(events)) {
+      return [];
+    }
+    
+    // Log if debugging is enabled
+    if (DEBUG) {
+      console.log(`Calculating visible events from ${events.length} total events`);
+    }
+    
     return events.filter(event => {
       if (!event || !event.map_id) return false;
       
@@ -900,11 +908,11 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
           </div>
         </div>
       ) : (
-        /* Desktop controls - positioned beside the map for better space utilization */
-        <div className="map-overlay-controls desktop-controls">
+        /* Original desktop controls */
+        <div className="map-overlay-controls mt-3">
           <h6>Map Layers</h6>
           {implantationMap && (
-            <ListGroup className="desktop-layer-controls">
+            <ListGroup>
               <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
                 <div>
                   <Form.Check 

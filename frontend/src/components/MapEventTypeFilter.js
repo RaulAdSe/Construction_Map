@@ -12,7 +12,7 @@ import { useMobile } from './common/MobileProvider';
  */
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
-  const prevFilteredEventsRef = useRef([]);
+  const allEventsRef = useRef(events);
   
   // Default all types to checked
   const [selectedTypes, setSelectedTypes] = useState({
@@ -21,40 +21,37 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
+  // Store all events when they change
+  useEffect(() => {
+    allEventsRef.current = events;
+  }, [events]);
+
   // Filter events based on type - memoized to prevent unnecessary re-renders
   const filterEvents = useCallback(() => {
-    return events.filter(event => {
+    // Make sure we have events to filter
+    if (!allEventsRef.current || !Array.isArray(allEventsRef.current)) {
+      return [];
+    }
+    
+    return allEventsRef.current.filter(event => {
       // If event has no state property or it's null/undefined, skip it
       if (!event || !event.state) return false;
       
       // Only include events whose state is checked in the filter
       return selectedTypes[event.state] === true;
     });
-  }, [events, selectedTypes]);
+  }, [selectedTypes]);
 
-  // Filter events whenever selection changes
+  // Apply filtering whenever selection changes
   useEffect(() => {
     const filteredEvents = filterEvents();
     
-    // Only call onFilterChange if the filtered events have actually changed
+    // Always call onFilterChange when filter changes, 
+    // this ensures events are shown/hidden correctly
     if (onFilterChange) {
-      // Simple length check first for quick comparison
-      const prevEvents = prevFilteredEventsRef.current;
-      if (prevEvents.length !== filteredEvents.length) {
-        prevFilteredEventsRef.current = filteredEvents;
-        onFilterChange(filteredEvents);
-      } else {
-        // If same length, check if the event IDs are the same
-        const prevIds = new Set(prevEvents.map(e => e.id));
-        const hasChanged = filteredEvents.some(e => !prevIds.has(e.id));
-        
-        if (hasChanged) {
-          prevFilteredEventsRef.current = filteredEvents;
-          onFilterChange(filteredEvents);
-        }
-      }
+      onFilterChange(filteredEvents);
     }
-  }, [filterEvents, onFilterChange]); // We can safely include onFilterChange now
+  }, [filterEvents, onFilterChange]);
 
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
@@ -66,9 +63,9 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
 
   // Calculate counts for each type
   const typeCounts = {
-    'incidence': events.filter(e => e.state === 'incidence').length,
-    'periodic check': events.filter(e => e.state === 'periodic check').length,
-    'request': events.filter(e => e.state === 'request').length
+    'incidence': events?.filter(e => e?.state === 'incidence')?.length || 0,
+    'periodic check': events?.filter(e => e?.state === 'periodic check')?.length || 0,
+    'request': events?.filter(e => e?.state === 'request')?.length || 0
   };
 
   return (
@@ -86,7 +83,7 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
         type="checkbox"
         id="filter-incidence"
         name="incidence"
-        label={translate('Incidences')}
+        label={`${translate('Incidences')} (${typeCounts['incidence']})`}
         checked={selectedTypes['incidence']}
         onChange={handleTypeChange}
         className="me-2 mb-0"
@@ -96,7 +93,7 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
         type="checkbox"
         id="filter-periodic-check"
         name="periodic check"
-        label={translate('Checks')}
+        label={`${translate('Checks')} (${typeCounts['periodic check']})`}
         checked={selectedTypes['periodic check']}
         onChange={handleTypeChange}
         className="me-2 mb-0"
@@ -106,7 +103,7 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
         type="checkbox"
         id="filter-request"
         name="request"
-        label={translate('Requests')}
+        label={`${translate('Requests')} (${typeCounts['request']})`}
         checked={selectedTypes['request']}
         onChange={handleTypeChange}
         className="mb-0"

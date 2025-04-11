@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab, Offcanvas } from 'react-bootstrap';
+import { Container, Row, Col, Button, Navbar, Nav, Spinner, Alert, Tabs, Tab, Offcanvas, Badge } from 'react-bootstrap';
 import MapList from '../components/MapList';
 import MapDetail from '../components/MapDetail';
 import MapsManager from '../components/MapsManager';
@@ -1146,7 +1146,7 @@ const MapViewer = ({ onLogout }) => {
   
   // Render map view content
   const renderMapViewContent = () => {
-    // Create props for MapDetail component to avoid repetition
+    // Build props for MapDetail component
     const mapDetailProps = {
       map: selectedMap,
       events: filteredEvents,
@@ -1315,13 +1315,18 @@ const MapViewer = ({ onLogout }) => {
   };
   
   // Handle event type filter change
-  const handleEventTypeFilterChange = (filteredEvts) => {
-    if (DEBUG) console.log("Event type filter changed, events count:", filteredEvts.length);
+  const handleEventTypeFilterChange = useCallback((filteredEvts) => {
+    if (DEBUG) console.log("Event type filter changed, events count:", filteredEvts?.length || 0);
     
-    // Update both state variables to ensure consistency
-    setFilteredByTypeEvents(filteredEvts);
-    setFilteredEvents(filteredEvts);
-  };
+    // Make sure we have a valid array of events
+    if (!filteredEvts || !Array.isArray(filteredEvts)) {
+      filteredEvts = [];
+    }
+    
+    // Always update both state variables to ensure consistency
+    setFilteredByTypeEvents([...filteredEvts]);
+    setFilteredEvents([...filteredEvts]);
+  }, []);
   
   if (loading) {
     return (
