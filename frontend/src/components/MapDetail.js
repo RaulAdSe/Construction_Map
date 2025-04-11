@@ -244,14 +244,16 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
-  // Calculate which events should be visible on the map - using key to force reevaluation
+  // Calculate which events should be visible on the map
   const visibleEvents = useMemo(() => {
     if (!events || !Array.isArray(events)) {
-      console.log("No events to filter");
       return [];
     }
     
-    console.log(`Filtering ${events.length} events for visibility`);
+    // Log only with DEBUG flag
+    if (DEBUG) {
+      console.log(`Calculating visible events from ${events.length} total events`);
+    }
     
     return events.filter(event => {
       if (!event || !event.map_id) return false;
@@ -269,9 +271,11 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     });
   }, [events, implantationMap?.id, visibleMaps]);
   
-  // Log when visible events change
+  // Log when visible events change - only with DEBUG flag
   useEffect(() => {
-    console.log(`Visible events changed: now showing ${visibleEvents.length} events`);
+    if (DEBUG) {
+      console.log(`Visible events changed: now showing ${visibleEvents.length} events`);
+    }
   }, [visibleEvents.length]);
   
   // Force imageLoaded to true after a timeout to ensure events display even if load events don't fire

@@ -1316,19 +1316,15 @@ const MapViewer = ({ onLogout }) => {
   
   // Handle event type filter change
   const handleEventTypeFilterChange = (filteredEvts) => {
-    console.log(`Filter changed: now showing ${filteredEvts?.length} events`);
+    // Skip update if nothing changed
+    if (!filteredEvts) return;
     
-    // Safety check for valid array
-    if (!filteredEvts || !Array.isArray(filteredEvts)) {
-      filteredEvts = [];
-    }
+    // Use object reference comparison to avoid unnecessary updates
+    if (filteredEvents === filteredEvts) return;
     
-    // Create a new array to ensure state change is detected
-    const newFilteredEvents = [...filteredEvts];
-    
-    // Update both state variables to ensure consistency
-    setFilteredByTypeEvents(newFilteredEvents);
-    setFilteredEvents(newFilteredEvents);
+    // Update state with the filtered events
+    setFilteredByTypeEvents(filteredEvts);
+    setFilteredEvents(filteredEvts);
   };
   
   if (loading) {
