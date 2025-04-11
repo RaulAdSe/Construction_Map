@@ -269,7 +269,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
-  }, [events, implantationMap, visibleMaps]);
+  }, [events, events?.length, implantationMap?.id, visibleMaps]);
   
   // Force imageLoaded to true after a timeout to ensure events display even if load events don't fire
   useEffect(() => {

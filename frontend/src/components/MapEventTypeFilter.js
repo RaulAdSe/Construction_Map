@@ -12,7 +12,7 @@ import { useMobile } from './common/MobileProvider';
  */
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
-  const allEventsRef = useRef(events);
+  const originalEventsRef = useRef(events || []);
   
   // Default all types to checked
   const [selectedTypes, setSelectedTypes] = useState({
@@ -21,37 +21,29 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
-  // Store all events when they change
+  // Keep track of original events for filtering
   useEffect(() => {
-    allEventsRef.current = events;
-  }, [events]);
-
-  // Filter events based on type - memoized to prevent unnecessary re-renders
-  const filterEvents = useCallback(() => {
-    // Make sure we have events to filter
-    if (!allEventsRef.current || !Array.isArray(allEventsRef.current)) {
-      return [];
+    if (events && Array.isArray(events)) {
+      originalEventsRef.current = events;
     }
-    
-    return allEventsRef.current.filter(event => {
-      // If event has no state property or it's null/undefined, skip it
-      if (!event || !event.state) return false;
-      
-      // Only include events whose state is checked in the filter
-      return selectedTypes[event.state] === true;
-    });
-  }, [selectedTypes]);
+  }, [events]);
 
   // Apply filtering whenever selection changes
   useEffect(() => {
-    const filteredEvents = filterEvents();
+    // Filter events based on selected types
+    const filteredEvents = originalEventsRef.current.filter(event => {
+      // If event has no state property or it's null/undefined, skip it
+      if (!event || !event.state) return false;
+      
+      // Include events whose state is checked in the filter
+      return selectedTypes[event.state] === true;
+    });
     
-    // Always call onFilterChange when filter changes, 
-    // this ensures events are shown/hidden correctly
+    // Always call filter change handler with updated filtered events
     if (onFilterChange) {
       onFilterChange(filteredEvents);
     }
-  }, [filterEvents, onFilterChange]);
+  }, [selectedTypes, onFilterChange]);
 
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
@@ -63,9 +55,9 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
 
   // Calculate counts for each type
   const typeCounts = {
-    'incidence': events?.filter(e => e?.state === 'incidence')?.length || 0,
-    'periodic check': events?.filter(e => e?.state === 'periodic check')?.length || 0,
-    'request': events?.filter(e => e?.state === 'request')?.length || 0
+    'incidence': originalEventsRef.current.filter(e => e?.state === 'incidence').length || 0,
+    'periodic check': originalEventsRef.current.filter(e => e?.state === 'periodic check').length || 0,
+    'request': originalEventsRef.current.filter(e => e?.state === 'request').length || 0
   };
 
   return (
