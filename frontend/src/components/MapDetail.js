@@ -35,10 +35,7 @@ const MapDetail = ({
   const [showMobileControls, setShowMobileControls] = useState(false);
   
   // Find implantation map (main map) and overlay maps
-  const implantationMap = useMemo(() => {
-    if (!allMaps || !Array.isArray(allMaps)) return null;
-    return allMaps.find(m => m.isImplantation);
-  }, [allMaps]);
+  const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
   const overlayMaps = allMaps.filter(m => m.id !== implantationMap?.id);
   
   // Initialize visibleMaps with the main map ID already included if available
@@ -263,11 +260,12 @@ const MapDetail = ({
       return [];
     }
     
-    // Logging for filter debugging
-    console.log(`Recalculating visible events: ${events.length} events available, mapID=${map?.id || 'none'}, eventKey=${eventKey || 'none'}`);
+    // Log only with DEBUG flag
+    if (DEBUG) {
+      console.log(`Calculating visible events from ${events.length} total events`);
+    }
     
-    // Filter events for this map
-    const filtered = events.filter(event => {
+    return events.filter(event => {
       if (!event || !event.map_id) return false;
       
       // Skip closed events regardless of map
@@ -281,10 +279,7 @@ const MapDetail = ({
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
-    
-    console.log(`Filtered to ${filtered.length} visible events`);
-    return filtered;
-  }, [events, implantationMap?.id, visibleMaps, eventKey]); // Use implantationMap instead of map
+  }, [events, implantationMap?.id, visibleMaps]);
   
   // Log when visible events change - only with DEBUG flag
   useEffect(() => {
@@ -334,15 +329,23 @@ const MapDetail = ({
     }
   }, [visibleEvents, imageLoaded]);
   
-  // Handle event click with proper parameter handling
+  // Handle event click with proper parameter handling and error prevention
   const handleEventClick = useCallback((eventData, e) => {
-    // Safely handle the event object - it may be missing if triggered programmatically
-    if (e && e.stopPropagation) {
-      e.stopPropagation();
+    // Prevent the default action and stop propagation if event exists
+    if (e) {
+      e.preventDefault();
+      if (typeof e.stopPropagation === 'function') {
+        e.stopPropagation();
+      }
     }
     
-    if (onEventClick && eventData) {
+    // Only call onEventClick if we have both the handler and valid event data
+    if (onEventClick && eventData && typeof onEventClick === 'function') {
+      if (DEBUG) console.log(`Handling click on event: ${eventData.id}`);
       onEventClick(eventData);
+    } else if (DEBUG) {
+      if (!onEventClick) console.log('No onEventClick handler provided');
+      if (!eventData) console.log('No event data provided');
     }
   }, [onEventClick]);
   
@@ -748,16 +751,13 @@ const MapDetail = ({
       return null;
     }
     
-    // Logging to confirm re-render
-    console.log(`Rendering ${visibleEvents.length} markers with eventKey=${eventKey}`);
-    
     return (
       <div className="event-markers-container">
         {visibleEvents.map(event => (
           <EventMarker 
-            key={`${event.id}-${eventKey || Math.random()}`}
+            key={`${event.id}-${eventKey || Date.now()}`}
             event={event} 
-            onClick={(e) => handleEventClick(event, e)}
+            onClick={handleEventClick}
             disabled={isSelectingLocation}
           />
         ))}

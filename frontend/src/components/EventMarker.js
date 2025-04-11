@@ -63,11 +63,24 @@ const EventMarker = ({ event, onClick, scale = 1, isMobile = false, disabled = f
   
   // Handle click properly with explicit event data
   const handleClick = (e) => {
+    // Do nothing if marker is disabled
     if (disabled) return;
     
-    // Ensure we have an event parameter to pass
-    if (onClick) {
-      e.stopPropagation(); // Stop propagation here to prevent map click
+    // Ensure we have a valid event object with stopPropagation
+    if (e) {
+      // Prevent the default action to be safe
+      if (typeof e.preventDefault === 'function') {
+        e.preventDefault();
+      }
+      
+      // Stop propagation if the method exists
+      if (typeof e.stopPropagation === 'function') {
+        e.stopPropagation();
+      }
+    }
+    
+    // Call the onClick handler with the event data and the DOM event
+    if (onClick && typeof onClick === 'function') {
       onClick(event, e);
     }
   };

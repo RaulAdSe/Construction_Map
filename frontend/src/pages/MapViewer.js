@@ -79,7 +79,6 @@ const MapViewer = ({ onLogout }) => {
   
   // Key to force map redraw when events are filtered
   const [filterKey, setFilterKey] = useState(Date.now());
-  const [filterCounter, setFilterCounter] = useState(0);
   
   // Fetch current user info from token and get their admin status
   useEffect(() => {
@@ -923,31 +922,31 @@ const MapViewer = ({ onLogout }) => {
   ]);
   
   // Handle event type filter change with proper key-based re-rendering
-  const handleEventTypeFilterChange = useCallback((filteredEvts, counter) => {
+  const handleEventTypeFilterChange = useCallback((filteredEvts) => {
     // Skip update if no events provided
     if (!filteredEvts || !Array.isArray(filteredEvts)) return;
     
-    // Update the filter counter to force re-rendering
-    setFilterCounter(counter || (prevCounter => prevCounter + 1));
+    // Force a deep clone to ensure we break any references that might be causing React to miss changes
+    const newFilteredEvents = JSON.parse(JSON.stringify(filteredEvts));
     
-    // Generate a new timestamp for the filter key
+    // Generate new key BEFORE updating state to ensure it's always different
     const newFilterKey = Date.now();
     setFilterKey(newFilterKey);
     
-    // Force completely new array references to ensure React detects changes
-    const newFilteredEvents = [...filteredEvts];
-    
-    console.log(`Filter operation applied: ${newFilteredEvents.length} events visible, key=${newFilterKey}, counter=${counter || filterCounter}`);
-    
-    // Update both filter state variables
-    setFilteredByTypeEvents(newFilteredEvents);
-    setFilteredEvents(newFilteredEvents);
+    // Force React to recognize the changes with new array references and a delay
+    // This ensures the key change is processed first
+    setTimeout(() => {
+      setFilteredByTypeEvents(newFilteredEvents);
+      setFilteredEvents(newFilteredEvents);
+      
+      console.log(`Filter changed: now showing ${newFilteredEvents.length} events (key: ${newFilterKey})`);
+    }, 0);
   }, []);
   
-  // Force markers to update by combining filterKey and counter
+  // Force markers to update when events change by adding a key based on selection
   const mapEventKey = useMemo(() => {
-    return `${filterKey}-${filterCounter}`;
-  }, [filterKey, filterCounter]);
+    return filterKey; // Use the filter key to force rerenders
+  }, [filterKey]);
   
   // Make MapDetail take an eventKey prop to force redraw of markers
   const mapDetailProps = useMemo(() => ({

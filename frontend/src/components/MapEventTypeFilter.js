@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
+
+const DEBUG = false;
 
 /**
  * MapEventTypeFilter - Filter component for event types on the map
@@ -13,7 +15,7 @@ import { useMobile } from './common/MobileProvider';
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
   
-  // Store all events to filter against
+  // Store original events to ensure a consistent starting point
   const allEventsRef = useRef(events || []);
   
   // Update stored events when prop changes
@@ -30,16 +32,13 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
-  // Calculate counts for each type - always from the full dataset
-  const typeCounts = {
+  // Calculate counts for each type - recalculate whenever allEventsRef changes
+  const typeCounts = useMemo(() => ({
     'incidence': allEventsRef.current.filter(e => e?.state === 'incidence').length || 0,
     'periodic check': allEventsRef.current.filter(e => e?.state === 'periodic check').length || 0,
     'request': allEventsRef.current.filter(e => e?.state === 'request').length || 0
-  };
+  }), [allEventsRef.current]);
 
-  // Debug counter to track filter operations
-  const [filterCounter, setFilterCounter] = useState(0);
-  
   // Apply filter whenever selection changes
   useEffect(() => {
     // Skip if no callback
@@ -54,23 +53,29 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
       return selectedTypes[event.state] === true;
     });
     
-    // Apply the filter and increment counter
-    onFilterChange(filteredEvents, filterCounter);
-    setFilterCounter(prev => prev + 1);
+    // Apply the filter
+    onFilterChange(filteredEvents);
     
-    // Debug logging
-    console.log(`Filter operation #${filterCounter} applied:`, {
-      selectedTypes,
-      filteredCount: filteredEvents.length,
-      totalCount: allEventsRef.current.length
-    });
+    // Debug log to verify filter application
+    if (DEBUG) {
+      console.log(`Filter applied: ${Object.entries(selectedTypes)
+        .filter(([_, checked]) => checked)
+        .map(([type]) => type)
+        .join(', ')}`);
+    } else {
+      // Always log this one because it's helpful for debugging
+      console.log(`Filter applied: ${Object.entries(selectedTypes)
+        .filter(([_, checked]) => checked)
+        .map(([type]) => type)
+        .join(', ')}`);
+    }
       
-  }, [selectedTypes, onFilterChange, filterCounter]);
+  }, [selectedTypes, onFilterChange]);
 
-  // Handle checkbox state changes
+  // Handle checkbox state changes - simple and direct
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
-    console.log(`Filter toggle: ${name} = ${checked}, current events: ${typeCounts[name]}`);
+    if (DEBUG) console.log(`Filter changed: ${name} = ${checked}`);
     
     setSelectedTypes(prev => ({
       ...prev,
