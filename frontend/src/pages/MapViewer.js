@@ -211,13 +211,43 @@ const MapViewer = ({ onLogout }) => {
     return settings;
   };
   
-  // Reload map data when switching to Map View tab
+  // Reload map data when switching to Map View tab - with optimization
   useEffect(() => {
     if (activeTab === 'map-view' && projectId) {
       // We only want to reload the maps to get any updated main map
       const refreshMaps = async () => {
+        // Don't refresh if we're already loading or if it's been less than 5s since last update
+        const lastRefresh = sessionStorage.getItem(`last_map_refresh_${projectId}`);
+        const now = Date.now();
+        
+        if (lastRefresh && (now - parseInt(lastRefresh, 10)) < 5000) {
+          if (DEBUG) console.log('Skipping map refresh - throttled');
+          return;
+        }
+        
         try {
-          const mapsData = await fetchMaps(parseInt(projectId, 10));
+          // Use cached data if available and recent
+          const mapsCacheKey = `maps_cache_${projectId}`;
+          const cachedMapsData = sessionStorage.getItem(mapsCacheKey);
+          let mapsData;
+          
+          if (cachedMapsData && (now - JSON.parse(cachedMapsData).timestamp < 5000)) {
+            // Use cached data
+            mapsData = JSON.parse(cachedMapsData).data;
+            if (DEBUG) console.log('Using cached maps data for tab switch');
+          } else {
+            // Fetch new data
+            mapsData = await fetchMaps(parseInt(projectId, 10));
+            
+            // Update cache
+            sessionStorage.setItem(mapsCacheKey, JSON.stringify({
+              timestamp: now,
+              data: mapsData
+            }));
+          }
+          
+          // Record last refresh time
+          sessionStorage.setItem(`last_map_refresh_${projectId}`, now.toString());
           
           // If the map types have changed, we need to update our state
           const mainMap = mapsData.find(map => map.map_type === 'implantation');
@@ -247,8 +277,27 @@ const MapViewer = ({ onLogout }) => {
       const projectData = await fetchProjectById(pid);
       setProject(projectData);
       
-      // Fetch maps for the project
-      const mapsData = await fetchMaps(pid);
+      // Use a debounce mechanism to prevent multiple rapid calls
+      const mapsCacheKey = `maps_cache_${pid}`;
+      const cachedMapsData = sessionStorage.getItem(mapsCacheKey);
+      let mapsData;
+      
+      if (cachedMapsData && Date.now() - JSON.parse(cachedMapsData).timestamp < 5000) {
+        // Use cached data if it's less than 5 seconds old
+        mapsData = JSON.parse(cachedMapsData).data;
+        console.log('Using cached maps data');
+      } else {
+        // Fetch maps for the project
+        mapsData = await fetchMaps(pid);
+        
+        // Cache the maps data with timestamp
+        sessionStorage.setItem(mapsCacheKey, JSON.stringify({
+          timestamp: Date.now(),
+          data: mapsData
+        }));
+      }
+      
+      // Set maps state
       setMaps(mapsData);
       
       // Fetch events for each map
@@ -298,8 +347,21 @@ const MapViewer = ({ onLogout }) => {
   window.refreshMapsData = async () => {
     if (projectId) {
       try {
+        const now = Date.now();
+        const mapsCacheKey = `maps_cache_${projectId}`;
+        
         // Only fetch maps, not the entire project data
         const mapsData = await fetchMaps(parseInt(projectId, 10));
+        
+        // Update the cache
+        sessionStorage.setItem(mapsCacheKey, JSON.stringify({
+          timestamp: now,
+          data: mapsData
+        }));
+        
+        // Record last refresh time
+        sessionStorage.setItem(`last_map_refresh_${projectId}`, now.toString());
+        
         setMaps(mapsData);
         showNotification(translate('Maps updated successfully!'), 'success');
       } catch (error) {
@@ -624,6 +686,16 @@ const MapViewer = ({ onLogout }) => {
       // Skip if the user has manually closed the modal
       if (userClosedModal) return;
       
+      // Skip if we're in the middle of loading data to prevent cascading API calls
+      if (loading) return;
+      
+      // Use local variable to track if we need to update maps
+      let shouldUpdateSelectedMap = false;
+      let mapToSelect = null;
+      let shouldShowModal = false;
+      let eventToShow = null;
+      let commentToHighlight = null;
+      
       // Check if we have highlight info in location state (from programmatic navigation)
       const highlightEventId = location.state?.highlightEventId;
       const highlightCommentId = location.state?.highlightCommentId;
@@ -639,24 +711,18 @@ const MapViewer = ({ onLogout }) => {
           // Select the event's map
           const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
           if (eventMap) {
-            setSelectedMap(eventMap);
-            
-            // Make sure this map is visible
-            if (!visibleMapIds.includes(eventMap.id)) {
-              setVisibleMapIds(prev => [...prev, eventMap.id]);
-            }
+            shouldUpdateSelectedMap = true;
+            mapToSelect = eventMap;
           }
           
-          // Set the selected event and show the event modal
-          setSelectedEvent(eventToHighlight);
+          // Set the event to show in modal
+          shouldShowModal = true;
+          eventToShow = eventToHighlight;
           
           // Store the comment ID for highlighting
           if (highlightCommentId) {
-            // Store the highlight comment ID in a state variable
-            setHighlightCommentId(parseInt(highlightCommentId, 10));
+            commentToHighlight = parseInt(highlightCommentId, 10);
           }
-          
-          setShowViewEventModal(true);
           
           // Clear the highlight info from location state after processing
           try {
@@ -672,7 +738,7 @@ const MapViewer = ({ onLogout }) => {
       const eventIdFromUrl = urlParams.get('event');
       const commentIdFromUrl = urlParams.get('comment');
       
-      if (eventIdFromUrl && events.length > 0) {
+      if (eventIdFromUrl && events.length > 0 && !shouldShowModal) {
         if (DEBUG) console.log(`Highlighting event ${eventIdFromUrl} from URL parameters`);
         
         // Find the event
@@ -682,39 +748,52 @@ const MapViewer = ({ onLogout }) => {
           // Select the event's map
           const eventMap = maps.find(m => m.id === eventToHighlight.map_id);
           if (eventMap) {
-            setSelectedMap(eventMap);
-            
-            // Make sure this map is visible
-            if (!visibleMapIds.includes(eventMap.id)) {
-              setVisibleMapIds(prev => [...prev, eventMap.id]);
-            }
+            shouldUpdateSelectedMap = true;
+            mapToSelect = eventMap;
           }
           
-          // Set the selected event and show the event modal
-          setSelectedEvent(eventToHighlight);
+          // Set the event to show in modal
+          shouldShowModal = true;
+          eventToShow = eventToHighlight;
           
           // If we have a comment to highlight, set it
           if (commentIdFromUrl) {
-            setHighlightCommentId(parseInt(commentIdFromUrl, 10));
+            commentToHighlight = parseInt(commentIdFromUrl, 10);
             
             // Also set the active tab to comments
             setActiveEventModalTab('comments');
           }
-          
-          setShowViewEventModal(true);
           
           // Remove the parameters from the URL to prevent issues on refresh
           const newUrl = window.location.pathname;
           window.history.replaceState({}, document.title, newUrl);
         }
       }
+      
+      // Batch state updates to prevent cascading renders
+      if (shouldUpdateSelectedMap && mapToSelect) {
+        setSelectedMap(mapToSelect);
+        
+        // Make sure this map is visible
+        if (!visibleMapIds.includes(mapToSelect.id)) {
+          setVisibleMapIds(prev => [...prev, mapToSelect.id]);
+        }
+      }
+      
+      if (shouldShowModal && eventToShow) {
+        setSelectedEvent(eventToShow);
+        if (commentToHighlight !== null) {
+          setHighlightCommentId(commentToHighlight);
+        }
+        setShowViewEventModal(true);
+      }
     };
     
-    // Only run this effect after events are loaded
+    // Only run this effect after events are loaded and we're not in a loading state
     if (events.length > 0 && !loading) {
       checkForHighlightedEvent();
     }
-  }, [events, maps, location.state, loading, userClosedModal]);
+  }, [events, maps, location.state, loading, userClosedModal, visibleMapIds]);
   
   const handleCloseViewEventModal = useCallback(() => {
     // Reset state
