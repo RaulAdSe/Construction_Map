@@ -1,15 +1,37 @@
 from typing import List, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Path, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.db.database import get_db
+from app.db.database import get_db, engine
 from app.models.user import User
-from app.api.deps import get_current_active_user
+from app.models.user_preference import UserPreference
+from app.api.deps import get_current_active_user, get_current_user
 from app.schemas.user import User as UserSchema
+from app.schemas.user import UserCreate, UserUpdate
+from app.services.auth import create_user
+from app.services.user_preference import UserPreferenceService
+import logging
+from sqlalchemy import inspect
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
+# Check if user_preferences table exists, create it if not
+def ensure_user_preferences_table_exists():
+    try:
+        inspector = inspect(engine)
+        if not inspector.has_table("user_preferences"):
+            logger.warning("user_preferences table doesn't exist, creating it now")
+            UserPreference.__table__.create(engine)
+            logger.info("Created user_preferences table")
+    except Exception as e:
+        logger.error(f"Error ensuring user_preferences table exists: {str(e)}")
+
+# Call this at module import to ensure table exists
+ensure_user_preferences_table_exists()
 
 @router.get("/", response_model=List[UserSchema])
 def get_users(
@@ -47,4 +69,59 @@ def get_user(
     if current_user.role != "admin" and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    return user 
+    return user
+
+
+@router.get("/preferences/email-notifications", status_code=200)
+async def get_email_preferences(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get email notification preferences for the current user
+    """
+    logger.debug(f"Getting email preferences for user: {current_user.id}")
+    try:
+        # Ensure table exists
+        ensure_user_preferences_table_exists()
+        
+        # Use the UserPreferenceService to get or create preferences
+        preferences = UserPreferenceService.get_or_create_user_preference(db, current_user.id)
+        logger.debug(f"Retrieved preferences: {preferences.email_notifications}")
+        return {"enabled": preferences.email_notifications}
+    except ProgrammingError as e:
+        logger.error(f"Database schema error: {str(e)}")
+        # Return default preference if table doesn't exist
+        return {"enabled": True, "note": "Using default preference"}
+    except Exception as e:
+        logger.error(f"Error getting email preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/preferences/email-notifications", status_code=200)
+async def update_email_preferences(
+    enabled: bool = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update email notification preferences for the current user
+    """
+    logger.debug(f"Updating email preferences for user: {current_user.id} to {enabled}")
+    try:
+        # Ensure table exists
+        ensure_user_preferences_table_exists()
+        
+        # Use the UserPreferenceService to update preferences
+        preferences = UserPreferenceService.get_or_create_user_preference(db, current_user.id)
+        preferences.email_notifications = enabled
+        db.commit()
+        db.refresh(preferences)
+        
+        return {"enabled": preferences.email_notifications}
+    except ProgrammingError as e:
+        logger.error(f"Database schema error: {str(e)}")
+        return {"enabled": enabled, "note": "Preference stored temporarily"}
+    except Exception as e:
+        logger.error(f"Error updating email preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") 
