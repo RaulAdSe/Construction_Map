@@ -1315,18 +1315,21 @@ const MapViewer = ({ onLogout }) => {
   };
   
   // Handle event type filter change
-  const handleEventTypeFilterChange = useCallback((filteredEvts) => {
-    // Make sure we have a valid array of events
-    const validFilteredEvents = Array.isArray(filteredEvts) ? filteredEvts : [];
+  const handleEventTypeFilterChange = (filteredEvts) => {
+    console.log(`Filter changed: now showing ${filteredEvts?.length} events`);
     
-    // Always update both state variables with new array references to ensure React detects the change
-    setFilteredByTypeEvents([...validFilteredEvents]);
-    setFilteredEvents([...validFilteredEvents]);
-    
-    if (DEBUG) {
-      console.log("Filter applied: now showing", validFilteredEvents.length, "events");
+    // Safety check for valid array
+    if (!filteredEvts || !Array.isArray(filteredEvts)) {
+      filteredEvts = [];
     }
-  }, []);
+    
+    // Create a new array to ensure state change is detected
+    const newFilteredEvents = [...filteredEvts];
+    
+    // Update both state variables to ensure consistency
+    setFilteredByTypeEvents(newFilteredEvents);
+    setFilteredEvents(newFilteredEvents);
+  };
   
   if (loading) {
     return (

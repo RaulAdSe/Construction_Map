@@ -244,16 +244,14 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
-  // Calculate which events should be visible on the map
+  // Calculate which events should be visible on the map - using key to force reevaluation
   const visibleEvents = useMemo(() => {
     if (!events || !Array.isArray(events)) {
+      console.log("No events to filter");
       return [];
     }
     
-    // Log if debugging is enabled
-    if (DEBUG) {
-      console.log(`Calculating visible events from ${events.length} total events`);
-    }
+    console.log(`Filtering ${events.length} events for visibility`);
     
     return events.filter(event => {
       if (!event || !event.map_id) return false;
@@ -269,7 +267,12 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
-  }, [events, events?.length, implantationMap?.id, visibleMaps]);
+  }, [events, implantationMap?.id, visibleMaps]);
+  
+  // Log when visible events change
+  useEffect(() => {
+    console.log(`Visible events changed: now showing ${visibleEvents.length} events`);
+  }, [visibleEvents.length]);
   
   // Force imageLoaded to true after a timeout to ensure events display even if load events don't fire
   useEffect(() => {
@@ -709,20 +712,34 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
             {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
             
             {/* Render event markers within the content container */}
-            <div className="event-markers-container">
-              {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
-                <EventMarker 
-                  key={event.id} 
-                  event={event} 
-                  onClick={(e) => handleEventClick(event, e)}
-                  scale={1} // No need to adjust scale as we're in the content coordinate system
-                  isMobile={isMobile} // Pass mobile state to event marker
-                />
-              ))}
-            </div>
+            {renderEventMarkers()}
           </div>
         </div>
       </>
+    );
+  };
+  
+  // Function to render event markers
+  const renderEventMarkers = () => {
+    // Key by both ID and timestamp to force re-render when events change
+    const renderKey = new Date().getTime();
+    
+    if (!visibleEvents || visibleEvents.length === 0) {
+      return null;
+    }
+    
+    return (
+      <div className="event-markers-container" key={`markers-container-${renderKey}`}>
+        {visibleEvents.map(event => (
+          <EventMarker 
+            key={`event-marker-${event.id}-${renderKey}`}
+            event={event} 
+            onClick={(e) => handleEventClick(event, e)}
+            scale={1}
+            isMobile={isMobile}
+          />
+        ))}
+      </div>
     );
   };
   

@@ -1,63 +1,60 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
 
 /**
- * MapEventTypeFilter - A minimal component to filter event types displayed on the map
+ * MapEventTypeFilter - Filter component for event types on the map
  * 
  * @param {Object} props
- * @param {Array} props.events - All events
+ * @param {Array} props.events - All events available
  * @param {Function} props.onFilterChange - Callback when filter changes
  */
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
-  const originalEventsRef = useRef(events || []);
   
-  // Default all types to checked
+  // Default all types to checked (true)
   const [selectedTypes, setSelectedTypes] = useState({
     'incidence': true,
     'periodic check': true,
     'request': true
   });
 
-  // Keep track of original events for filtering
-  useEffect(() => {
-    if (events && Array.isArray(events)) {
-      originalEventsRef.current = events;
-    }
-  }, [events]);
+  // Calculate counts for each type - recalculated on each render
+  const typeCounts = {
+    'incidence': events?.filter(e => e?.state === 'incidence')?.length || 0,
+    'periodic check': events?.filter(e => e?.state === 'periodic check')?.length || 0,
+    'request': events?.filter(e => e?.state === 'request')?.length || 0
+  };
 
-  // Apply filtering whenever selection changes
+  // Apply filter whenever selection changes or events change
   useEffect(() => {
+    // Skip if no callback or no events
+    if (!onFilterChange || !events || !Array.isArray(events)) return;
+    
     // Filter events based on selected types
-    const filteredEvents = originalEventsRef.current.filter(event => {
-      // If event has no state property or it's null/undefined, skip it
+    const filteredEvents = events.filter(event => {
+      // Skip if event has no state
       if (!event || !event.state) return false;
       
-      // Include events whose state is checked in the filter
+      // Include event if its type is checked in the filter
       return selectedTypes[event.state] === true;
     });
     
-    // Always call filter change handler with updated filtered events
-    if (onFilterChange) {
-      onFilterChange(filteredEvents);
-    }
-  }, [selectedTypes, onFilterChange]);
+    // Call the filter change handler with filtered events
+    onFilterChange(filteredEvents);
+  }, [selectedTypes, events, onFilterChange]);
 
+  // Handle checkbox state changes
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
+    console.log(`Filter checkbox changed: ${name} = ${checked}`);
+    
+    // Update the selected types state with the new checkbox value
     setSelectedTypes(prev => ({
       ...prev,
       [name]: checked
     }));
-  };
-
-  // Calculate counts for each type
-  const typeCounts = {
-    'incidence': originalEventsRef.current.filter(e => e?.state === 'incidence').length || 0,
-    'periodic check': originalEventsRef.current.filter(e => e?.state === 'periodic check').length || 0,
-    'request': originalEventsRef.current.filter(e => e?.state === 'request').length || 0
   };
 
   return (
