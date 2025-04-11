@@ -612,7 +612,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     if (isSelectingLocation && showMobileControls) {
       setShowMobileControls(false);
     }
-  }, [isSelectingLocation]);
+  }, [isSelectingLocation, showMobileControls]);
   
   // Function to render map content with layers
   const renderMapContent = () => {
@@ -695,7 +695,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       console.log("Visible maps changed:", visibleMaps);
       console.log("Current visible events:", visibleEvents.length);
     }
-  }, [visibleMaps, mapOpacities, onVisibleMapsChanged, implantationMap]); // Remove visibleEvents.length from dependencies
+  }, [visibleMaps, mapOpacities, onVisibleMapsChanged, implantationMap?.id]); // Fixed dependency array
   
   // Console log on mount to debug events visibility
   useEffect(() => {
@@ -704,6 +704,9 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       console.log("Visible maps:", visibleMaps);
       console.log("Visible events:", visibleEvents.length);
     }
+    // Don't add the missing dependencies to avoid re-running on every render
+    // This effect should only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array means this runs only on mount
   
   return (

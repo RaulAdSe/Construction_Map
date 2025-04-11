@@ -1281,34 +1281,7 @@ const MapViewer = ({ onLogout }) => {
     // For desktop, update the filter position
     return (
       <Row className="map-content-container">
-        <Col md={3} lg={3} className="position-relative map-sidebar">
-          <div className="map-sidebar-content">
-            {/* Map Layer Controls */}
-            <MapList
-              maps={maps}
-              selectedMapId={selectedMap ? selectedMap.id : null}
-              onMapSelect={handleMapSelect}
-              visibleMapIds={visibleMapIds}
-              onVisibleMapsChanged={handleVisibleMapsChanged}
-            />
-            
-            {/* Add Map Button for Admins */}
-            {effectiveIsAdmin && (
-              <div className="mt-3 d-grid">
-                <Button 
-                  variant="outline-primary" 
-                  size="sm"
-                  onClick={handleAddMap}
-                >
-                  {translate('Add Map')}
-                </Button>
-              </div>
-            )}
-          </div>
-        </Col>
-        
-        {/* Map Display Area */}
-        <Col md={9} lg={9} className="map-content-area position-relative">
+        <Col md={12} lg={12} className="position-relative map-content-area">
           {/* Show filter at the top of the map area for desktop */}
           <div className="desktop-filter-container" style={{ 
             position: 'absolute', 
@@ -1349,7 +1322,10 @@ const MapViewer = ({ onLogout }) => {
   const handleEventTypeFilterChange = (filteredEvts) => {
     if (DEBUG) console.log("Event type filter changed, events count:", filteredEvts.length);
     setFilteredByTypeEvents(filteredEvts);
-    setFilteredEvents(filteredEvts);
+    // Don't update filteredEvents if it's the same array reference
+    if (filteredEvts !== filteredEvents) {
+      setFilteredEvents(filteredEvts);
+    }
   };
   
   if (loading) {
