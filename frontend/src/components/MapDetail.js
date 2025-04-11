@@ -35,7 +35,10 @@ const MapDetail = ({
   const [showMobileControls, setShowMobileControls] = useState(false);
   
   // Find implantation map (main map) and overlay maps
-  const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
+  const implantationMap = useMemo(() => {
+    if (!allMaps || !Array.isArray(allMaps)) return null;
+    return allMaps.find(m => m.isImplantation);
+  }, [allMaps]);
   const overlayMaps = allMaps.filter(m => m.id !== implantationMap?.id);
   
   // Initialize visibleMaps with the main map ID already included if available
@@ -260,12 +263,11 @@ const MapDetail = ({
       return [];
     }
     
-    // Log only with DEBUG flag
-    if (DEBUG) {
-      console.log(`Calculating visible events from ${events.length} total events`);
-    }
+    // Logging for filter debugging
+    console.log(`Recalculating visible events: ${events.length} events available, mapID=${map?.id || 'none'}, eventKey=${eventKey || 'none'}`);
     
-    return events.filter(event => {
+    // Filter events for this map
+    const filtered = events.filter(event => {
       if (!event || !event.map_id) return false;
       
       // Skip closed events regardless of map
@@ -279,7 +281,10 @@ const MapDetail = ({
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
-  }, [events, implantationMap?.id, visibleMaps]);
+    
+    console.log(`Filtered to ${filtered.length} visible events`);
+    return filtered;
+  }, [events, implantationMap?.id, visibleMaps, eventKey]); // Use implantationMap instead of map
   
   // Log when visible events change - only with DEBUG flag
   useEffect(() => {
@@ -743,11 +748,14 @@ const MapDetail = ({
       return null;
     }
     
+    // Logging to confirm re-render
+    console.log(`Rendering ${visibleEvents.length} markers with eventKey=${eventKey}`);
+    
     return (
       <div className="event-markers-container">
         {visibleEvents.map(event => (
           <EventMarker 
-            key={`${event.id}-${eventKey || Date.now()}`}
+            key={`${event.id}-${eventKey || Math.random()}`}
             event={event} 
             onClick={(e) => handleEventClick(event, e)}
             disabled={isSelectingLocation}

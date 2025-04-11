@@ -13,7 +13,7 @@ import { useMobile } from './common/MobileProvider';
 const MapEventTypeFilter = ({ events, onFilterChange }) => {
   const { isMobile } = useMobile();
   
-  // Store original events to ensure a consistent starting point
+  // Store all events to filter against
   const allEventsRef = useRef(events || []);
   
   // Update stored events when prop changes
@@ -30,13 +30,16 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     'request': true
   });
 
-  // Calculate counts for each type
+  // Calculate counts for each type - always from the full dataset
   const typeCounts = {
     'incidence': allEventsRef.current.filter(e => e?.state === 'incidence').length || 0,
     'periodic check': allEventsRef.current.filter(e => e?.state === 'periodic check').length || 0,
     'request': allEventsRef.current.filter(e => e?.state === 'request').length || 0
   };
 
+  // Debug counter to track filter operations
+  const [filterCounter, setFilterCounter] = useState(0);
+  
   // Apply filter whenever selection changes
   useEffect(() => {
     // Skip if no callback
@@ -51,21 +54,23 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
       return selectedTypes[event.state] === true;
     });
     
-    // Apply the filter
-    onFilterChange(filteredEvents);
+    // Apply the filter and increment counter
+    onFilterChange(filteredEvents, filterCounter);
+    setFilterCounter(prev => prev + 1);
     
-    // Debug log to verify filter application
-    console.log(`Filter applied: ${Object.entries(selectedTypes)
-      .filter(([_, checked]) => checked)
-      .map(([type]) => type)
-      .join(', ')}`);
+    // Debug logging
+    console.log(`Filter operation #${filterCounter} applied:`, {
+      selectedTypes,
+      filteredCount: filteredEvents.length,
+      totalCount: allEventsRef.current.length
+    });
       
-  }, [selectedTypes, onFilterChange]);
+  }, [selectedTypes, onFilterChange, filterCounter]);
 
-  // Handle checkbox state changes - simple and direct
+  // Handle checkbox state changes
   const handleTypeChange = (e) => {
     const { name, checked } = e.target;
-    console.log(`Filter changed: ${name} = ${checked}`);
+    console.log(`Filter toggle: ${name} = ${checked}, current events: ${typeCounts[name]}`);
     
     setSelectedTypes(prev => ({
       ...prev,

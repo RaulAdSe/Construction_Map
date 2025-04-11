@@ -79,6 +79,7 @@ const MapViewer = ({ onLogout }) => {
   
   // Key to force map redraw when events are filtered
   const [filterKey, setFilterKey] = useState(Date.now());
+  const [filterCounter, setFilterCounter] = useState(0);
   
   // Fetch current user info from token and get their admin status
   useEffect(() => {
@@ -922,27 +923,31 @@ const MapViewer = ({ onLogout }) => {
   ]);
   
   // Handle event type filter change with proper key-based re-rendering
-  const handleEventTypeFilterChange = useCallback((filteredEvts) => {
+  const handleEventTypeFilterChange = useCallback((filteredEvts, counter) => {
     // Skip update if no events provided
     if (!filteredEvts || !Array.isArray(filteredEvts)) return;
     
-    // Create new state references to ensure React detects the change
+    // Update the filter counter to force re-rendering
+    setFilterCounter(counter || (prevCounter => prevCounter + 1));
+    
+    // Generate a new timestamp for the filter key
+    const newFilterKey = Date.now();
+    setFilterKey(newFilterKey);
+    
+    // Force completely new array references to ensure React detects changes
     const newFilteredEvents = [...filteredEvts];
     
-    // Force React to recognize the changes by using new array references
+    console.log(`Filter operation applied: ${newFilteredEvents.length} events visible, key=${newFilterKey}, counter=${counter || filterCounter}`);
+    
+    // Update both filter state variables
     setFilteredByTypeEvents(newFilteredEvents);
     setFilteredEvents(newFilteredEvents);
-    
-    // Generate new key to force component redraw
-    setFilterKey(Date.now());
-    
-    console.log(`Filter changed: now showing ${newFilteredEvents.length} events`);
   }, []);
   
-  // Force markers to update when events change by adding a key based on selection
+  // Force markers to update by combining filterKey and counter
   const mapEventKey = useMemo(() => {
-    return filterKey; // Use the filter key to force rerenders
-  }, [filterKey]);
+    return `${filterKey}-${filterCounter}`;
+  }, [filterKey, filterCounter]);
   
   // Make MapDetail take an eventKey prop to force redraw of markers
   const mapDetailProps = useMemo(() => ({
