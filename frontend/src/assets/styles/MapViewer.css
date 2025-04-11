@@ -501,10 +501,9 @@ iframe.clean-pdf-view {
 /* Map detail container */
 .map-detail-container {
   position: relative;
-  width: 100%;
-  height: 70vh;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  min-height: 800px;
 }
 
 /* Override any PDF viewer styles */
@@ -1631,36 +1630,62 @@ iframe[src*=".pdf"] {
   max-width: 100%;
 }
 
-/* Enhanced desktop controls */
-.desktop-controls {
-  width: 250px;
-  flex-shrink: 0;
-  padding: 10px;
-  margin-left: 15px;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  background-color: white;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  max-height: 100%;
-  overflow-y: auto;
-}
+/* Optimize map container for desktop views - expand width */
+@media (min-width: 768px) {
+  .map-content-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: calc(100vh - 150px) !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
 
-.desktop-layer-controls .list-group-item {
-  padding: 8px 12px;
-}
+  .map-detail-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
 
-/* Simplified Map Event Filter positioning for desktop */
-@media (min-width: 992px) {
-  .desktop-filter-container {
-    position: absolute;
-    top: 10px;
-    right: 270px; /* Positioned to align with control panel */
-    z-index: 1000;
-    max-width: 500px;
+  .map-container {
+    height: 100% !important;
+    width: 100% !important;
+    border-radius: 6px !important;
+    border: 1px solid #dee2e6 !important;
+    overflow: hidden !important;
   }
   
-  .map-event-filter {
-    justify-content: flex-end;
-    margin-left: auto;
+  .map-content-area {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  
+  /* Optimize filter positioning on desktop */
+  .desktop-filter-container {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    left: auto !important;
+    transform: none !important;
+    z-index: 1000 !important;
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 4px !important;
+    padding: 8px !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+  }
+}
+
+/* Extra optimization for larger screens */
+@media (min-width: 1200px) {
+  .map-content-container {
+    height: calc(100vh - 120px) !important;
+  }
+  
+  .container-fluid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100% !important;
   }
 } 

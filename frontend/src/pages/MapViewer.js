@@ -1278,11 +1278,11 @@ const MapViewer = ({ onLogout }) => {
       );
     }
     
-    // For desktop, position the filter for better space utilization
+    // For desktop, update the layout to maximize map space
     return (
-      <Row className="map-content-container">
-        <Col md={12} lg={12} className="position-relative map-content-area px-0">
-          {/* Show filter at the top-right of the map area for desktop */}
+      <Row className="map-content-container g-0">
+        <Col xs={12} className="position-relative map-content-area p-0">
+          {/* Show filter at the top-right corner of the map area for desktop */}
           <div className="desktop-filter-container">
             <MapEventTypeFilter 
               events={filteredEvents} 
@@ -1350,13 +1350,13 @@ const MapViewer = ({ onLogout }) => {
       {/* For mobile, render the sidebar as an offcanvas */}
       {isMobile && renderMobileSidebar()}
       
-      <Container fluid={isMobile} className={isMobile ? "p-0 mt-0" : "mt-4"}>
+      <Container fluid={true} className={isMobile ? "p-0 mt-0" : "p-0 mt-2"}>
         {/* For desktop, render tabs as normal */}
         {!isMobile && (
           <Tabs 
             activeKey={activeTab} 
             onSelect={setActiveTab} 
-            className="mb-4"
+            className="mb-2 mx-2"
             key={`tabs-${effectiveIsAdmin}`}
           >
             {/* Map View tab - available to all users */}
