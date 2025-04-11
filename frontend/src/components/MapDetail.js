@@ -900,11 +900,11 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
           </div>
         </div>
       ) : (
-        /* Original desktop controls */
-        <div className="map-overlay-controls mt-3">
+        /* Desktop controls - positioned beside the map for better space utilization */
+        <div className="map-overlay-controls desktop-controls">
           <h6>Map Layers</h6>
           {implantationMap && (
-            <ListGroup>
+            <ListGroup className="desktop-layer-controls">
               <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
                 <div>
                   <Form.Check 

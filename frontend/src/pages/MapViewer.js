@@ -1278,19 +1278,12 @@ const MapViewer = ({ onLogout }) => {
       );
     }
     
-    // For desktop, update the filter position
+    // For desktop, position the filter for better space utilization
     return (
       <Row className="map-content-container">
-        <Col md={12} lg={12} className="position-relative map-content-area">
-          {/* Show filter at the top of the map area for desktop */}
-          <div className="desktop-filter-container" style={{ 
-            position: 'absolute', 
-            top: '10px', 
-            left: '50%', 
-            transform: 'translateX(-50%)',
-            zIndex: 2000,
-            maxWidth: '100%'
-          }}>
+        <Col md={12} lg={12} className="position-relative map-content-area px-0">
+          {/* Show filter at the top-right of the map area for desktop */}
+          <div className="desktop-filter-container">
             <MapEventTypeFilter 
               events={filteredEvents} 
               onFilterChange={handleEventTypeFilterChange} 
