@@ -73,15 +73,12 @@ const MapViewer = ({ onLogout }) => {
   // Add a state for mobile sidebar visibility
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   
-  // State for filtered events
-  const [allEvents, setAllEvents] = useState([]);
+  // Keep track of original events for filtering
+  const originalEventsRef = useRef([]);
   const previousFilterRef = useRef(null);
   
-  // Key to force map redraw when events are filtered
+  // Key to force re-renders when filter state changes
   const [filterKey, setFilterKey] = useState(Date.now());
-  
-  // Filter state to track direct event array before applying filters
-  const [originalEvents, setOriginalEvents] = useState([]);
   
   // Fetch current user info from token and get their admin status
   useEffect(() => {
@@ -924,29 +921,43 @@ const MapViewer = ({ onLogout }) => {
     activeEventModalTab
   ]);
   
-  // Reset filtered events when events change
-  useEffect(() => {
-    if (events && events.length > 0) {
-      setOriginalEvents(events);
-      setFilteredEvents(events);
-      setFilteredByTypeEvents(events);
-    }
-  }, [events]);
-
-  // Handle event type filter change with optimized rendering
+  // Handle event type filter change with proper key-based re-rendering
   const handleEventTypeFilterChange = useCallback((filteredEvts) => {
     // Skip update if no events provided
     if (!filteredEvts || !Array.isArray(filteredEvts)) return;
     
-    console.log(`Filter changed: now showing ${filteredEvts.length} events`);
+    // Get all original map-filtered events (the ones we should display when all filters are enabled)
+    const originalMapFilteredEvents = events.filter(event => {
+      if (!event || !event.map_id) return false;
+      
+      // Skip closed events regardless of map
+      if (event.status === 'closed') return false;
+      
+      // Always include events from the main map (implantation type)
+      const mainMap = maps.find(map => map.map_type === 'implantation');
+      if (mainMap && event.map_id === mainMap.id) {
+        return true;
+      }
+      
+      // For other maps, only include if they're in the visible maps list
+      return visibleMapIds.includes(event.map_id);
+    });
     
-    // Don't do a deep clone for performance reasons, just create a new array reference
-    setFilteredByTypeEvents(filteredEvts);
-    setFilteredEvents(filteredEvts);
+    // Force a deep clone to ensure we break any references that might be causing React to miss changes
+    const newFilteredEvents = JSON.parse(JSON.stringify(filteredEvts));
     
-    // Force components depending on this to re-render with key change
-    setFilterKey(Date.now());
-  }, []);
+    // Generate new key BEFORE updating state to ensure it's always different
+    const newFilterKey = Date.now();
+    setFilterKey(newFilterKey);
+    
+    // Force React to recognize the changes with new array references and a delay
+    setTimeout(() => {
+      setFilteredByTypeEvents(newFilteredEvents);
+      setFilteredEvents(newFilteredEvents);
+      
+      console.log(`Filter changed: now showing ${newFilteredEvents.length} events (key: ${newFilterKey})`);
+    }, 10);
+  }, [events, maps, visibleMapIds]);
   
   // Force markers to update when events change by adding a key based on selection
   const mapEventKey = useMemo(() => {
@@ -1353,6 +1364,16 @@ const MapViewer = ({ onLogout }) => {
     // Ensure the class is removed when the modal is closed
     document.body.classList.remove('map-adding-event');
   };
+  
+  // Add an effect for handling fetched events - make sure we store them in the ref
+  useEffect(() => {
+    // Store original events for filtering - this ensures we always filter from the complete set
+    originalEventsRef.current = [...events];
+    
+    if (DEBUG) {
+      console.log(`Stored ${events.length} events in originalEventsRef for later filtering`);
+    }
+  }, [events]);
   
   if (loading) {
     return (

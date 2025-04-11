@@ -254,19 +254,16 @@ const MapDetail = ({
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
-  // Calculate which events should be visible on the map - with direct dependence on eventKey
+  // Calculate which events should be visible on the map, ensuring key dependency
   const visibleEvents = useMemo(() => {
     if (!events || !Array.isArray(events)) {
       return [];
     }
     
-    // Force recalculation if eventKey changes
-    if (eventKey) {
-      // This comment intentionally forces the memo to recalculate when eventKey changes
+    // Include eventKey in the dependency array to force recalculation when filters change
+    if (DEBUG) {
+      console.log(`Calculating visible events from ${events.length} total events (key: ${eventKey})`);
     }
-    
-    // Force logging in all cases when filters change
-    console.log(`Recalculating visible events with ${events.length} events, key: ${eventKey || 'none'}`);
     
     return events.filter(event => {
       if (!event || !event.map_id) return false;
@@ -282,7 +279,7 @@ const MapDetail = ({
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
-  }, [events, implantationMap?.id, visibleMaps, eventKey]);
+  }, [events, implantationMap?.id, visibleMaps, eventKey]); // Added eventKey to force recalculation
   
   // Log when visible events change - only with DEBUG flag
   useEffect(() => {
@@ -748,23 +745,24 @@ const MapDetail = ({
     );
   };
   
-  // Render event markers with proper click handling - add forced key updates
+  // Render event markers with proper click handling
   const renderEventMarkers = () => {
     if (!visibleEvents || visibleEvents.length === 0) {
       return null;
     }
     
-    console.log(`Rendering ${visibleEvents.length} event markers`);
-    
+    // Use a unique container key to force complete replacement of all markers
     return (
-      <div className="event-markers-container">
+      <div 
+        className="event-markers-container"
+        key={`markers-container-${eventKey || Date.now()}`}
+      >
         {visibleEvents.map(event => (
           <EventMarker 
-            key={`event-${event.id}-key-${eventKey || Date.now()}`}
+            key={`${event.id}-${eventKey || Date.now()}`}
             event={event} 
             onClick={handleEventClick}
             disabled={isSelectingLocation}
-            isMobile={isMobile}
           />
         ))}
       </div>
