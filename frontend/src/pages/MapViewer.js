@@ -924,52 +924,20 @@ const MapViewer = ({ onLogout }) => {
     activeEventModalTab
   ]);
   
-  // Handle event type filter change with proper key-based re-rendering
+  // Handle event type filter change with simple, direct approach
   const handleEventTypeFilterChange = useCallback((filteredEvts) => {
     // Skip update if no events provided
     if (!filteredEvts || !Array.isArray(filteredEvts)) return;
     
-    // Get all original map-filtered events (the ones we should display when all filters are enabled)
-    const originalMapFilteredEvents = events.filter(event => {
-      if (!event || !event.map_id) return false;
-      
-      // Skip closed events regardless of map
-      if (event.status === 'closed') return false;
-      
-      // Always include events from the main map (implantation type)
-      const mainMap = maps.find(map => map.map_type === 'implantation');
-      if (mainMap && event.map_id === mainMap.id) {
-        return true;
-      }
-      
-      // For other maps, only include if they're in the visible maps list
-      return visibleMapIds.includes(event.map_id);
-    });
+    console.log(`Filter changed: now showing ${filteredEvts.length} events`);
     
-    console.log(`Original map filtered events: ${originalMapFilteredEvents.length}`);
-    console.log(`Type filtered events: ${filteredEvts.length}`);
-    
-    // Set filtering flag to true during the update process
-    setIsFiltering(true);
-    
-    // Force a deep clone to ensure we break any references that might be causing React to miss changes
-    const newFilteredEvents = JSON.parse(JSON.stringify(filteredEvts));
-    
-    // Generate new key BEFORE updating state to ensure it's always different
+    // Create a brand new timestamp to force component updates
     const newFilterKey = Date.now();
-    setFilterKey(newFilterKey);
     
-    // Force React to recognize the changes with new array references and a delay
-    setTimeout(() => {
-      setFilteredByTypeEvents(newFilteredEvents);
-      setFilteredEvents(newFilteredEvents);
-      
-      // Turn off filtering flag
-      setIsFiltering(false);
-      
-      console.log(`Filter changed: now showing ${newFilteredEvents.length} events (key: ${newFilterKey})`);
-    }, 20);
-  }, [events, maps, visibleMapIds]);
+    // Apply the filtered events directly
+    setFilteredEvents(filteredEvts);
+    setFilterKey(newFilterKey);
+  }, []);
   
   // Force markers to update when events change by adding a key based on selection
   const mapEventKey = useMemo(() => {

@@ -260,11 +260,12 @@ const MapDetail = ({
       return [];
     }
     
-    // Include eventKey in the dependency array to force recalculation when filters change
-    console.log(`Recalculating visible events from ${events.length} total events (key: ${eventKey})`);
+    // Key is needed in dependency array to force recalculation when filters change
+    const currentKey = eventKey || 'default';
+    console.log(`Recalculating visible events (key: ${currentKey})`);
     
     // Apply map-based filtering logic
-    const mapFilteredEvents = events.filter(event => {
+    return events.filter(event => {
       if (!event || !event.map_id) return false;
       
       // Skip closed events regardless of map
@@ -278,11 +279,7 @@ const MapDetail = ({
       // For overlay maps, only show events if that map is toggled on
       return visibleMaps.includes(event.map_id);
     });
-    
-    console.log(`After map filtering: ${mapFilteredEvents.length} events remain visible`);
-    
-    return mapFilteredEvents;
-  }, [events, implantationMap?.id, visibleMaps, eventKey]); // Added eventKey to force recalculation
+  }, [events, implantationMap?.id, visibleMaps, eventKey]); // Key in dependencies is critical
   
   // Log when visible events change - only with DEBUG flag
   useEffect(() => {
@@ -758,14 +755,16 @@ const MapDetail = ({
     console.log(`Rendering ${visibleEvents.length} event markers with key: ${eventKey || Date.now()}`);
     
     // Use a unique container key to force complete replacement of all markers
+    // Note: Using a div instead of React.Fragment because we need to apply a key
     return (
       <div 
         className="event-markers-container"
-        key={`markers-container-${eventKey || Date.now()}`}
+        key={`event-marker-container-${eventKey || Date.now()}`}
+        data-marker-count={visibleEvents.length}
       >
         {visibleEvents.map(event => (
           <EventMarker 
-            key={`${event.id}-${eventKey || Date.now()}`}
+            key={`event-marker-${event.id}-${eventKey || Date.now()}`}
             event={event} 
             onClick={handleEventClick}
             disabled={isSelectingLocation}
