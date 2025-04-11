@@ -12,7 +12,7 @@ TOKEN = None  # Will be set after login
 
 def login(username="admin", password="admin"):
     """Login to get a valid JWT token"""
-    url = f"{BASE_URL}/auth/login/access-token"  # Correct endpoint path
+    url = f"{BASE_URL}/auth/login"  # Correct endpoint path
     response = requests.post(
         url, 
         data={"username": username, "password": password},
