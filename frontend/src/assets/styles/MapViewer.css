@@ -93,27 +93,36 @@ iframe.clean-pdf-view {
   background-color: white;
 }
 
-/* Event marker styles */
+/* Event marker styles - make more visible */
 .event-marker {
   position: absolute;
-  transform: translate(-50%, -50%);
-  z-index: 800 !important;
-  cursor: pointer;
-  border: 3px solid white;
-  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+  width: 24px !important;  /* Increased base size */
+  height: 24px !important; /* Increased base size */
   border-radius: 50%;
-  pointer-events: auto !important;
-  transition: width 0.2s, height 0.2s, box-shadow 0.2s;
-  width: 20px;
-  height: 20px;
+  border: 3px solid white;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  z-index: 500;
+  transform-origin: center center;
 }
 
-.event-marker-hover,
-.event-marker:hover {
-  width: 24px;
-  height: 24px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.8);
-  z-index: 850 !important; /* Higher z-index on hover to appear above other markers */
+.event-marker:hover, .event-marker-hover {
+  transform: translate(-50%, -50%) scale(1.15) !important;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+}
+
+.mobile-event-marker {
+  width: 35px !important;
+  height: 35px !important;
+  border-width: 4px;
+}
+
+/* Event tooltip styling */
+.event-tooltip {
+  z-index: 2000;
+  max-width: 250px;
 }
 
 /* Pulse animation for active markers */

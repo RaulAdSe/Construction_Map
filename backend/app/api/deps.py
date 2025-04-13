@@ -1,9 +1,10 @@
 from typing import Generator, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
+import logging
 
 from app.db.database import get_db
 from app.models.user import User
@@ -11,25 +12,57 @@ from app.core.config import settings
 from app.core.security import ALGORITHM
 from app.schemas.user import TokenData
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+logger = logging.getLogger(__name__)
+
+# Make token optional in development mode to allow API testing
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=not settings.DEBUG)
 
 
 def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
+    request: Request,
+    db: Session = Depends(get_db), 
+    token: Optional[str] = Depends(oauth2_scheme)
 ) -> User:
+    # For debugging
+    logger.debug(f"DEBUG mode: {settings.DEBUG}")
+    logger.debug(f"Processing token: {token[:10] + '...' if token else None}")
+    
+    # In development mode, allow anonymous access if DEBUG is True and no token provided
+    if settings.DEBUG and not token:
+        # Look up an admin user for dev purposes
+        admin_user = db.query(User).filter(User.is_admin == True).first()
+        if admin_user:
+            logger.debug(f"Running in DEBUG mode, using admin user: {admin_user.username}")
+            return admin_user
+        # Fallback to first user if no admin found
+        first_user = db.query(User).first()
+        if first_user:
+            logger.debug(f"Running in DEBUG mode, using first user: {first_user.username}")
+            return first_user
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    if not token:
+        raise credentials_exception
+        
     try:
+        # Log the SECRET_KEY hash to check if it's consistent
+        secret_key_hash = hash(settings.SECRET_KEY) 
+        logger.debug(f"Using SECRET_KEY hash: {secret_key_hash}")
+        
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT error: {str(e)}")
         raise credentials_exception
+        
     user = db.query(User).filter(User.username == token_data.username).first()
     if user is None:
         raise credentials_exception

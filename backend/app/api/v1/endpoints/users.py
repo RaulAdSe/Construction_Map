@@ -15,6 +15,7 @@ from app.services.auth import create_user
 from app.services.user_preference import UserPreferenceService
 import logging
 from sqlalchemy import inspect
+from app.services.email_service import EmailService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -124,4 +125,49 @@ async def update_email_preferences(
         return {"enabled": enabled, "note": "Preference stored temporarily"}
     except Exception as e:
         logger.error(f"Error updating email preferences: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/send-test-email/{username}", status_code=status.HTTP_200_OK)
+def send_test_email(
+    username: str = Path(..., description="Username of the recipient"),
+    subject: str = Body("Test Notification", embed=True),
+    message: str = Body("This is a test notification", embed=True),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Send a test email notification to a user
+    Only admins can send emails to other users
+    """
+    # Check if user has permission to send test emails
+    if not current_user.is_admin and current_user.username != username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to send emails to other users"
+        )
+    
+    # Get user by username
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {username} not found"
+        )
+    
+    # Send email
+    html_content = f"<h2>{subject}</h2><p>{message}</p><p>This is a test email from the Servitec Map application.</p>"
+    success = EmailService.send_email(
+        recipients=user.email,
+        subject=subject,
+        body_text=message,
+        body_html=html_content
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send email"
+        )
+    
+    return {"message": f"Test email sent to {username} ({user.email})"} 

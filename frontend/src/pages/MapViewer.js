@@ -77,8 +77,8 @@ const MapViewer = ({ onLogout }) => {
   const originalEventsRef = useRef([]);
   const previousFilterRef = useRef(null);
   
-  // Key to force re-renders when filter state changes
-  const [filterKey, setFilterKey] = useState(Date.now());
+  // Use a simple integer counter for filter key instead of timestamp
+  const [filterKey, setFilterKey] = useState(0);
   
   // Flag to track if events are currently being filtered
   const [isFiltering, setIsFiltering] = useState(false);
@@ -127,6 +127,23 @@ const MapViewer = ({ onLogout }) => {
     // Skip this effect if no events or maps yet
     if (!events.length || !maps.length) return;
 
+    // For debugging - log the count and types of events before filtering
+    const beforeTypeCounts = {
+      'incidence': events.filter(e => (e?.state || '').toLowerCase().includes('incidence')).length,
+      'check': events.filter(e => {
+        const state = (e?.state || '').toLowerCase();
+        return state === 'periodic check' || 
+               state === 'check' || 
+               state.includes('check') || 
+               state.includes('periodic');
+      }).length,
+      'request': events.filter(e => (e?.state || '').toLowerCase().includes('request')).length
+    };
+    console.log('Before map filtering - events by type:', beforeTypeCounts);
+    
+    // Store original events for filtering reference
+    originalEventsRef.current = [...events];
+
     // Filter events based on visible maps
     const filteredEvents = events.filter(event => {
       if (!event || !event.map_id) return false;
@@ -148,9 +165,12 @@ const MapViewer = ({ onLogout }) => {
     
     // Initialize type filter with the map-filtered events
     setFilteredByTypeEvents(filteredEvents);
+
+    // Force map to refresh markers
+    setFilterKey(prev => prev + 1);
     
     if (DEBUG) console.log("Updated visible events:", filteredEvents.length, "out of", events.length);
-  }, [events.length, visibleMapIds, maps.length]); // Use .length to avoid full comparison of arrays
+  }, [events, visibleMapIds, maps]); // Using the full arrays for proper dependency tracking
   
   useEffect(() => {
     if (projectId) {
@@ -924,20 +944,45 @@ const MapViewer = ({ onLogout }) => {
     activeEventModalTab
   ]);
   
-  // Handle event type filter change - simple direct approach with guaranteed state updates
+  // Handle event type filter change 
   const handleEventTypeFilterChange = useCallback((filteredEvts) => {
     // Skip update if no events provided
-    if (!filteredEvts || !Array.isArray(filteredEvts)) return;
+    if (!filteredEvts || !Array.isArray(filteredEvts)) {
+      console.log('No filtered events provided to MapViewer');
+      return;
+    }
+    
+    // Debug logs
+    console.log(`MapViewer received ${filteredEvts.length} filtered events`);
+    
+    // Compare arrays by id to prevent unnecessary updates
+    if (filteredEvents.length === filteredEvts.length) {
+      const currentIds = new Set(filteredEvents.map(e => e.id));
+      const newIds = new Set(filteredEvts.map(e => e.id));
+      
+      if (currentIds.size === newIds.size && 
+          [...newIds].every(id => currentIds.has(id))) {
+        console.log('Skipping update - filtered events have not changed');
+        return; // Skip update if filtered events haven't changed
+      }
+    }
     
     console.log(`Filter changed: now showing ${filteredEvts.length} events`);
     
-    // ALWAYS create a new timestamp to force component updates
-    const newFilterKey = Date.now();
+    // Create deep copies to ensure references are different
+    const cleanFilteredEvents = JSON.parse(JSON.stringify(filteredEvts));
     
-    // Apply filtered events directly - no equality checks to ensure updates always happen
-    setFilteredEvents([...filteredEvts]);
-    setFilterKey(newFilterKey);
-  }, []);
+    // Update both state variables with filtered events
+    setFilteredEvents(cleanFilteredEvents);
+    setFilteredByTypeEvents(cleanFilteredEvents);
+    
+    // Increment filter key to trigger re-render of markers
+    setFilterKey(prev => {
+      const newKey = prev + 1;
+      console.log(`Incrementing filter key from ${prev} to ${newKey}`);
+      return newKey;
+    });
+  }, [filteredEvents]);
   
   // Force markers to update when events change by adding a key based on selection
   const mapEventKey = useMemo(() => {

@@ -130,9 +130,6 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
       setLoading(true);
       const response = await projectService.getProjectMembers(projectId);
       
-      // Log the response for debugging
-      console.log("Project members:", response.data);
-      
       // Process members data
       const processedMembers = response.data.map(member => {
         return {
@@ -235,8 +232,6 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
   if (loading && members.length === 0) {
     return <div className="text-center p-4"><Spinner animation="border" /></div>;
   }
-
-  console.log('Rendering ContactsTab with isCurrentUserAdmin:', isCurrentUserAdmin, 'and effectiveIsAdmin:', effectiveIsAdmin);
 
   return (
     <div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, X, Trash } from 'react-feather';
-import { Badge, Button, Card, ListGroup, Spinner } from 'react-bootstrap';
+import { Bell, X, Trash, Mail } from 'react-feather';
+import { Badge, Button, Card, ListGroup, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
   const notificationPanelRef = useRef(null);
   const navigate = useNavigate();
   const notificationRef = useRef(null);
@@ -241,38 +242,122 @@ const NotificationBell = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Add function to toggle email notifications
+  const toggleEmailNotifications = async () => {
+    try {
+      const newState = !emailNotificationsEnabled;
+      
+      // Call API to update user preference
+      await axios.post(`${API_URL}/users/preferences/email-notifications`, 
+        { enabled: newState },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          withCredentials: true
+        }
+      );
+      
+      // Update local state
+      setEmailNotificationsEnabled(newState);
+      
+      // Show feedback (you could use your notification system here)
+      console.log(`Email notifications ${newState ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Error updating email notification preferences:', error);
+      // Error handling - you might want to show an error message
+    }
+  };
+
+  // Fetch email notification preference
+  const fetchEmailPreference = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/users/preferences/email-notifications`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        withCredentials: true
+      });
+      
+      if (response.data && response.data.hasOwnProperty('enabled')) {
+        setEmailNotificationsEnabled(response.data.enabled);
+      }
+    } catch (error) {
+      console.error('Error fetching email preferences:', error);
+      // Default to enabled if we can't fetch the preference
+      setEmailNotificationsEnabled(true);
+    }
+  };
+
+  // Add to the existing useEffect for initial data loading
+  useEffect(() => {
+    fetchNotifications();
+    fetchUnreadCount();
+    fetchEmailPreference();
+    
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="notification-bell-container" style={{ position: 'relative', display: 'inline-block', marginRight: '15px', zIndex: 99999 }}>
-      <div 
-        ref={bellRef}
-        onClick={toggleNotifications} 
-        style={{ cursor: 'pointer', position: 'relative' }}
-      >
-        <Bell size={24} color="#fff" />
-        {unreadCount > 0 && (
-          <div
-            className="notification-badge"
-            style={{
-              position: 'absolute',
-              bottom: '-5px',
-              right: '-5px',
-              borderRadius: '50%',
-              minWidth: '18px',
-              height: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 4px',
-              fontSize: '0.7rem',
-              fontWeight: 'bold',
-              backgroundColor: '#dc3545',
-              color: 'white',
-              boxShadow: '0 0 0 2px #fff'
-            }}
+      <div className="d-flex align-items-center">
+        <div 
+          ref={bellRef}
+          onClick={toggleNotifications} 
+          style={{ cursor: 'pointer', position: 'relative' }}
+        >
+          <Bell size={24} color="#fff" />
+          {unreadCount > 0 && (
+            <div
+              className="notification-badge"
+              style={{
+                position: 'absolute',
+                bottom: '-5px',
+                right: '-5px',
+                borderRadius: '50%',
+                minWidth: '18px',
+                height: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4px',
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                backgroundColor: '#dc3545',
+                boxShadow: '0 0 0 2px #fff'
+              }}
+            >
+              {unreadCount}
+            </div>
+          )}
+        </div>
+        
+        {/* Email notification toggle */}
+        <OverlayTrigger
+          placement="bottom"
+          overlay={
+            <Tooltip id="email-notifications-tooltip">
+              {emailNotificationsEnabled 
+                ? 'Email notifications are ON - click to disable' 
+                : 'Email notifications are OFF - click to enable'}
+            </Tooltip>
+          }
+        >
+          <div 
+            className={`email-notification-toggle ${emailNotificationsEnabled ? 'active' : ''}`}
+            onClick={toggleEmailNotifications}
           >
-            {unreadCount}
+            <Mail size={18} color={emailNotificationsEnabled ? "#4CAF50" : "#999"} />
+            <div className="toggle-track">
+              <div className="toggle-thumb"></div>
+            </div>
           </div>
-        )}
+        </OverlayTrigger>
       </div>
 
       {isOpen && (
