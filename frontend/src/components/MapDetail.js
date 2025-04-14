@@ -333,15 +333,7 @@ const MapDetail = ({
   }, [visibleEvents, imageLoaded]);
   
   // Handle event click with proper parameter handling and error prevention
-  const handleEventClick = useCallback((eventData, e) => {
-    // Prevent the default action and stop propagation if event exists
-    if (e) {
-      e.preventDefault();
-      if (typeof e.stopPropagation === 'function') {
-        e.stopPropagation();
-      }
-    }
-    
+  const handleEventClick = useCallback((eventData) => {
     // Only call onEventClick if we have both the handler and valid event data
     if (onEventClick && eventData && typeof onEventClick === 'function') {
       if (DEBUG) console.log(`Handling click on event: ${eventData.id}`);
@@ -773,7 +765,7 @@ const MapDetail = ({
             x={event.x_coord}
             y={event.y_coord}
             viewportScale={viewportScale}
-            onClick={(e) => handleEventClick(event, e)}
+            onClick={handleEventClick}
           />
         ))}
       </div>
