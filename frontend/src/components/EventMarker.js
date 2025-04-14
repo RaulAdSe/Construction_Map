@@ -86,7 +86,7 @@ const EventMarker = ({
     if (disabled) return;
     
     // Ensure we have a valid event object with stopPropagation
-    if (e) {
+    if (e && typeof e === 'object') {
       // Prevent the default action to be safe
       if (typeof e.preventDefault === 'function') {
         e.preventDefault();
@@ -98,9 +98,10 @@ const EventMarker = ({
       }
     }
     
-    // Call the onClick handler with the event data and the DOM event
+    // Call the onClick handler with the event data only
+    // This fixes the issue when e is not a valid DOM event
     if (onClick && typeof onClick === 'function') {
-      onClick(event, e);
+      onClick(event);
     }
   };
   
@@ -178,7 +179,7 @@ const EventMarker = ({
   }
   
   // Mobile markers are larger and have thicker borders
-  const markerSize = isMobile ? { width: '30px', height: '30px' } : {};
+  const markerSize = isMobile ? { width: '30px', height: '30px' } : { width: '16px', height: '16px' };
   const borderWidth = isMobile ? '4px' : '3px';
   
   // Use CSS classes for core styles and only use inline styles for positioning and color

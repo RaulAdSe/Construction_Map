@@ -1,16 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Form } from 'react-bootstrap';
 import translate from '../utils/translate';
 import { useMobile } from './common/MobileProvider';
 
 /**
  * MapEventTypeFilter - Filter component for event types on the map
- * Completely rewritten with a simpler, more reliable approach
+ * Rewritten with a two-stage filtering approach for better reliability
+ * 
+ * @param {Object} props
+ * @param {Array} props.mapFilteredEvents - Events already filtered by map visibility
+ * @param {Array} props.allEvents - All original events (unfiltered)
+ * @param {Function} props.onFilterChange - Callback when filter changes
  */
-const MapEventTypeFilter = ({ events, onFilterChange }) => {
+const MapEventTypeFilter = ({ mapFilteredEvents, allEvents, onFilterChange }) => {
   const { isMobile } = useMobile();
-  // Keep a pristine copy of all events
-  const allEventsRef = useRef([]);
   
   // Initialize filter state
   const [filters, setFilters] = useState({
@@ -18,27 +21,6 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     check: true,
     request: true
   });
-  
-  // Store all events on first render
-  useEffect(() => {
-    if (events && events.length > 0) {
-      allEventsRef.current = [...events];
-      
-      // Log event information to help with debugging
-      console.log('EVENTS DATA ANALYSIS:');
-      const states = events.map(e => e.state?.toLowerCase());
-      console.log('All state values:', [...new Set(states)].sort());
-      
-      // Count by type
-      const typeCounts = {
-        incidence: events.filter(e => isIncidence(e)).length,
-        check: events.filter(e => isCheck(e)).length,
-        request: events.filter(e => isRequest(e)).length,
-        unknown: events.filter(e => !isIncidence(e) && !isCheck(e) && !isRequest(e)).length
-      };
-      console.log('Event counts by type:', typeCounts);
-    }
-  }, [events]);
   
   // Helper functions to categorize events
   const isIncidence = useCallback((event) => {
@@ -77,54 +59,36 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
     return state === 'request' || state.includes('request');
   }, []);
   
-  // Calculate filtered counts for display
+  // Calculate counts from all events for display
   const typeCounts = {
-    incidence: (events || []).filter(isIncidence).length,
-    check: (events || []).filter(isCheck).length,
-    request: (events || []).filter(isRequest).length
+    incidence: (allEvents || []).filter(isIncidence).length,
+    check: (allEvents || []).filter(isCheck).length,
+    request: (allEvents || []).filter(isRequest).length
   };
   
-  // Apply filter when filter state changes
+  // Apply filter when filter state changes or map-filtered events change
   useEffect(() => {
     applyFilters();
-  }, [filters]);
+  }, [filters, mapFilteredEvents]);
   
   // Apply filters function
   const applyFilters = useCallback(() => {
-    // Always use the pristine copy of events
-    const sourceEvents = allEventsRef.current.length > 0 ? allEventsRef.current : events;
-    
-    if (!sourceEvents || sourceEvents.length === 0) {
-      console.log('No events to filter');
+    // Always filter from the map-filtered events, not all events
+    if (!mapFilteredEvents || mapFilteredEvents.length === 0) {
+      console.log('No map-filtered events to apply type filtering on');
       return;
     }
     
-    // Debug logs to identify the issue
     console.log('Current filter state:', filters);
-    console.log(`Applying filters from ${sourceEvents.length} events:`);
+    console.log(`Applying type filters to ${mapFilteredEvents.length} map-filtered events`);
     
-    // Extra detailed debugging to see what's happening
-    const eventsByType = {
-      incidence: sourceEvents.filter(isIncidence).length,
-      check: sourceEvents.filter(isCheck).length,
-      request: sourceEvents.filter(isRequest).length
-    };
-    console.log('Events by type before filtering:', eventsByType);
-    
-    // Apply filters with consistent type detection
-    const filteredEvents = sourceEvents.filter(event => {
+    // Apply type filters
+    const finalFilteredEvents = mapFilteredEvents.filter(event => {
       if (!event || !event.state) return false;
       
-      // Explicitly log each event's classification for debugging
-      const eventType = event.state?.toLowerCase();
       const isInc = isIncidence(event);
       const isChk = isCheck(event);
       const isReq = isRequest(event);
-      
-      // For debugging the first few events
-      if (sourceEvents.indexOf(event) < 5) {
-        console.log(`Event ${event.id} (${eventType}): incidence=${isInc}, check=${isChk}, request=${isReq}`);
-      }
       
       // The actual filtering logic
       if (isInc) return filters.incidence;
@@ -140,19 +104,11 @@ const MapEventTypeFilter = ({ events, onFilterChange }) => {
       .filter(([_, value]) => value)
       .map(([key]) => key);
     
-    // Check the results of filtering
-    const filteredCounts = {
-      incidence: filteredEvents.filter(isIncidence).length,
-      check: filteredEvents.filter(isCheck).length,
-      request: filteredEvents.filter(isRequest).length
-    };
+    console.log(`Type filters applied: ${activeFilters.join(', ')} - ${finalFilteredEvents.length} events remain`);
     
-    console.log(`Filter applied: ${activeFilters.join(', ')} - ${filteredEvents.length} events`);
-    console.log('Filtered results by type:', filteredCounts);
-    
-    // Send filtered events to parent
-    onFilterChange(filteredEvents);
-  }, [events, filters, isIncidence, isCheck, isRequest, onFilterChange]);
+    // Send final filtered events to parent
+    onFilterChange(finalFilteredEvents);
+  }, [mapFilteredEvents, filters, isIncidence, isCheck, isRequest, onFilterChange]);
   
   // Handle checkbox toggle with better logging
   const handleCheckboxChange = useCallback((filterType) => {
