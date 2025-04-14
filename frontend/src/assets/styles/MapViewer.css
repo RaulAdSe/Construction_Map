@@ -96,26 +96,24 @@ iframe.clean-pdf-view {
 /* Event marker styles - make more visible */
 .event-marker {
   position: absolute;
-  width: 24px !important;  /* Increased base size */
-  height: 24px !important; /* Increased base size */
-  border-radius: 50%;
-  border: 3px solid white;
+  transform: translate(-50%, -50%);
+  z-index: 800;
   cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+  border-radius: 50%;
+  pointer-events: auto;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
-  z-index: 500;
-  transform-origin: center center;
 }
 
 .event-marker:hover, .event-marker-hover {
-  transform: translate(-50%, -50%) scale(1.15) !important;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
-  z-index: 1000;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8);
+  z-index: 850;
 }
 
 .mobile-event-marker {
-  width: 35px !important;
-  height: 35px !important;
+  width: 30px !important;
+  height: 30px !important;
   border-width: 4px;
 }
 
@@ -419,12 +417,13 @@ iframe.clean-pdf-view {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 800 !important;
+  z-index: 800;
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
   border-radius: 50%;
-  pointer-events: auto !important;
+  pointer-events: auto;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .event-count-badge {
@@ -560,12 +559,12 @@ iframe[src*=".pdf"] {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 9999 !important; /* Ensure markers are always on top */
+  z-index: 9999;
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
   border-radius: 50%;
-  pointer-events: auto !important; /* Make sure events capture clicks */
+  pointer-events: auto;
 }
 
 /* Enhance tooltips for better visibility */
@@ -740,21 +739,18 @@ iframe[src*=".pdf"] {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 800 !important;
+  z-index: 800;
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
   border-radius: 50%;
-  pointer-events: auto !important;
-  transition: width 0.2s, height 0.2s, box-shadow 0.2s;
-  width: 20px;
-  height: 20px;
+  pointer-events: auto;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .event-marker:hover {
-  width: 24px;
-  height: 24px;
   box-shadow: 0 0 10px rgba(0,0,0,0.8);
+  z-index: 850;
 }
 
 /* Map container responsive scaling - preserve more vertical space on small screens */
@@ -903,12 +899,12 @@ iframe[src*=".pdf"] {
 .event-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 800 !important;
+  z-index: 800;
   cursor: pointer;
   border: 3px solid white;
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
   border-radius: 50%;
-  pointer-events: auto !important;
+  pointer-events: auto;
   width: 20px;
   height: 20px;
   transition: box-shadow 0.2s, transform 0.2s;
@@ -918,7 +914,7 @@ iframe[src*=".pdf"] {
 .event-marker-hover {
   box-shadow: 0 0 10px rgba(0,0,0,0.8);
   transform: translate(-50%, -50%) scale(1.2);
-  z-index: 850 !important;
+  z-index: 850;
 }
 
 /* Map container responsive scaling */

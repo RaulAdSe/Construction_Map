@@ -166,17 +166,18 @@ const EventMarker = ({
   }
   
   // Mobile markers are larger and have thicker borders
-  const markerSize = isMobile ? { width: '30px', height: '30px' } : { width: '28px', height: '28px' };
+  const markerSize = isMobile ? { width: '30px', height: '30px' } : { width: '45px', height: '45px' };
   const borderWidth = isMobile ? '4px' : '3px';
   
   // Use CSS classes for core styles and only use inline styles for positioning and color
   const markerStyle = {
-    left: `${xCoord}%`,  // Use the determined xCoord
-    top: `${yCoord}%`,   // Use the determined yCoord
+    position: 'absolute',
+    left: `${xCoord}%`,
+    top: `${yCoord}%`,
     backgroundColor: color,
     borderWidth: borderWidth,
     ...markerSize,
-    transform: `scale(${viewportScale})`, // Apply the viewport scale
+    transform: `translate(-50%, -50%) scale(${isHovered || isTouched ? viewportScale * 1.15 : viewportScale})`,
     boxShadow: (isHovered || isTouched) 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
       : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`
