@@ -166,7 +166,7 @@ const EventMarker = ({
   }
   
   // Mobile markers are larger and have thicker borders
-  const markerSize = isMobile ? { width: '30px', height: '30px' } : { width: '22px', height: '22px' };
+  const markerSize = isMobile ? { width: '30px', height: '30px' } : { width: '28px', height: '28px' };
   const borderWidth = isMobile ? '4px' : '3px';
   
   // Use CSS classes for core styles and only use inline styles for positioning and color
