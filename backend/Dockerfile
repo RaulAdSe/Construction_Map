@@ -15,7 +15,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create uploads directory
-RUN mkdir -p uploads/comments uploads/events
+RUN mkdir -p uploads/comments uploads/events logs
 
-# Run migrations and start the application
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 
+# Create start script that runs migrations and starts the app
+RUN echo '#!/bin/bash\n\
+echo "Running database migrations..."\n\
+python create_cloud_schema.py\n\
+echo "Starting API server..."\n\
+uvicorn app.main:app --host 0.0.0.0 --port 8000\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Run the start script
+CMD ["/app/start.sh"] 
