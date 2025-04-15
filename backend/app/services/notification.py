@@ -5,7 +5,9 @@ import re
 from app.models.notification import Notification
 from app.models.user import User
 from app.models.event import Event
+from app.models.user_preference import UserPreference
 from app.schemas.notification import NotificationCreate, NotificationUpdate
+from app.services.email_service import EmailService
 
 
 class NotificationService:
@@ -24,6 +26,15 @@ class NotificationService:
         db.add(db_notification)
         db.commit()
         db.refresh(db_notification)
+        
+        # Send email notification if enabled for user
+        NotificationService.send_email_if_enabled(
+            db, 
+            notification.user_id, 
+            notification.message, 
+            notification.link
+        )
+        
         return db_notification
     
     @staticmethod
@@ -40,6 +51,234 @@ class NotificationService:
             Notification.user_id == user_id,
             Notification.read == False
         ).count()
+    
+    @staticmethod
+    def send_email_if_enabled(db: Session, user_id: int, message: str, link: str) -> bool:
+        """
+        Send an email notification if the user has email notifications enabled
+        
+        Parameters:
+        - db: Database session
+        - user_id: User ID to send notification to
+        - message: The notification message
+        - link: Link to the notification
+        
+        Returns:
+        - True if email was sent, False otherwise
+        """
+        try:
+            print(f"[DEBUG] Attempting to send email notification to user {user_id}")
+            
+            # Get user
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or not user.email:
+                print(f"[DEBUG] User {user_id} not found or has no email address")
+                return False
+            
+            print(f"[DEBUG] User found: {user.username}, email: {user.email}")
+            
+            # Check if user has preferences set
+            preferences = db.query(UserPreference).filter(
+                UserPreference.user_id == user_id
+            ).first()
+            
+            # Create preferences if they don't exist
+            if not preferences:
+                print(f"[DEBUG] No preferences found for user {user_id}, creating default with email_notifications=True")
+                preferences = UserPreference(user_id=user_id, email_notifications=True)
+                db.add(preferences)
+                db.commit()
+                db.refresh(preferences)
+            
+            # Check if email notifications are enabled
+            if not preferences.email_notifications:
+                print(f"[DEBUG] Email notifications are disabled for user {user_id}")
+                return False
+            
+            print(f"[DEBUG] Email notifications are enabled for user {user_id}")
+            
+            # Construct full link URL
+            base_url = "http://localhost:3000"  # This should come from config
+            full_link = f"{base_url}{link}" if not link.startswith("http") else link
+            
+            # Get project name if event_id is available
+            project_name = "Servitec Planos"
+            
+            # Initialize event variable to None before using it
+            event = None
+            
+            # Extract event_id from link if available (e.g., /events/123)
+            event_id = None
+            event_match = re.search(r'/events/(\d+)', link)
+            if event_match:
+                event_id = int(event_match.group(1))
+                
+                # Query the event to get the project name
+                event = db.query(Event).filter(Event.id == event_id).first()
+                if event and event.title:
+                    project_name = event.title
+            
+            # Define notification types in Spanish with more descriptive titles
+            notification_type_map = {
+                "event_interaction": "Actividad en tu evento",
+                "comment": "Nuevo comentario en tu evento",
+                "mention": "Te han mencionado en una conversación",
+                "admin_notification": "Notificación administrativa",
+                "test": "Prueba de notificación del sistema"
+            }
+            
+            # Determine notification type based on message content
+            notification_type = "Nueva notificación"
+            
+            if "mentioned" in message:
+                notification_type = notification_type_map.get("mention", "Te han mencionado")
+            elif "comment" in message:
+                notification_type = notification_type_map.get("comment", "Nuevo comentario")
+            elif "interaction" in message or "on your event" in message:
+                notification_type = notification_type_map.get("event_interaction", "Actividad en tu evento")
+            elif "test notification" in message.lower() or "prueba de notificación" in message.lower():
+                notification_type = notification_type_map.get("test", "Prueba de notificación")
+            
+            # More detailed subject with app name and notification type
+            subject = f"Servitec Planos: {notification_type}"
+            if event and event.title:
+                # Add event title to subject if available
+                subject = f"Servitec Planos: {notification_type} - {event.title}"
+            
+            # Translate the message to Spanish with more context
+            spanish_message = message
+            
+            # More detailed translations based on message content
+            if "You were mentioned in a comment" in message:
+                spanish_message = "Has sido mencionado en un comentario"
+                if event and event.title:
+                    spanish_message += f" del evento '{event.title}'"
+                spanish_message += ". Alguien ha incluido tu nombre en una conversación y podría estar esperando tu respuesta."
+            elif "New comment on your event" in message:
+                spanish_message = "Se ha añadido un nuevo comentario en tu evento"
+                if event and event.title:
+                    spanish_message += f" '{event.title}'"
+                spanish_message += ". Revisa este comentario para mantenerte al día con la conversación."
+            elif "Someone" in message and "on your event" in message:
+                # For event interactions
+                action = "ha interactuado con"
+                if "viewed" in message:
+                    action = "ha visto"
+                elif "updated" in message:
+                    action = "ha actualizado"
+                elif "uploaded" in message:
+                    action = "ha subido un archivo a"
+                elif "downloaded" in message:
+                    action = "ha descargado un archivo de"
+                elif "liked" in message:
+                    action = "le ha gustado"
+                
+                spanish_message = f"Un usuario {action} tu evento"
+                if event and event.title:
+                    spanish_message += f" '{event.title}'"
+                spanish_message += ". Mantente informado de la actividad en tus eventos."
+            elif "test notification" in message.lower() or "prueba de notificación" in message.lower():
+                spanish_message = "Esta es una notificación de prueba para verificar que el sistema de emails de Servitec Planos está funcionando correctamente. No se requiere ninguna acción."
+            
+            # Add a greeting with username
+            greeting = f"Hola {user.username},"
+            
+            # Add a call to action
+            call_to_action = "Haz clic en el botón de abajo para ver más detalles:"
+            
+            # Add current date in Spanish
+            import datetime
+            today = datetime.datetime.now()
+            date_str = today.strftime("%d de %B de %Y").replace('January', 'enero').replace('February', 'febrero').replace('March', 'marzo').replace('April', 'abril').replace('May', 'mayo').replace('June', 'junio').replace('July', 'julio').replace('August', 'agosto').replace('September', 'septiembre').replace('October', 'octubre').replace('November', 'noviembre').replace('December', 'diciembre')
+            
+            # Construct HTML message with improved styling - in Spanish
+            html_message = f"""
+            <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f9f9f9;">
+                    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <!-- Header -->
+                        <div style="background-color: #3a51cc; padding: 20px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Servitec Planos</h1>
+                            <p style="color: #ffffff; opacity: 0.9; margin: 5px 0 0 0; font-size: 16px;">{date_str}</p>
+                        </div>
+                        
+                        <!-- Notification Content -->
+                        <div style="padding: 30px 20px;">
+                            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; border-left: 4px solid #3a51cc; margin-bottom: 20px;">
+                                <h2 style="margin-top: 0; color: #3a51cc; font-size: 20px;">{notification_type}</h2>
+                                <p style="font-size: 16px; margin-top: 0;">{greeting}</p>
+                                <p style="font-size: 16px;">{spanish_message}</p>
+                                <p style="font-size: 16px; margin-bottom: 0;">{call_to_action}</p>
+                            </div>
+                            
+                            <!-- Event details if available -->
+                            {f'''
+                            <div style="padding: 15px; background-color: #f0f4ff; border-radius: 6px; margin-bottom: 20px;">
+                                <h3 style="margin-top: 0; color: #3a51cc;">Detalles del evento:</h3>
+                                <p style="margin: 0;"><strong>Título:</strong> {event.title}</p>
+                                {f'<p><strong>Fecha:</strong> {event.start_date.strftime("%d/%m/%Y") if hasattr(event, "start_date") and event.start_date else "No especificada"}</p>' if event else ''}
+                            </div>
+                            ''' if event else ''}
+                            
+                            <!-- Call to Action Button -->
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="{full_link}" style="display: inline-block; background-color: #3a51cc; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 16px; transition: background-color 0.3s;">Ver en Servitec Planos</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Footer -->
+                        <div style="background-color: #f0f4ff; padding: 20px; text-align: center; font-size: 14px; color: #666;">
+                            <p>Este es un mensaje automático, por favor no responda a este correo.</p>
+                            <p>Para dejar de recibir estas notificaciones, ajuste sus <a href="{base_url}/settings" style="color: #3a51cc; text-decoration: none;">preferencias de notificación</a> en la aplicación.</p>
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                                <p style="margin: 0;">&copy; {today.year} Servitec Planos. Todos los derechos reservados.</p>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
+            
+            # Prepare plain text version (fallback for email clients that don't support HTML)
+            plain_text = f"""
+            Servitec Planos - {notification_type}
+            
+            {greeting}
+            
+            {spanish_message}
+            
+            Para ver más detalles, visite: {full_link}
+            
+            ---
+            Este es un mensaje automático, por favor no responda a este correo.
+            Para dejar de recibir estas notificaciones, ajuste sus preferencias de notificación en la aplicación.
+            """
+            
+            print(f"[DEBUG] Sending email notification to {user.email} with subject: {subject}")
+            
+            # Send email notification with Spanish text and improved HTML
+            result = EmailService.send_notification_email(
+                user.email,
+                subject,
+                plain_text,
+                html_message
+            )
+            
+            if result:
+                print(f"[DEBUG] Email sent successfully to {user.email}")
+            else:
+                print(f"[DEBUG] Failed to send email to {user.email}")
+                
+            return result
+        except Exception as e:
+            print(f"Error sending email notification: {str(e)}")
+            import traceback
+            print(f"[DEBUG] Traceback: {traceback.format_exc()}")
+            return False
     
     @staticmethod
     def mark_as_read(db: Session, notification_id: int, user_id: int) -> Optional[Notification]:
@@ -160,22 +399,28 @@ class NotificationService:
         link: str = ""
     ) -> List[Notification]:
         """Create notifications for all users mentioned in the text"""
+        print(f"[DEBUG] Checking for mentions in text: '{text}'")
         mentions = NotificationService.extract_mentions(text)
         notifications = []
         
         if not mentions:
+            print(f"[DEBUG] No mentions found in text")
             return notifications
+            
+        print(f"[DEBUG] Found mentions: {mentions}")
             
         event = None
         if event_id:
             event = db.query(Event).filter(Event.id == event_id).first()
+            print(f"[DEBUG] Found event: {event.id if event else None}")
             
         # Get all mentioned users that exist in the database
         mentioned_users = db.query(User).filter(User.username.in_(mentions)).all()
         
-        print(f"Found mentioned users in database: {[user.username for user in mentioned_users]}")
+        print(f"[DEBUG] Found mentioned users in database: {[user.username for user in mentioned_users]}")
         
         for user in mentioned_users:
+            print(f"[DEBUG] Processing notification for user: {user.username} (ID: {user.id})")
             # Allow self-mentions for testing purposes
             # if user.id == author_id:
             #     # Skip self-mentions
@@ -186,7 +431,7 @@ class NotificationService:
             
             message = f"You were mentioned in {context}{title_context}"
             
-            print(f"Creating notification for user {user.username} (id: {user.id})")
+            print(f"[DEBUG] Creating notification for user {user.username} (id: {user.id})")
             
             notification_data = NotificationCreate(
                 user_id=user.id,
@@ -196,6 +441,8 @@ class NotificationService:
                 event_id=event_id,
                 comment_id=comment_id
             )
+            
+            print(f"[DEBUG] Calling create_notification with message: {message}")
             
             notification = NotificationService.create_notification(db, notification_data)
             notifications.append(notification)

@@ -273,10 +273,8 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
                 <Form.Label>{translate('Type')}</Form.Label>
                 <Form.Select value={type} onChange={(e) => setType(e.target.value)}>
                   <option value="periodic check">{translate('Periodic Check')}</option>
-                  <option value="issue">{translate('Issue')}</option>
-                  <option value="maintenance">{translate('Maintenance')}</option>
-                  <option value="installation">{translate('Installation')}</option>
-                  <option value="other">{translate('Other')}</option>
+                  <option value="incidence">{translate('Incidence')}</option>
+                  <option value="request">{translate('Request')}</option>
                 </Form.Select>
               </Form.Group>
             </Col>

@@ -3,11 +3,13 @@ import { OverlayTrigger, Tooltip, Badge } from 'react-bootstrap';
 
 // Define type colors
 const typeColors = {
-  'periodic check': '#3399FF',
+  'incidence': '#FF6D00', // Bright orange for incidence events
+  'periodic check': '#3399FF', // Blue
+  'check': '#3399FF', // Same blue for variations of check
   'request': '#9966CC'  // Purple
 };
 
-// Define status colors for incidence type
+// Define status colors for incidence type (when using detailed status coloring)
 const incidenceStatusColors = {
   'open': '#FF0000',      // Bright Red
   'in-progress': '#FFCC00', // Yellow
@@ -52,46 +54,130 @@ const adjustBrightness = (hex, factor) => {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 };
 
-const EventMarker = ({ event, onClick, scale = 1, isMobile = false }) => {
+const EventMarker = ({ 
+  event, 
+  onClick, 
+  x, // Accept x coordinate directly
+  y, // Accept y coordinate directly
+  viewportScale = 1, // Accept viewport scale
+  isMobile = false, 
+  disabled = false 
+}) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isTouched, setIsTouched] = useState(false);
   
-  if (!event || !event.x_coordinate || !event.y_coordinate) {
-    console.warn("Invalid event data for marker:", event);
+  if (!event) {
+    console.warn("Invalid event data for marker");
     return null;
   }
   
+  // Use provided x,y coordinates or fall back to event properties
+  const xCoord = x ?? event.x_coordinate ?? event.x_coord;
+  const yCoord = y ?? event.y_coordinate ?? event.y_coord;
+  
+  if (!xCoord || !yCoord) {
+    console.warn("Missing coordinates for event marker:", event.id);
+    return null;
+  }
+  
+  // Handle click properly with explicit event data
+  const handleClick = () => {
+    // Do nothing if marker is disabled
+    if (disabled) return;
+    
+    // Call the onClick handler with just the event data
+    // Avoid passing DOM event objects to prevent type errors
+    if (onClick && typeof onClick === 'function') {
+      onClick(event);
+    }
+  };
+  
+  // Helper functions for event type detection - consistent with filter logic
+  const isIncidence = (event) => {
+    if (!event || !event.state) return false;
+    const state = (event.state || '').toLowerCase();
+    return state === 'incidence' || state.includes('incidence');
+  };
+  
+  const isCheck = (event) => {
+    if (!event || !event.state) return false;
+    const state = (event.state || '').toLowerCase();
+    
+    // Expanded matching to catch more variations - same as in MapEventTypeFilter
+    const checkVariations = [
+      'periodic check', 
+      'check',
+      'periodic',
+      'revisión',
+      'revision',
+      'inspección',
+      'inspeccion',
+      'inspection',
+      'mantenimiento',
+      'maintenance'
+    ];
+    
+    // Check if any of our variations are found in the state
+    return checkVariations.some(variation => 
+      state === variation || state.includes(variation)
+    );
+  };
+  
+  const isRequest = (event) => {
+    if (!event || !event.state) return false;
+    const state = (event.state || '').toLowerCase();
+    return state === 'request' || state.includes('request');
+  };
+
   // Get the color based on event type and status
   let color;
   
-  // Use the current state and status values
-  const currentState = event.state;
-  const currentStatus = event.status;
-  
-  if (currentState === 'incidence') {
+  // Use our helper functions for consistent type detection
+  if (isIncidence(event)) {
     // For incidence events, use the specific status color
-    color = incidenceStatusColors[currentStatus] || incidenceStatusColors['open'];
-  } else {
-    // For periodic check or other types, use the type color
-    color = typeColors[currentState] || getColorForUser(event.created_by_user_id);
+    color = incidenceStatusColors[event.status] || incidenceStatusColors['open'];
+  } 
+  else if (isCheck(event)) {
+    // Checks get the blue color
+    color = typeColors['periodic check'];
     
-    // For non-incidence events, we can still dim closed ones
-    if (currentStatus === 'closed') {
+    // For closed events, dim the color
+    if (event.status === 'closed') {
+      color = adjustBrightness(color, 0.6);
+    }
+  }
+  else if (isRequest(event)) {
+    // Requests get the purple color
+    color = typeColors['request'];
+    
+    // For closed events, dim the color
+    if (event.status === 'closed') {
+      color = adjustBrightness(color, 0.6);
+    }
+  }
+  else {
+    // Fallback - use user color for unknown types
+    color = getColorForUser(event.created_by_user_id);
+    
+    // For closed events, dim the color
+    if (event.status === 'closed') {
       color = adjustBrightness(color, 0.6);
     }
   }
   
   // Mobile markers are larger and have thicker borders
-  const markerSize = isMobile ? { width: '30px', height: '30px' } : {};
+  const markerSize = isMobile ? { width: '30px', height: '30px' } : { width: '45px', height: '45px' };
   const borderWidth = isMobile ? '4px' : '3px';
   
   // Use CSS classes for core styles and only use inline styles for positioning and color
   const markerStyle = {
-    left: `${event.x_coordinate}%`,
-    top: `${event.y_coordinate}%`,
+    position: 'absolute',
+    left: `${xCoord}%`,
+    top: `${yCoord}%`,
     backgroundColor: color,
     borderWidth: borderWidth,
     ...markerSize,
+    transform: `translate(-50%, -50%) scale(${isHovered || isTouched ? viewportScale * 1.15 : viewportScale})`,
     boxShadow: (isHovered || isTouched) 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
       : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`
@@ -99,18 +185,18 @@ const EventMarker = ({ event, onClick, scale = 1, isMobile = false }) => {
 
   // Get type badge
   const getTypeBadge = () => {
-    // Get the most current type/state value
-    const currentState = event.state;
-    
-    switch (currentState) {
-      case 'incidence':
-        return <Badge bg="danger">Incidence</Badge>;
-      case 'periodic check':
-        return <Badge bg="info">Periodic Check</Badge>;
-      case 'request':
-        return <Badge bg="purple">Request</Badge>;
-      default:
-        return <Badge bg="secondary">{currentState || 'Unknown'}</Badge>;
+    if (isIncidence(event)) {
+      return <Badge bg="danger">Incidence</Badge>;
+    } 
+    else if (isCheck(event)) {
+      return <Badge bg="info">Periodic Check</Badge>;
+    } 
+    else if (isRequest(event)) {
+      return <Badge bg="purple">Request</Badge>;
+    } 
+    else {
+      // Return the raw state value if we can't categorize it
+      return <Badge bg="secondary">{event.state || 'Unknown'}</Badge>;
     }
   };
   
@@ -172,20 +258,7 @@ const EventMarker = ({ event, onClick, scale = 1, isMobile = false }) => {
         style={markerStyle}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={(e) => {
-          // For mobile, delay the click to allow tooltip to show
-          if (isMobile) {
-            if (!isTouched) {
-              e.preventDefault();
-              e.stopPropagation();
-              handleTouchStart();
-            } else {
-              onClick(e);
-            }
-          } else {
-            onClick(e);
-          }
-        }}
+        onClick={handleClick}
         onTouchStart={isMobile ? handleTouchStart : undefined}
         {...dataAttributes}
       />

@@ -1,14 +1,26 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { Spinner, Alert, Form, ListGroup, Button } from 'react-bootstrap';
 import EventMarker from './EventMarker';
 import { useMobile } from './common/MobileProvider';
 
 const DEBUG = false; // Set to true only when debugging is needed
 
-const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick, allMaps = [], projectId, onVisibleMapsChanged }) => {
+const MapDetail = ({
+  map,
+  events,
+  eventKey,
+  onMapClick,
+  isSelectingLocation = false,
+  onEventClick,
+  allMaps = [],
+  projectId,
+  onVisibleMapsChanged = () => {}
+}) => {
   const mapContainerRef = useRef(null);
   const mapContentRef = useRef(null);
   const initialContentSize = useRef(null);
+  const lastEventKeyRef = useRef(null); // Add a ref to track last event key
+  const visibleEventsKeyRef = useRef(null); // Add a ref to track visible events calculation
   const [imageLoaded, setImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -51,7 +63,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   }, [implantationMap?.id]); // Only rerun when the ID changes, not the whole object
   
   // Calculate viewport scaling and content positioning
-  const updateViewportScaling = () => {
+  const updateViewportScaling = useCallback(() => {
     if (!mapContainerRef.current || !mapContentRef.current) return;
     
     const container = mapContainerRef.current;
@@ -88,7 +100,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     if (DEBUG) {
       console.log(`Container: ${containerWidth}×${containerHeight}, Content: ${contentWidth}×${contentHeight}, Scale: ${newScale.toFixed(3)}`);
     }
-  };
+  }, []);
   
   // Initialize and update viewport scaling on mount and resize
   useEffect(() => {
@@ -110,7 +122,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         resizeObserver.unobserve(mapContainerRef.current);
       }
     };
-  }, [imageLoaded]); // Recalculate when image loads
+  }, [imageLoaded, updateViewportScaling]);
   
   // Track dependency on map types to refresh when they change
   useEffect(() => {
@@ -244,24 +256,40 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
   // Filter events to show only ones visible on currently shown maps
   const visibleMapIds = implantationMap ? [implantationMap.id, ...visibleMaps.filter(id => id !== implantationMap.id)] : [];
   
-  // ALWAYS include events from the main map, plus any events from visible overlay maps
-  // BUT exclude events with 'closed' status
+  // Calculate which events should be visible on the map - optimized
   const visibleEvents = useMemo(() => {
-    return events.filter(event => {
-      if (!event || !event.map_id) return false;
+    if (!events || !Array.isArray(events) || events.length === 0) {
+      console.log('MapDetail received no events to display');
+      return [];
+    }
+    
+    // Only log when eventKey actually changes
+    if (eventKey !== visibleEventsKeyRef.current) {
+      console.log(`MapDetail: Recalculating visible events with key: ${eventKey}, events count: ${events.length}`);
       
-      // Skip closed events regardless of map
-      if (event.status === 'closed') return false;
-      
-      // Always show events from the main map, regardless of visibility state
-      if (event.map_id === implantationMap?.id) {
-        return true;
+      // Log the first few events for debugging
+      if (events.length > 0) {
+        const sample = events.slice(0, Math.min(3, events.length));
+        console.log('MapDetail sample events:', sample.map(e => ({
+          id: e.id,
+          state: e.state,
+          title: e.title
+        })));
       }
       
-      // For overlay maps, only show events if that map is toggled on
-      return visibleMaps.includes(event.map_id);
-    });
-  }, [events, implantationMap, visibleMaps]);
+      visibleEventsKeyRef.current = eventKey;
+    }
+    
+    // Return the events as is - they're already filtered by parent
+    return events;
+  }, [events, eventKey]);
+  
+  // Log when visible events change - only with DEBUG flag
+  useEffect(() => {
+    if (DEBUG) {
+      console.log(`Visible events changed: now showing ${visibleEvents.length} events`);
+    }
+  }, [visibleEvents.length]);
   
   // Force imageLoaded to true after a timeout to ensure events display even if load events don't fire
   useEffect(() => {
@@ -304,13 +332,17 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     }
   }, [visibleEvents, imageLoaded]);
   
-  const handleEventClick = (event, e) => {
-    // Stop propagation to prevent map click handler from firing
-    e.stopPropagation();
-    if (onEventClick) {
-      onEventClick(event);
+  // Handle event click with proper parameter handling and error prevention
+  const handleEventClick = useCallback((eventData) => {
+    // Only call onEventClick if we have both the handler and valid event data
+    if (onEventClick && eventData && typeof onEventClick === 'function') {
+      if (DEBUG) console.log(`Handling click on event: ${eventData.id}`);
+      onEventClick(eventData);
+    } else if (DEBUG) {
+      if (!onEventClick) console.log('No onEventClick handler provided');
+      if (!eventData) console.log('No event data provided');
     }
-  };
+  }, [onEventClick]);
   
   const toggleMapVisibility = (mapId) => {
     setVisibleMaps(prevMaps => {
@@ -359,7 +391,10 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     const fileExt = url.split('.').pop().toLowerCase();
     const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
     
-    console.log(`Rendering map: ${currentMap.name}, ID: ${currentMap.id}, URL: ${url}, Extension: ${fileExt}`);
+    // Only log when debugging to avoid console spam
+    if (DEBUG) {
+      console.log(`Rendering map: ${currentMap.name}, ID: ${currentMap.id}, URL: ${url}, Extension: ${fileExt}`);
+    }
     
     const layerStyle = {
       position: 'absolute',
@@ -372,10 +407,13 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       pointerEvents: 'none', // Let clicks pass through to the base container
     };
     
+    // Use a reference to track if this layer has already been loaded
+    const layerKey = `map-layer-${currentMap.id}`;
+    
     if (fileExt === 'pdf') {
       // For PDFs, use an iframe with direct embed and hide UI controls
       return (
-        <div key={currentMap.id} style={layerStyle} className="pdf-container">
+        <div key={layerKey} style={layerStyle} className="pdf-container">
           <iframe 
             src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
             title={currentMap.name}
@@ -386,7 +424,12 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               backgroundColor: 'transparent'
             }}
             frameBorder="0"
-            onLoad={(e) => handleImageLoad(e)}
+            onLoad={(e) => {
+              // Only trigger handleImageLoad once per iframe to prevent re-rendering loops
+              if (!imageLoaded) {
+                handleImageLoad(e);
+              }
+            }}
             onError={() => handleImageError()}
             className="consistent-pdf-view"
           />
@@ -395,7 +438,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(fileExt)) {
       // For images, contain them in their container with consistent scaling
       return (
-        <div key={currentMap.id} style={layerStyle} className="map-image-container">
+        <div key={layerKey} style={layerStyle} className="map-image-container">
           <img 
             src={url} 
             alt={currentMap.name} 
@@ -404,7 +447,12 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
               height: '100%', 
               objectFit: 'contain'
             }}
-            onLoad={(e) => handleImageLoad(e)}
+            onLoad={(e) => {
+              // Only trigger handleImageLoad once per image to prevent re-rendering loops
+              if (!imageLoaded) {
+                handleImageLoad(e);
+              }
+            }}
             onError={() => handleImageError()}
             className="consistent-map-image"
           />
@@ -413,13 +461,18 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     } else {
       // For other file types, use a generic iframe
       return (
-        <div key={currentMap.id} style={layerStyle}>
+        <div key={layerKey} style={layerStyle}>
           <iframe 
             src={url} 
             className="map-iframe-container consistent-iframe-view"
             title={currentMap.name}
             style={{ width: '100%', height: '100%', border: 'none' }}
-            onLoad={(e) => handleImageLoad(e)}
+            onLoad={(e) => {
+              // Only trigger handleImageLoad once per iframe to prevent re-rendering loops
+              if (!imageLoaded) {
+                handleImageLoad(e);
+              }
+            }}
             onError={() => handleImageError()}
           />
         </div>
@@ -591,7 +644,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
     if (isSelectingLocation && showMobileControls) {
       setShowMobileControls(false);
     }
-  }, [isSelectingLocation]);
+  }, [isSelectingLocation, showMobileControls]);
   
   // Function to render map content with layers
   const renderMapContent = () => {
@@ -627,30 +680,95 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
         )}
         
         <div 
-          ref={mapContentRef}
           className="map-content-container" 
-          style={contentStyle}
+          ref={setMapContainerRef}
+          style={containerSize}
+          onClick={(e) => {
+            console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
+            
+            // Skip all click handling on mobile - we handle it with touch events
+            if (isMobile) {
+              console.log('MapDetail: Ignoring click event on mobile - using touch events instead');
+              return;
+            }
+            
+            // Desktop click handling:
+            if (isSelectingLocation && mapContentRef.current) {
+              // Calculate click position relative to map content
+              const rect = mapContentRef.current.getBoundingClientRect();
+              const x = (e.clientX - rect.left) / viewportScale;
+              const y = (e.clientY - rect.top) / viewportScale;
+              
+              console.log(`MapDetail: Calculated click position (${x.toFixed(2)}, ${y.toFixed(2)}) with scale=${viewportScale}`);
+              
+              // Calculate as percentages for consistency
+              const xPercent = (x / contentSize.width) * 100;
+              const yPercent = (y / contentSize.height) * 100;
+              
+              if (onMapClick) {
+                console.log('MapDetail: Calling parent onMapClick handler');
+                // Create enhanced map object with visible maps
+                const mapWithVisibleLayers = {
+                  ...map,
+                  visibleMaps: visibleMaps
+                };
+                onMapClick(mapWithVisibleLayers, xPercent, yPercent);
+              } else {
+                console.log('MapDetail: No onMapClick handler provided');
+              }
+            } else {
+              console.log('MapDetail: Click ignored - not in location selection mode or mapContentRef is null');
+            }
+          }}
         >
-          {/* Always render main map first */}
-          {renderMapLayer(implantationMap, 10)}
-          
-          {/* Then render overlay maps */}
-          {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
-          
-          {/* Render event markers within the content container */}
-          <div className="event-markers-container">
-            {visibleEvents && visibleEvents.length > 0 && visibleEvents.map(event => (
-              <EventMarker 
-                key={event.id} 
-                event={event} 
-                onClick={(e) => handleEventClick(event, e)}
-                scale={1} // No need to adjust scale as we're in the content coordinate system
-                isMobile={isMobile} // Pass mobile state to event marker
-              />
-            ))}
+          <div
+            className="map-content"
+            ref={setMapContentRef}
+            style={contentStyle}
+          >
+            {/* Always render main map first */}
+            {renderMapLayer(implantationMap, 10)}
+            
+            {/* Then render overlay maps */}
+            {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
+            
+            {/* Render event markers within the content container */}
+            {renderEventMarkers()}
           </div>
         </div>
       </>
+    );
+  };
+  
+  // Render event markers with proper click handling - optimized
+  const renderEventMarkers = () => {
+    if (!visibleEvents || visibleEvents.length === 0) {
+      return null;
+    }
+    
+    // Log marker rendering only when eventKey changes
+    if (eventKey !== lastEventKeyRef.current) {
+      console.log(`Rendering ${visibleEvents.length} markers with key: ${eventKey}`);
+      lastEventKeyRef.current = eventKey;
+    }
+    
+    // Use a consistent key structure for the container
+    return (
+      <div 
+        className="event-markers-container"
+        key={`marker-container-${eventKey || 'default'}`}
+      >
+        {visibleEvents.map(event => (
+          <EventMarker
+            key={`event-${event.id}`}
+            event={event}
+            x={event.x_coord}
+            y={event.y_coord}
+            viewportScale={viewportScale}
+            onClick={handleEventClick}
+          />
+        ))}
+      </div>
     );
   };
   
@@ -674,7 +792,7 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       console.log("Visible maps changed:", visibleMaps);
       console.log("Current visible events:", visibleEvents.length);
     }
-  }, [visibleMaps, mapOpacities, onVisibleMapsChanged, implantationMap]); // Remove visibleEvents.length from dependencies
+  }, [visibleMaps, mapOpacities, onVisibleMapsChanged, implantationMap?.id]); // Fixed dependency array
   
   // Console log on mount to debug events visibility
   useEffect(() => {
@@ -683,12 +801,36 @@ const MapDetail = ({ map, events, onMapClick, isSelectingLocation, onEventClick,
       console.log("Visible maps:", visibleMaps);
       console.log("Visible events:", visibleEvents.length);
     }
+    // Don't add the missing dependencies to avoid re-running on every render
+    // This effect should only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array means this runs only on mount
+  
+  // Use ref callbacks wrapped in useCallback to prevent unnecessary updates
+  const setMapContainerRef = useCallback(node => {
+    if (node !== null) {
+      mapContainerRef.current = node;
+      updateViewportScaling();
+    }
+  }, []);
+
+  const setMapContentRef = useCallback(node => {
+    if (node !== null) {
+      mapContentRef.current = node;
+      if (!initialContentSize.current && node.getBoundingClientRect) {
+        const rect = node.getBoundingClientRect();
+        initialContentSize.current = {
+          width: rect.width || 1200,
+          height: rect.height || 900
+        };
+      }
+    }
+  }, []);
   
   return (
     <div className={`map-detail-container ${isMobile ? 'mobile-map-detail' : ''}`}>
       <div 
-        ref={mapContainerRef}
+        ref={setMapContainerRef}
         className="map-container content-fit-view" 
         data-map-id={map?.id}
         data-scale={viewportScale.toFixed(3)}
