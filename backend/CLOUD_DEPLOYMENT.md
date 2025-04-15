@@ -1,6 +1,6 @@
-# Cloud Deployment Guide
+# Cloud Deployment Guide with IAM Authentication
 
-This guide explains how to deploy the Construction Map application to Google Cloud Platform.
+This guide explains how to deploy the Construction Map application to Google Cloud Platform using IAM authentication for database access.
 
 ## Prerequisites
 
@@ -8,90 +8,134 @@ This guide explains how to deploy the Construction Map application to Google Clo
 2. Docker installed for building and pushing images
 3. Access to Google Cloud project with necessary permissions
 4. Created resources:
-   - Cloud SQL PostgreSQL instance named `construction-map-db`
-   - Service account `cloud-run-backend-sa` with proper permissions
-   - Secret Manager secrets for database credentials and app secrets
+   - Cloud SQL PostgreSQL instance named `construction-map-db` with IAM authentication enabled
+   - Service account `servitec-map-service` with proper permissions
+   - Secret Manager secrets for application secrets
+
+## IAM Authentication Overview
+
+This deployment uses IAM authentication to connect to Cloud SQL, which is more secure than password authentication:
+
+- No database passwords need to be stored or managed
+- Authentication is handled by Google Cloud IAM
+- Service accounts are granted specific database access rights
 
 ## Deployment Steps
 
-### 1. Configure Environment
+### 1. Verify IAM Authentication on Cloud SQL
 
-Update the deployment script variables in `deploy_to_cloud_run.sh`:
+Ensure IAM authentication is enabled on your Cloud SQL instance:
 
 ```bash
-PROJECT_ID=deep-responder-444017-h2  # Your GCP project ID
-REGION=us-central1                  # Your preferred region
-SERVICE_NAME=construction-map-backend
-DB_INSTANCE=construction-map-db
-DB_NAME=construction_map
-SERVICE_ACCOUNT=cloud-run-backend-sa
-STORAGE_BUCKET=construction-map-storage
+# Check if IAM authentication is enabled
+gcloud sql instances describe construction-map-db --format="value(settings.databaseFlags[].value)" | grep -i "on"
+
+# If not enabled, enable it with:
+gcloud sql instances patch construction-map-db --database-flags cloudsql.iam_authentication=on
 ```
 
-### 2. Create Secret Manager Secrets
+### 2. Grant IAM Roles to the Service Account
 
-Ensure you have created the necessary secrets in Secret Manager:
+The service account needs permissions to access Cloud SQL:
+
+```bash
+# Grant Cloud SQL Client role
+gcloud projects add-iam-policy-binding deep-responder-444017-h2 \
+  --member="serviceAccount:servitec-map-service@deep-responder-444017-h2.iam.gserviceaccount.com" \
+  --role="roles/cloudsql.client"
+```
+
+### 3. Create App User in the Database
+
+Cloud SQL requires a database user that matches the IAM principal:
+
+```bash
+# Create the app_user via gcloud
+gcloud sql users create app_user \
+  --instance=construction-map-db \
+  --type=CLOUD_IAM_SERVICE_ACCOUNT \
+  --cloud-iam-service-account=servitec-map-service@deep-responder-444017-h2.iam.gserviceaccount.com
+```
+
+### 4. Create Secret for Application Key
+
+Create a secret for the application encryption key:
 
 ```bash
 # Create a secret for app encryption key
 echo "your-secure-key-here" | gcloud secrets create app-secret-key --data-file=-
-
-# Create a secret for database password (if needed)
-echo "your-database-password" | gcloud secrets create db-password --data-file=-
 ```
 
-### 3. Deploy to Cloud Run
+### 5. Run the Deployment Script
 
-Run the deployment script:
+Execute the deployment script to build, push and deploy the application:
 
 ```bash
 ./deploy_to_cloud_run.sh
 ```
 
 This script will:
-1. Build and push the Docker image to Google Container Registry
-2. Create a Cloud Storage bucket if it doesn't exist
-3. Deploy the application to Cloud Run with proper configurations
-4. Connect it to the Cloud SQL instance
-5. Inject the necessary secrets
+1. Verify IAM authentication is enabled on Cloud SQL
+2. Check/create the Cloud Storage bucket for file uploads
+3. Build and push the Docker image to Google Container Registry
+4. Grant necessary IAM roles to the service account
+5. Deploy the application to Cloud Run with proper configurations
+6. Display the service URL when complete
 
-### 4. Verify Deployment
+### 6. Verify Deployment
 
-After deployment, visit the URL provided in the output to ensure the application is running correctly.
+After deployment, access the URL provided in the output to ensure the application is running correctly.
 
-### 5. Troubleshooting
+## Troubleshooting
 
-If you encounter any issues:
+### Database Connection Issues
+
+If you encounter database connection issues:
 
 1. Check Cloud Run logs:
    ```bash
-   gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=construction-map-backend" --limit=50
+   gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=construction-map-backend" --limit=20
    ```
 
-2. Check Cloud SQL connectivity:
+2. Verify IAM authentication is enabled on your instance:
    ```bash
-   gcloud sql instances describe construction-map-db
+   gcloud sql instances describe construction-map-db --format="value(settings.databaseFlags)"
    ```
 
-3. Verify IAM permissions:
+3. Verify database user exists and has correct permissions:
    ```bash
-   gcloud projects get-iam-policy $PROJECT_ID --flatten="bindings[].members" --format="table(bindings.role)" --filter="bindings.members:cloud-run-backend-sa@$PROJECT_ID.iam.gserviceaccount.com"
+   gcloud sql users list --instance=construction-map-db
    ```
+
+4. Verify service account has Cloud SQL Client role:
+   ```bash
+   gcloud projects get-iam-policy deep-responder-444017-h2 \
+     --format="table(bindings.role,bindings.members)" \
+     --filter="bindings.members:servitec-map-service AND bindings.role=roles/cloudsql.client"
+   ```
+
+### Connection Pooling with IAM Authentication
+
+When using IAM authentication with Cloud SQL:
+
+1. Tokens are automatically refreshed by the Cloud SQL Python Connector
+2. Connection pooling is optimized for IAM authentication
+3. No need to manually manage database passwords or rotate credentials
 
 ## Ongoing Maintenance
 
 ### Updating the Application
 
-To update the application, simply make your changes and re-run the deployment script. The Cloud Run service will be updated with the new version.
+To update the application:
 
-### Database Migrations
+1. Make your code changes
+2. Re-run the deployment script:
+   ```bash
+   ./deploy_to_cloud_run.sh
+   ```
 
-Database migrations are run automatically when the container starts up. If you need to run migrations manually:
+### Monitoring and Scaling
 
-1. Connect to Cloud SQL using the Cloud SQL Auth Proxy
-2. Run the migration script manually
-
-### Monitoring and Logging
-
-- Access logs in Google Cloud Console under Logging
-- Set up monitoring alerts for your Cloud Run service and Cloud SQL instance 
+- View logs in Google Cloud Console under Logging
+- Adjust max instances in the deployment script if needed
+- Set up Cloud Monitoring alerts for your service 
