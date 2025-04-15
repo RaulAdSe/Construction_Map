@@ -7,9 +7,11 @@ try:
     from sendgrid import SendGridAPIClient
     from sendgrid.helpers.mail import Mail, Content, HtmlContent
     SENDGRID_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     SENDGRID_AVAILABLE = False
-    logging.warning("SendGrid package not installed. Email functionality will be limited.")
+    logging.warning(f"SendGrid package not installed. Error: {str(e)}")
+    logging.warning(f"Import error traceback: {traceback.format_exc()}")
+    logging.warning("Email functionality will be limited.")
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +51,7 @@ class EmailService:
             recipient_list = [recipients] if isinstance(recipients, str) else recipients
             
             # Get default sender from environment or use provided one
-            sender = from_email or os.environ.get("EMAIL_SENDER", "noreply@servitec.com")
+            sender = from_email or os.environ.get("EMAIL_SENDER", "servitec.ingenieria.rd@gmail.com")
             
             # Create mail content
             message = Mail(
@@ -93,17 +95,30 @@ class EmailService:
         Returns:
         - True if email was sent successfully, False otherwise
         """
-        subject = "Welcome to Construction Map!"
-        message = f"Hello {username},\n\nWelcome to Construction Map! We're glad to have you on board.\n\nYour account has been created successfully."
+        subject = "Bienvenido a Servitec Planos"
+        message = f"Hola {username},\n\nBienvenido a Servitec Planos. Su cuenta ha sido creada exitosamente."
         
         body_html = f"""
         <html>
-            <body>
-                <h2>Welcome to Construction Map!</h2>
-                <p>Hello {username},</p>
-                <p>Welcome to Construction Map! We're glad to have you on board.</p>
-                <p>Your account has been created successfully.</p>
-                <p><a href="http://localhost:3000/dashboard">Visit your dashboard</a></p>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h1 style="color: #3a51cc; margin: 0;">Servitec Planos</h1>
+                        <p style="font-size: 18px; color: #666;">Gestión de proyectos</p>
+                    </div>
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                        <h2 style="margin-top: 0; color: #3a51cc;">¡Bienvenido!</h2>
+                        <p style="font-size: 16px;">Hola {username},</p>
+                        <p style="font-size: 16px;">Bienvenido a Servitec Planos. Su cuenta ha sido creada exitosamente.</p>
+                        <p style="font-size: 16px;">Ya puede acceder a la plataforma y comenzar a utilizar todas sus funcionalidades.</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <a href="http://localhost:3000/dashboard" style="display: inline-block; background-color: #3a51cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Ir al panel de control</a>
+                    </div>
+                    <div style="margin-top: 30px; font-size: 12px; color: #999; text-align: center;">
+                        <p>Este es un mensaje automático, por favor no responda a este correo.</p>
+                    </div>
+                </div>
             </body>
         </html>
         """
@@ -129,14 +144,25 @@ class EmailService:
         Returns:
         - True if email was sent successfully, False otherwise
         """
+        print(f"[EMAIL_SERVICE] Attempting to send notification email to: {to_email}")
+        print(f"[EMAIL_SERVICE] Subject: {subject}")
+        print(f"[EMAIL_SERVICE] Message: {message[:100]}...")  # First 100 chars
+        
         recipients = [to_email] if isinstance(to_email, str) else to_email
         
-        return EmailService.send_email(
+        result = EmailService.send_email(
             recipients=recipients,
             subject=subject,
             body_text=message,
             body_html=html_message
         )
+        
+        if result:
+            print(f"[EMAIL_SERVICE] Successfully sent notification email to: {to_email}")
+        else:
+            print(f"[EMAIL_SERVICE] Failed to send notification email to: {to_email}")
+            
+        return result
     
     @staticmethod
     def send_event_notification(
@@ -157,15 +183,29 @@ class EmailService:
         Returns:
         - True if email was sent successfully, False otherwise
         """
-        subject = f"New Event: {event_title}"
-        message = f"A new event has been created: {event_title}\n\n{event_description}"
+        subject = f"Servitec Planos - Nuevo Evento: {event_title}"
+        message = f"Se ha creado un nuevo evento: {event_title}\n\n{event_description}"
         
         body_html = f"""
         <html>
-            <body>
-                <h2>New Event: {event_title}</h2>
-                <p>{event_description}</p>
-                <p><a href="{event_link}">View event details</a></p>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h1 style="color: #3a51cc; margin: 0;">Servitec Planos</h1>
+                        <p style="font-size: 18px; color: #666;">Gestión de proyectos</p>
+                    </div>
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                        <h2 style="margin-top: 0; color: #3a51cc;">Nuevo Evento: {event_title}</h2>
+                        <p style="font-size: 16px;">{event_description}</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <a href="{event_link}" style="display: inline-block; background-color: #3a51cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Ver detalles del evento</a>
+                    </div>
+                    <div style="margin-top: 30px; font-size: 12px; color: #999; text-align: center;">
+                        <p>Este es un mensaje automático, por favor no responda a este correo.</p>
+                        <p>Para dejar de recibir estas notificaciones, ajuste sus preferencias de notificación en la aplicación.</p>
+                    </div>
+                </div>
             </body>
         </html>
         """

@@ -12,7 +12,8 @@ from typing import Optional
 from datetime import datetime, timedelta
 from fastapi.responses import FileResponse
 
-from api import models, schemas, crud
+# Import the necessary modules using the correct paths
+from api.models import User
 from api.deps import get_db, get_current_user
 from api.routes import events, maps, projects, auth, monitoring
 from api.routes.monitoring import track_request_middleware
@@ -110,7 +111,7 @@ try:
 
     # Add a dedicated route for serving event images with authentication
     @app.get("/api/v1/image/{image_path:path}")
-    async def get_image(image_path: str, current_user: models.User = Depends(get_current_user)):
+    async def get_image(image_path: str, current_user: User = Depends(get_current_user)):
         # Check if the file exists - use the correct relative path
         file_path = os.path.join("uploads/events", image_path)
         if not os.path.exists(file_path):

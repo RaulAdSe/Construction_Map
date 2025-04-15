@@ -1,6 +1,11 @@
 import os
 import sys
 import logging
+import traceback
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -16,6 +21,7 @@ def test_sendgrid():
     recipient = input("Enter recipient email address: ")
     
     logger.info(f"Sending test email to {recipient}")
+    logger.info(f"Using from email: {os.environ.get('EMAIL_SENDER')}")
     
     result = EmailService.send_email(
         recipients=recipient,

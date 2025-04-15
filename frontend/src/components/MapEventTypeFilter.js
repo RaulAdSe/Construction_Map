@@ -56,7 +56,7 @@ const MapEventTypeFilter = ({ mapFilteredEvents, allEvents, onFilterChange }) =>
   const isRequest = useCallback((event) => {
     if (!event || !event.state) return false;
     const state = event.state.toLowerCase();
-    return state === 'request' || state.includes('request');
+    return state === 'request';
   }, []);
   
   // Calculate counts from all events for display

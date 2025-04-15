@@ -14,6 +14,8 @@ from api.models.metrics import Metric
 from api.schemas.metrics import MetricCreate, Metric as MetricSchema, MetricsList, SystemMetrics
 from api.core.logging import logger
 from api.core.db_monitoring import get_recent_slow_queries, get_slow_queries_from_log
+from api.services.notification import NotificationService
+from api.schemas.notification import NotificationCreate
 
 router = APIRouter()
 
@@ -274,6 +276,46 @@ async def get_slow_queries(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving slow queries: {str(e)}"
         )
+
+@router.get("/test-email-notification")
+async def test_email_notification(db: Session = Depends(get_db)):
+    """Test endpoint to send an email notification to the admin user."""
+    try:
+        # Find the admin user
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            return {"status": "error", "message": "Admin user not found"}
+            
+        # Create a test notification
+        notification_data = NotificationCreate(
+            user_id=admin_user.id,
+            message="This is a test notification",
+            link="/dashboard",
+            notification_type="test",
+            event_id=None,
+            comment_id=None
+        )
+        
+        # Create the notification (which should trigger an email)
+        notification = NotificationService.create_notification(db, notification_data)
+        
+        # Return status
+        return {
+            "status": "success", 
+            "message": "Test notification created and email should be sent",
+            "user": {
+                "id": admin_user.id,
+                "username": admin_user.username,
+                "email": admin_user.email
+            }
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "message": f"Error: {str(e)}",
+            "traceback": traceback.format_exc()
+        }
 
 # Middleware function to track requests - will be registered in main.py
 async def track_request_middleware(request: Request, call_next):
