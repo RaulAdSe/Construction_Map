@@ -1,45 +1,91 @@
-from app.db.database import engine
-from sqlalchemy import text
+#!/usr/bin/env python3
+import os
+import sys
+import psycopg2
+from psycopg2 import sql
 
-def check_tables():
-    print("Checking database tables...")
-    with engine.connect() as conn:
-        # Get all tables in the database
-        result = conn.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"))
-        tables = [row[0] for row in result]
+def main():
+    print("Checking PostgreSQL connection settings...")
+    
+    # Get database connection information from .env.gcp
+    instance_name = os.getenv('CLOUD_DB_INSTANCE', 'deep-responder-444017-h2:us-central1:construction-map-db')
+    db_name = os.getenv('CLOUD_DB_NAME', 'construction_map')
+    
+    print(f"Instance name: {instance_name}")
+    print(f"Database name: {db_name}")
+    
+    # Try the Cloud SQL connection
+    try:
+        connection_string = f"host=127.0.0.1 dbname={db_name} user=postgres password=postgres sslmode=disable"
+        print(f"Attempting direct connection with: {connection_string}")
         
-        print("-- Tables in database --")
-        for table in tables:
-            print(table)
+        conn = psycopg2.connect(connection_string)
+        cursor = conn.cursor()
         
-        # Direct check for event_history table
-        print("\n-- Direct check for event_history table --")
-        try:
-            result = conn.execute(text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'event_history')"))
-            exists = result.scalar()
-            print(f"event_history table exists: {exists}")
+        # Check server version
+        cursor.execute("SELECT version();")
+        version = cursor.fetchone()
+        print(f"Database version: {version[0]}")
+        
+        # Check if tables exist
+        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
+        tables = cursor.fetchall()
+        
+        if tables:
+            print("Tables found in database:")
+            for table in tables:
+                print(f"  {table[0]}")
+                # Check row count for users table
+                if table[0] == 'users':
+                    cursor.execute("SELECT COUNT(*) FROM users;")
+                    count = cursor.fetchone()[0]
+                    print(f"    - Users count: {count}")
+        else:
+            print("No tables found in database!")
+            print("Creating basic tables...")
             
-            # Also check with lowercase
-            result = conn.execute(text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND lower(table_name) = 'event_history')"))
-            exists_lower = result.scalar()
-            print(f"event_history table exists (case insensitive): {exists_lower}")
+            # Create the users table with the password_hash column
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                is_admin BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """)
             
-            # Try to query the table directly
-            try:
-                result = conn.execute(text("SELECT COUNT(*) FROM event_history"))
-                count = result.scalar()
-                print(f"event_history table has {count} records")
-                
-                if count > 0:
-                    print("\n-- Sample records from event_history --")
-                    result = conn.execute(text("SELECT * FROM event_history ORDER BY created_at DESC LIMIT 5"))
-                    columns = result.keys()
-                    for row in result:
-                        print({col: row[col] for col in columns})
-            except Exception as e:
-                print(f"Error querying event_history table: {str(e)}")
-        except Exception as e:
-            print(f"Error checking for event_history table: {str(e)}")
+            # Create an admin user
+            cursor.execute("""
+            INSERT INTO users (username, email, password_hash, is_admin, is_active)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (username) DO NOTHING;
+            """, (
+                "admin", 
+                "seritec.ingenieria.rd@gmail.com",
+                "$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By",
+                True,
+                True
+            ))
+            
+            # Commit changes
+            conn.commit()
+            print("Basic tables created successfully!")
+        
+        cursor.close()
+        conn.close()
+        print("Database connection test successful")
+        
+    except Exception as e:
+        print(f"Error connecting to database: {e}")
+        print("Try direct Cloud SQL access with gcloud")
+        print("Command: gcloud sql connect construction-map-db --user=postgres")
+        return False
+    
+    return True
 
 if __name__ == "__main__":
-    check_tables() 
+    success = main()
+    sys.exit(0 if success else 1) 
