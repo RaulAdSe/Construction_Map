@@ -6,9 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import '../styles/global.css';
-
-// Define API URL constant
-const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
+import { API_URL } from '../config';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -21,15 +19,25 @@ const NotificationBell = () => {
   const notificationRef = useRef(null);
   const bellRef = useRef(null);
 
+  // Create an axios instance with the token
+  const api = axios.create({
+    baseURL: API_URL,
+    withCredentials: true
+  });
+
+  // Add auth header to every request
+  api.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
   const fetchNotifications = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_URL}/notifications`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      const response = await api.get(`/notifications`);
       
       if (response.data && Array.isArray(response.data.notifications)) {
         // Ensure newest notifications are at the top (should be handled by backend)
@@ -53,12 +61,7 @@ const NotificationBell = () => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await axios.get(`${API_URL}/notifications/unread-count`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      const response = await api.get(`/notifications/unread-count`);
       
       if (typeof response.data === 'number') {
         setUnreadCount(response.data);
@@ -72,14 +75,8 @@ const NotificationBell = () => {
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.patch(`${API_URL}/notifications/${notificationId}`, {
+      await api.patch(`/notifications/${notificationId}`, {
         read: true
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        withCredentials: true
       });
       
       // Update local state
@@ -98,13 +95,7 @@ const NotificationBell = () => {
 
   const markAllAsRead = async () => {
     try {
-      await axios.post(`${API_URL}/notifications/mark-all-read`, {}, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        withCredentials: true
-      });
+      await api.post(`/notifications/mark-all-read`, {});
       
       // Update local state
       setNotifications(notifications.map(notification => ({ ...notification, read: true })));
@@ -118,12 +109,7 @@ const NotificationBell = () => {
     e.stopPropagation(); // Prevent triggering the notification click
     
     try {
-      await axios.delete(`${API_URL}/notifications/${notificationId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      await api.delete(`/notifications/${notificationId}`);
       
       // Update local state
       const updatedNotifications = notifications.filter(
@@ -248,14 +234,12 @@ const NotificationBell = () => {
       const newState = !emailNotificationsEnabled;
       
       // Call API to update user preference
-      await axios.post(`${API_URL}/users/preferences/email-notifications`, 
+      await api.post(`/users/preferences/email-notifications`, 
         { enabled: newState },
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json'
-          },
-          withCredentials: true
+          }
         }
       );
       
@@ -273,12 +257,7 @@ const NotificationBell = () => {
   // Fetch email notification preference
   const fetchEmailPreference = async () => {
     try {
-      const response = await axios.get(`${API_URL}/users/preferences/email-notifications`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      const response = await api.get(`/users/preferences/email-notifications`);
       
       if (response.data && response.data.hasOwnProperty('enabled')) {
         setEmailNotificationsEnabled(response.data.enabled);

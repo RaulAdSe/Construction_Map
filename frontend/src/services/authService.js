@@ -1,16 +1,26 @@
 import axios from 'axios';
-import { apiClient } from './api';
-
-// Always use cloud URL to avoid localhost references in production
-const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/auth';
+import { API_URL } from '../config';
 
 // Create instance with default config
 const api = axios.create({
+  baseURL: API_URL,
   withCredentials: true,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'
   }
+});
+
+// Add auth token to requests if available
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  console.error('Request error:', error);
+  return Promise.reject(error);
 });
 
 export const login = async (username, password) => {
@@ -22,8 +32,7 @@ export const login = async (username, password) => {
     params.append('password', password);
     params.append('grant_type', 'password');
     
-    // Use the shared apiClient to ensure consistent CORS behavior
-    const response = await apiClient.post('/auth/login', params, {
+    const response = await api.post(`/auth/login`, params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
@@ -54,11 +63,7 @@ export const logout = async () => {
       throw new Error('No token found');
     }
     
-    const response = await api.post(`${API_URL}/logout`, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const response = await api.post(`/auth/logout`, {});
     
     localStorage.removeItem('token');
     return response.data;
@@ -78,11 +83,7 @@ export const checkAuth = async () => {
       return false;
     }
     
-    const response = await api.get(`${API_URL}/me`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const response = await api.get(`/auth/me`);
     
     return !!response.data;
   } catch (error) {

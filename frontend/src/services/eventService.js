@@ -1,9 +1,9 @@
 import axios from 'axios';
-
-const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
+import { API_URL } from '../config';
 
 // Create API instance with default config
 const api = axios.create({
+  baseURL: API_URL,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'
@@ -24,7 +24,7 @@ const DEBUG = false;
 
 export const fetchEvents = async (mapId) => {
   try {
-    const response = await api.get(`${API_URL}/maps/${mapId}/events`);
+    const response = await api.get(`/maps/${mapId}/events`);
     
     // Ensure each event has a created_by_user_name
     const eventsWithUserNames = response.data.map(event => {
@@ -57,7 +57,7 @@ export const fetchEvents = async (mapId) => {
 // Helper function to get detailed event information including username
 export const getEventDetails = async (eventId) => {
   try {
-    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const response = await api.get(`/events/${eventId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching event details for event ${eventId}:`, error);
@@ -71,20 +71,15 @@ export const addEvent = async (eventData) => {
     
     // Check if eventData is FormData (for multipart/form-data with file upload)
     if (eventData instanceof FormData) {
-      // Get token for authorization header
-      const token = localStorage.getItem('token');
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      
-      // FormData requires different content type header
-      response = await axios.post(`${API_URL}/events`, eventData, {
+      // Use the api instance that already has the baseURL configured
+      response = await api.post(`/events`, eventData, {
         headers: {
-          ...headers,
           'Content-Type': 'multipart/form-data'
         }
       });
     } else {
       // Regular JSON data
-      response = await api.post(`${API_URL}/events`, eventData);
+      response = await api.post(`/events`, eventData);
     }
     
     return response.data;
@@ -97,7 +92,7 @@ export const addEvent = async (eventData) => {
 export const updateEvent = async (eventId, eventData) => {
   try {
     // Get current event data to preserve fields not in the update
-    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const response = await api.get(`/events/${eventId}`);
     const currentEvent = { ...response.data };
     
     // Make a copy of the data to avoid mutating the original
@@ -110,7 +105,7 @@ export const updateEvent = async (eventId, eventData) => {
     // This completely replaces any problematic active_maps data
     data.active_maps = {}; 
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    const updateResponse = await api.put(`/events/${eventId}`, data);
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId}:`, error);
@@ -120,7 +115,7 @@ export const updateEvent = async (eventId, eventData) => {
 
 export const deleteEvent = async (eventId) => {
   try {
-    const response = await api.delete(`${API_URL}/events/${eventId}`);
+    const response = await api.delete(`/events/${eventId}`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting event ${eventId}:`, error);
@@ -171,7 +166,7 @@ export const updateEventStatus = async (eventId, status, userRole) => {
     if (DEBUG) console.log(`Updating event ${eventId} status to ${status}`);
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+    const updateResponse = await api.put(`/events/${eventId}`, {
       status: status,
       is_admin_request: isAdmin
     });
@@ -202,7 +197,7 @@ export const updateEventState = async (eventId, state) => {
     }
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+    const updateResponse = await api.put(`/events/${eventId}`, {
       state: state,
       is_admin_request: isAdmin
     });
@@ -265,7 +260,7 @@ export const getFilteredEvents = async (options) => {
       tags.forEach(tag => params.append('tags', tag));
     }
     
-    const response = await api.get(`${API_URL}/events/?${params.toString()}`);
+    const response = await api.get(`/events/?${params.toString()}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching filtered events:', error);

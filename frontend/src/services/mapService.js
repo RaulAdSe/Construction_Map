@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
+import { API_URL } from '../config';
 
 // Create instance with auth header
 const getAuthHeader = () => {
@@ -10,6 +9,7 @@ const getAuthHeader = () => {
 
 // Create api instance with default headers
 const api = axios.create({
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -28,7 +28,7 @@ api.interceptors.request.use(config => {
 
 export const fetchProjects = async () => {
   try {
-    const response = await api.get(`${API_URL}/projects`);
+    const response = await api.get(`/projects`);
     return response.data;
   } catch (error) {
     console.error('Error fetching projects:', error);
@@ -38,7 +38,7 @@ export const fetchProjects = async () => {
 
 export const createProject = async (projectData) => {
   try {
-    const response = await api.post(`${API_URL}/projects`, projectData);
+    const response = await api.post(`/projects`, projectData);
     return response.data;
   } catch (error) {
     console.error('Error creating project:', error);
@@ -48,7 +48,7 @@ export const createProject = async (projectData) => {
 
 export const deleteProject = async (projectId) => {
   try {
-    const response = await api.delete(`${API_URL}/projects/${projectId}`);
+    const response = await api.delete(`/projects/${projectId}`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting project ${projectId}:`, error);
@@ -58,7 +58,7 @@ export const deleteProject = async (projectId) => {
 
 export const fetchProjectById = async (projectId) => {
   try {
-    const response = await api.get(`${API_URL}/projects/${projectId}`);
+    const response = await api.get(`/projects/${projectId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching project ${projectId}:`, error);
@@ -70,7 +70,7 @@ export const fetchMaps = async (projectId) => {
   try {
     console.log(`Fetching maps for project ${projectId}`);
     // Ensure clean URL without trailing slash and properly encoded query parameter
-    const url = `${API_URL}/maps?project_id=${encodeURIComponent(projectId)}`.replace(/\/+$/, '');
+    const url = `/maps?project_id=${encodeURIComponent(projectId)}`.replace(/\/+$/, '');
     const response = await api.get(url);
     return response.data;
   } catch (error) {
@@ -87,7 +87,7 @@ export const addMap = async (projectId, name, file, mapType = 'implantation') =>
     formData.append('project_id', projectId);
     formData.append('map_type', mapType);
     
-    const response = await axios.post(`${API_URL}/maps`, formData, {
+    const response = await api.post(`/maps`, formData, {
       headers: {
         ...getAuthHeader(),
         'Content-Type': 'multipart/form-data'
@@ -103,7 +103,7 @@ export const addMap = async (projectId, name, file, mapType = 'implantation') =>
 
 export const getMapById = async (mapId) => {
   try {
-    const response = await api.get(`${API_URL}/maps/${mapId}`);
+    const response = await api.get(`/maps/${mapId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching map ${mapId}:`, error);
@@ -113,7 +113,7 @@ export const getMapById = async (mapId) => {
 
 export const deleteMap = async (mapId) => {
   try {
-    const response = await api.delete(`${API_URL}/maps/${mapId}`);
+    const response = await api.delete(`/maps/${mapId}`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting map ${mapId}:`, error);
@@ -123,7 +123,7 @@ export const deleteMap = async (mapId) => {
 
 export const updateMap = async (mapId, data) => {
   try {
-    const response = await api.put(`${API_URL}/maps/${mapId}`, data);
+    const response = await api.put(`/maps/${mapId}`, data);
     return response.data;
   } catch (error) {
     console.error(`Error updating map ${mapId}:`, error);
