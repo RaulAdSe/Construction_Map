@@ -21,7 +21,23 @@ var/
 *.egg
 venv/
 venv311/
+
+# Environment variables and secrets
 .env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.gcp
+.env.staging
+.env.*.local
+.env.*.development
+.env.*.test
+.env.*.production
+.env.*.gcp
+.env.*.staging
+*.pem
+*.key
 
 # Logs
 logs
@@ -47,7 +63,6 @@ htmlcov/
 
 # Misc
 .DS_Store
-.env.local
 .env.development.local
 .env.test.local
 .env.production.local
@@ -71,4 +86,11 @@ htmlcov/
 
 # Project specific
 .server_pids
+
+# Credentials
+*credentials*.json
+*credential*.json
+*service-account*.json
+client_secrets*.json
+
 token.txt 
