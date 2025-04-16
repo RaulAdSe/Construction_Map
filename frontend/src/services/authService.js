@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { apiClient } from './api';
 
 // Always use cloud URL to avoid localhost references in production
 const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/auth';
@@ -21,10 +22,9 @@ export const login = async (username, password) => {
     params.append('password', password);
     params.append('grant_type', 'password');
     
-    const response = await axios.post(`${API_URL}/login`, params, {
-      withCredentials: true,
+    // Use the shared apiClient to ensure consistent CORS behavior
+    const response = await apiClient.post('/auth/login', params, {
       headers: {
-        'Accept': 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     });
