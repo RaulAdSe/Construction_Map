@@ -12,7 +12,7 @@ class UserActivity(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     username = Column(String, nullable=False, index=True)
     action = Column(String, nullable=False, index=True)
     ip_address = Column(String, nullable=True)

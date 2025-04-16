@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class UserActivityBase(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None
     username: str
     action: str
     ip_address: Optional[str] = None
