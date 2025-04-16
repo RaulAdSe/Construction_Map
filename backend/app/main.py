@@ -59,7 +59,13 @@ try:
 
     # Configure CORS - production settings
     origins = [
-        "https://construction-map-frontend-ypzdt6srya-uc.a.run.app"
+        "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
+        "http://construction-map-frontend-ypzdt6srya-uc.a.run.app",
+        "https://www.construction-map-frontend-ypzdt6srya-uc.a.run.app",
+        "https://construction-map-frontend-77413952899.us-central1.run.app", 
+        "http://construction-map-frontend-77413952899.us-central1.run.app",
+        "http://localhost:3000",  # For local development
+        "http://127.0.0.1:3000"   # For local development
     ]
 
     app.add_middleware(
