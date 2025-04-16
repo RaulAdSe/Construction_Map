@@ -227,6 +227,42 @@ const ViewEventModal = ({
     }
   };
   
+  const renderImage = () => {
+    if (memoizedEvent && memoizedEvent.image_url) {
+      // Check if it's a PDF
+      if (memoizedEvent.image_url.toLowerCase().endsWith('.pdf')) {
+        const fileUrl = memoizedEvent.image_url.startsWith('http')
+          ? memoizedEvent.image_url
+          : `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+        
+        return (
+          <iframe
+            src={fileUrl}
+            width="100%"
+            height="600px"
+            title="PDF Viewer"
+            style={{ border: 'none' }}
+          />
+        );
+      }
+      
+      // For regular images
+      const fileUrl = memoizedEvent.image_url.startsWith('http')
+        ? memoizedEvent.image_url
+        : `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
+      
+      return (
+        <img
+          src={fileUrl}
+          alt={memoizedEvent.title}
+          className="event-image"
+          style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
+        />
+      );
+    }
+    return null;
+  };
+  
   return (
     <Modal
       show={show}
@@ -290,51 +326,7 @@ const ViewEventModal = ({
                 {memoizedEvent.image_url && (
                   <Col md={4}>
                     <h6 className="text-secondary mb-2">{translate('Attached File')}</h6>
-                    {isPdfFile(memoizedEvent.image_url) ? (
-                      <div className="pdf-attachment">
-                        <div className="pdf-preview p-3 border rounded text-center">
-                          <i className="bi bi-file-pdf text-danger" style={{ fontSize: '3rem' }}></i>
-                          <div className="mt-2">
-                            <Button 
-                              variant="outline-primary" 
-                              size="sm"
-                              onClick={() => {
-                                const fileUrl = memoizedEvent.image_url.startsWith('http')
-                                  ? memoizedEvent.image_url
-                                  : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
-                                window.open(fileUrl, '_blank');
-                              }}
-                            >
-                              <i className="bi bi-eye me-1"></i> {translate('View PDF')}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <Image 
-                        src={memoizedEvent.image_url.startsWith('http') 
-                          ? memoizedEvent.image_url 
-                          : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`
-                        } 
-                        alt={memoizedEvent.title} 
-                        fluid
-                        className="mb-2 shadow-sm rounded"
-                        style={{ cursor: 'pointer', maxHeight: '200px', width: 'auto', display: 'block', margin: '0 auto' }}
-                        onClick={() => {
-                          const imageUrl = memoizedEvent.image_url.startsWith('http')
-                            ? memoizedEvent.image_url
-                            : `http://localhost:8000/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
-                          window.open(imageUrl, '_blank');
-                        }}
-                      />
-                    )}
-                    <div className="text-center mt-1">
-                      <small className="text-secondary">
-                        {isPdfFile(memoizedEvent.image_url) 
-                          ? translate('Click to open PDF') 
-                          : translate('Click to view full size')}
-                      </small>
-                    </div>
+                    {renderImage()}
                   </Col>
                 )}
               </Row>

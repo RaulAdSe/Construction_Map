@@ -29,10 +29,13 @@ try:
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # For development - restrict in production
+        allow_origins=["https://construction-map-frontend-ypzdt6srya-uc.a.run.app"],  # Only allow the specific frontend domain
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
+        expose_headers=["Content-Length", "Content-Range", "Content-Type", "Content-Disposition",
+                        "X-Total-Count", "Access-Control-Allow-Origin"],
+        max_age=600,  # Cache preflight requests for 10 minutes
     )
 
     # Add logging middleware

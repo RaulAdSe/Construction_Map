@@ -1,0 +1,244 @@
+import time
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import os
+import logging
+import traceback
+from contextlib import contextmanager
+
+from app.core.config import settings
+
+# Set up logging
+logger = logging.getLogger("database")
+logger.setLevel(logging.DEBUG if settings.DEBUG else logging.INFO)
+
+# Create a file handler
+log_path = os.path.join(settings.monitoring.LOG_PATH, "database.log")
+file_handler = logging.FileHandler(log_path)
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# Add console handler for immediate feedback
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+def create_database_if_not_exists():
+    # Skip for cloud database
+    if settings.cloud_db.CLOUD_ENABLED:
+        logger.info("Cloud database enabled, skipping local database creation")
+        return
+
+    # Local database setup
+    host = settings.POSTGRES_SERVER
+    port = settings.POSTGRES_PORT
+    user = settings.POSTGRES_USER
+    password = settings.POSTGRES_PASSWORD
+    db_name = settings.POSTGRES_DB
+    
+    logger.debug(f"Attempting to connect to PostgreSQL server: {host}:{port}")
+    logger.debug(f"Using credentials - User: {user}, Database: {db_name}")
+    
+    # Connect to the postgres database to check if our database exists
+    try:
+        # First try to connect to postgres database
+        logger.debug("Connection attempt 1 to default postgres database")
+        conn = psycopg2.connect(
+            host=host,
+            port=port, 
+            user=user, 
+            password=password,
+            dbname="postgres"
+        )
+        conn.autocommit = True
+        
+        # Check if our database exists
+        logger.debug(f"Checking if database '{db_name}' exists")
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+            exists = cursor.fetchone()
+            
+            if not exists:
+                logger.info(f"Database {db_name} does not exist. Creating...")
+                # Create the database
+                cursor.execute(f'CREATE DATABASE "{db_name}"')
+                logger.info(f"Database {db_name} created successfully.")
+            else:
+                logger.info(f"Database {db_name} already exists.")
+            
+            conn.close()
+        
+    except psycopg2.OperationalError as e:
+        logger.error(f"Could not connect to PostgreSQL server: {e}")
+        logger.info("Note: If running in Docker and PostgreSQL is in another container, make sure they are on the same network.")
+        # Continue execution - the application will fail later if DB connection truly isn't available
+    
+    except Exception as e:
+        logger.error(f"Error creating database: {e}")
+        # Continue execution - the application will fail later if DB connection truly isn't available
+
+# Create the database if it doesn't exist
+logger.info("Checking/creating database...")
+create_database_if_not_exists()
+
+# Create uploads directory if it doesn't exist
+try:
+    os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
+    logger.debug(f"Ensured uploads directory exists: {settings.UPLOAD_FOLDER}")
+except Exception as e:
+    logger.error(f"Error creating uploads directory: {e}")
+
+# Create logs directory if it doesn't exist
+try:
+    os.makedirs(settings.monitoring.LOG_PATH, exist_ok=True)
+    logger.debug(f"Ensured logs directory exists: {settings.monitoring.LOG_PATH}")
+except Exception as e:
+    logger.error(f"Error creating logs directory: {e}")
+
+# Configure SQLAlchemy engine
+logger.info(f"Using database URI: {settings.DATABASE_URL.split('://')[0]}://****@{settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else '****'}")
+
+# Create SQLAlchemy engine
+logger.debug("Creating standard SQLAlchemy engine...")
+try:
+    if settings.cloud_db.CLOUD_ENABLED:
+        # Create engine for Google Cloud SQL with IAM authentication
+        logger.info("Creating Cloud SQL engine with IAM authentication...")
+        from google.cloud.sql.connector import Connector
+        from sqlalchemy.pool import NullPool, QueuePool
+        
+        # Initialize Connector object
+        logger.info("Initializing Cloud SQL Connector...")
+        connector = Connector()
+        
+        def getconn():
+            # Environment variables
+            cloud_db_instance = os.getenv("CLOUD_DB_INSTANCE")
+            db_user = os.getenv("CLOUD_DB_USER", os.getenv("CLOUD_DB_IAM_USER", "postgres"))
+            db_pass = os.getenv("DB_PASSWORD", "")
+            db_name = os.getenv("CLOUD_DB_NAME", "construction_map")
+            
+            logger.info(f"Connecting to Cloud SQL instance: {cloud_db_instance}")
+            logger.info(f"Using database user: {db_user}")
+            
+            try:
+                # Connect to Cloud SQL using the Connector
+                logger.info("Attempting to connect with Cloud SQL Connector...")
+                conn = connector.connect(
+                    cloud_db_instance,
+                    "pg8000",
+                    user=db_user,
+                    password=db_pass,
+                    db=db_name,
+                    enable_iam_auth=True
+                )
+                logger.info("✅ Cloud SQL Connector connection successful")
+                return conn
+            except Exception as e:
+                logger.error(f"❌ Cloud SQL Connector connection failed: {e}")
+                logger.error(traceback.format_exc())
+                
+                # Fall back to socket connections with postgres user
+                try:
+                    logger.info("Attempting fallback with postgres user...")
+                    socket_path = f"/cloudsql/{cloud_db_instance}"
+                    
+                    import pg8000
+                    conn = pg8000.connect(
+                        user="postgres",
+                        password=db_pass,
+                        database=db_name,
+                        unix_sock=socket_path
+                    )
+                    logger.info("✅ Fallback connection successful")
+                    return conn
+                except Exception as fallback_error:
+                    logger.error(f"❌ Fallback connection failed: {fallback_error}")
+                    logger.error(traceback.format_exc())
+                    
+                raise ValueError(f"All connection methods failed: {e}")
+        
+        # Create engine with custom connection function
+        engine = create_engine(
+            "postgresql+pg8000://",
+            creator=getconn,
+            poolclass=QueuePool,
+            pool_size=int(os.getenv("CLOUD_DB_POOL_SIZE", "5")),
+            max_overflow=int(os.getenv("CLOUD_DB_MAX_OVERFLOW", "10")),
+            pool_timeout=int(os.getenv("CLOUD_DB_POOL_TIMEOUT", "30")),
+            pool_recycle=int(os.getenv("CLOUD_DB_POOL_RECYCLE", "1800"))
+        )
+    else:
+        # Standard SQLAlchemy engine for local database
+        engine = create_engine(
+            settings.DATABASE_URL,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10
+        )
+except Exception as e:
+    logger.critical(f"Error creating database engine: {e}")
+    logger.critical(traceback.format_exc())
+    # Don't re-raise to allow application to attempt to start anyway
+    
+    # Test database connection
+try:
+    logger.debug("Testing database connection...")
+    with engine.connect() as connection:
+        logger.info("Database connection test successful")
+        
+        # Check and fix the users table if needed
+        logger.debug("Checking users table for password_hash column...")
+        try:
+            inspector = inspect(engine)
+            
+            if 'users' in inspector.get_table_names():
+                # Check if password_hash column exists
+                columns = [col['name'] for col in inspector.get_columns('users')]
+                
+                if 'password_hash' not in columns:
+                    logger.warning("password_hash column is missing in users table. Attempting to add it...")
+                    
+                    # Add the password_hash column
+                    connection.execute(text("""
+                        ALTER TABLE users 
+                        ADD COLUMN password_hash VARCHAR(255) NOT NULL 
+                        DEFAULT '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By'
+                    """))
+                    
+                    logger.info("password_hash column added successfully to users table")
+                else:
+                    logger.debug("password_hash column already exists in users table")
+            else:
+                logger.debug("users table does not exist yet")
+        except Exception as e:
+            logger.error(f"Error checking/fixing users table: {e}")
+            logger.error(traceback.format_exc())
+            # Continue execution even if fixing failed
+except Exception as e:
+    logger.critical(f"Error connecting to database: {e}")
+    logger.critical(traceback.format_exc())
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        logger.debug("Database session requested")
+        yield db
+    except Exception as e:
+        logger.error(f"Error in database session: {e}")
+        logger.error(traceback.format_exc())
+        raise
+    finally:
+        logger.debug("Closing database session")
+        db.close()

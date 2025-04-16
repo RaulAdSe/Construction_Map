@@ -75,7 +75,18 @@ async def create_comment(
                 
                 # Create uploads directory if it doesn't exist
                 upload_dir = os.path.join(settings.UPLOAD_FOLDER, "comments")
-                os.makedirs(upload_dir, exist_ok=True)
+                try:
+                    os.makedirs(upload_dir, exist_ok=True)
+                except PermissionError:
+                    print(f"Cannot create comments uploads directory (read-only filesystem): {upload_dir}")
+                    # If we're on a read-only filesystem, use a temporary directory for this operation
+                    upload_dir = os.path.join("/tmp", "comments")
+                    os.makedirs(upload_dir, exist_ok=True)
+                except OSError as e:
+                    print(f"Error creating comments uploads directory: {str(e)}")
+                    # Fall back to temporary directory
+                    upload_dir = os.path.join("/tmp", "comments")
+                    os.makedirs(upload_dir, exist_ok=True)
                 
                 # Determine file type
                 is_pdf = False
@@ -95,11 +106,25 @@ async def create_comment(
                 print(f"Saving file to: {file_path}")
                 
                 # Save the file
-                with open(file_path, "wb") as buffer:
-                    content = await image.read()
-                    if not content:
-                        print("Warning: File content is empty")
-                    buffer.write(content)
+                try:
+                    with open(file_path, "wb") as buffer:
+                        content = await image.read()
+                        if not content:
+                            print("Warning: File content is empty")
+                        buffer.write(content)
+                except (PermissionError, OSError) as e:
+                    print(f"Error writing comment attachment file: {str(e)}")
+                    # If we're in the normal directory path and encounter an error, try the tmp path
+                    if not upload_dir.startswith("/tmp"):
+                        upload_dir = os.path.join("/tmp", "comments")
+                        os.makedirs(upload_dir, exist_ok=True)
+                        file_path = os.path.join(upload_dir, unique_filename)
+                        with open(file_path, "wb") as buffer:
+                            buffer.write(content)
+                        print(f"Successfully saved file to fallback location: {file_path}")
+                    else:
+                        # If we're already using the tmp directory and still have an error, raise it
+                        raise Exception(f"Could not save file due to filesystem error: {str(e)}")
                 
                 # Set image URL and file type in database
                 # Store as /comments/{filename} - FastAPI serves this from the uploads directory

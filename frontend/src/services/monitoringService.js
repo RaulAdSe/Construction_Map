@@ -2,21 +2,7 @@ import axios from 'axios';
 
 // Extract the base URL without the /api/v1 part
 const getBaseUrl = () => {
-  // If REACT_APP_API_URL is defined
-  if (process.env.REACT_APP_API_URL) {
-    // If it ends with /api/v1, remove it to get the base URL
-    if (process.env.REACT_APP_API_URL.endsWith('/api/v1')) {
-      return process.env.REACT_APP_API_URL.slice(0, -7); // Remove '/api/v1'
-    }
-    // Otherwise check if it has /api/v1/ in the middle (for potential cloud URLs)
-    if (process.env.REACT_APP_API_URL.includes('/api/v1/')) {
-      return process.env.REACT_APP_API_URL.split('/api/v1/')[0];
-    }
-    // If neither, return as is
-    return process.env.REACT_APP_API_URL;
-  }
-  // Default to localhost:8000
-  return 'http://localhost:8000';
+  return 'https://construction-map-backend-ypzdt6srya-uc.a.run.app';
 };
 
 const BASE_URL = getBaseUrl();

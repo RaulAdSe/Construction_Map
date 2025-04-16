@@ -3,7 +3,7 @@ import axios from 'axios';
 // Add debug flag to control console output
 const DEBUG = false;
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -64,13 +64,14 @@ export default apiClient;
 // Auth services
 export const authService = {
   login: async (username, password) => {
-    const formData = new FormData();
-    formData.append('username', username);
-    formData.append('password', password);
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+    params.append('grant_type', 'password');
     
-    const response = await apiClient.post('/auth/login', formData, {
+    const response = await apiClient.post('/auth/login', params, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
     

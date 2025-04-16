@@ -183,6 +183,8 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     return false;
   }, []);
 
+  const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app';
+
   return (
     <div className="event-comments">
       <h5 className="mb-3">{translate('Comments')} {commentsLength > 0 && `(${commentsLength})`}</h5>
@@ -329,7 +331,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                   {hasImageAttachment && (
                     <div className="comment-attachment mt-3">
                       <Image 
-                        src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'http://localhost:8000'}${comment.image_url}`} 
+                        src={`${baseUrl}${comment.image_url}`} 
                         alt={translate('Comment attachment')} 
                         fluid 
                         className="comment-image" 
@@ -346,7 +348,6 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                           <Button 
                             variant="link" 
                             onClick={() => {
-                              const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
                               const fullUrl = `${baseUrl}${comment.image_url}`;
                               window.open(fullUrl, '_blank');
                             }}

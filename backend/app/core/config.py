@@ -52,6 +52,10 @@ class CloudDatabaseSettings(BaseSettings):
     MAX_OVERFLOW: int = int(os.getenv("CLOUD_DB_MAX_OVERFLOW", "10"))
     POOL_TIMEOUT: int = int(os.getenv("CLOUD_DB_POOL_TIMEOUT", "30"))
     POOL_RECYCLE: int = int(os.getenv("CLOUD_DB_POOL_RECYCLE", "1800"))  # 30 minutes
+    IAM_AUTHENTICATION: bool = os.getenv("CLOUD_DB_IAM_AUTHENTICATION", "false").lower() == "true"
+    INSTANCE_CONNECTION_NAME: str = os.getenv("CLOUD_DB_INSTANCE", "")
+    IAM_USER: str = os.getenv("CLOUD_DB_IAM_USER", "")
+    DB_NAME: str = os.getenv("CLOUD_DB_NAME", "construction_map")
     SSL_MODE: str = os.getenv("CLOUD_DB_SSL_MODE", "require")
     SSL_CA_CERT: Optional[str] = os.getenv("CLOUD_DB_SSL_CA_CERT")
     
@@ -161,8 +165,34 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-        # Create logs directory if it doesn't exist
-        os.makedirs(self.monitoring.LOG_PATH, exist_ok=True)
+        # Check if running in Cloud Run
+        in_cloud_run = os.getenv("K_SERVICE") is not None
+        
+        # Create logs directory if it doesn't exist and we're not in Cloud Run
+        try:
+            if not in_cloud_run:  # Only create directories locally
+                if self.monitoring.LOG_PATH.startswith('/app'):
+                    self.monitoring.LOG_PATH = './logs'
+                os.makedirs(self.monitoring.LOG_PATH, exist_ok=True)
+        except OSError as e:
+            if 'Read-only file system' in str(e) and in_cloud_run:
+                logger.warning(f"Skipping directory creation in Cloud Run environment: {e}")
+            else:
+                # Re-raise if not in Cloud Run or if a different error
+                logger.warning(f"Error creating logs directory: {e}")
+        
+        # Create uploads directory if it doesn't exist
+        try:
+            if not in_cloud_run:  # Only create directories locally
+                if self.UPLOAD_FOLDER.startswith('/app'):
+                    self.UPLOAD_FOLDER = './uploads'
+                os.makedirs(self.UPLOAD_FOLDER, exist_ok=True)
+        except OSError as e:
+            if 'Read-only file system' in str(e) and in_cloud_run:
+                logger.warning(f"Skipping uploads directory creation in Cloud Run environment: {e}")
+            else:
+                # Re-raise if not in Cloud Run or if a different error
+                logger.warning(f"Error creating uploads directory: {e}")
         
         # Configure SQLAlchemy engine arguments
         self.ENGINE_ARGS = {
@@ -184,8 +214,9 @@ class Settings(BaseSettings):
                 "pool_recycle": self.cloud_db.POOL_RECYCLE,
             })
             
-            # Add SSL configuration if provided
-            if self.cloud_db.SSL_MODE:
+            # Add SSL configuration if provided, but only if not using pg8000
+            # Since pg8000 doesn't support sslmode argument
+            if self.cloud_db.SSL_MODE and "pg8000" not in self.cloud_db.CONNECTION_STRING:
                 self.ENGINE_ARGS["connect_args"] = {
                     "sslmode": self.cloud_db.SSL_MODE
                 }

@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api/v1/auth';
+// Always use cloud URL to avoid localhost references in production
+const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/auth';
 
 // Create instance with default config
 const api = axios.create({
@@ -13,15 +14,18 @@ const api = axios.create({
 
 export const login = async (username, password) => {
   try {
-    // Create form data for the request
-    const formData = new FormData();
-    formData.append('username', username);
-    formData.append('password', password);
+    console.log('Attempting login with API URL:', API_URL);
+    // Use URLSearchParams for proper x-www-form-urlencoded format
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+    params.append('grant_type', 'password');
     
-    const response = await axios.post(`${API_URL}/login`, formData, {
+    const response = await axios.post(`${API_URL}/login`, params, {
       withCredentials: true,
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded'
       }
     });
     

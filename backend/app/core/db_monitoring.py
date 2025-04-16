@@ -3,6 +3,7 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 import logging
 import os
+import sys
 
 from app.core.config import settings
 
@@ -10,16 +11,43 @@ from app.core.config import settings
 logger = logging.getLogger("db_monitoring")
 logger.setLevel(logging.INFO)
 
-# Create logs directory if it doesn't exist
-os.makedirs(settings.monitoring.LOG_PATH, exist_ok=True)
+# Determine if we're running in Cloud Run
+in_cloud_run = os.getenv("K_SERVICE") is not None
 
-# Create a file handler for database queries
-log_path = os.path.join(settings.monitoring.LOG_PATH, "db_queries.log")
-file_handler = logging.FileHandler(log_path)
-file_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+# Create logs directory if it doesn't exist and we're not in Cloud Run
+try:
+    os.makedirs(settings.monitoring.LOG_PATH, exist_ok=True)
+    log_dir_exists = True
+except (OSError, PermissionError):
+    log_dir_exists = False
+    logger.warning(f"Cannot create logs directory: {settings.monitoring.LOG_PATH}")
+
+# Create handlers
+handlers = []
+
+# Always add stdout handler for Cloud Run compatibility
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setLevel(logging.INFO)
+stdout_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+stdout_handler.setFormatter(stdout_formatter)
+handlers.append(stdout_handler)
+
+# Add file handler only if we're not in Cloud Run or if we can write to the directory
+if not in_cloud_run or (log_dir_exists and os.access(settings.monitoring.LOG_PATH, os.W_OK)):
+    try:
+        log_path = os.path.join(settings.monitoring.LOG_PATH, "db_queries.log")
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        handlers.append(file_handler)
+        logger.info(f"Database query logs will be written to: {log_path}")
+    except (OSError, PermissionError) as e:
+        logger.warning(f"Cannot create log file, falling back to stdout only: {e}")
+
+# Add all handlers to logger
+for handler in handlers:
+    logger.addHandler(handler)
 
 # Global variable to store slow queries
 slow_queries = []
@@ -93,4 +121,4 @@ def get_slow_queries_from_log(limit=50):
     # For simplicity, we'll just return an empty list
     return []
 
-print("Database monitoring initialized: SQLAlchemy event listeners are active") 
+logger.info("Database monitoring initialized: SQLAlchemy event listeners are active") 

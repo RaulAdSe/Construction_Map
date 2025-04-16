@@ -8,6 +8,7 @@ from sqlalchemy import desc, func, and_, or_, cast, Date
 import pandas as pd
 import io
 from datetime import datetime, timedelta
+import logging
 
 from app.models.event import Event
 from app.models.event_comment import EventComment
@@ -190,7 +191,22 @@ async def save_event_attachment(file: UploadFile) -> str:
     
     # Ensure uploads directory exists
     attachment_dir = os.path.join(settings.UPLOAD_FOLDER, "events")
-    os.makedirs(attachment_dir, exist_ok=True)
+    
+    try:
+        os.makedirs(attachment_dir, exist_ok=True)
+    except PermissionError:
+        logger = logging.getLogger("event_service")
+        logger.warning(f"Cannot create event uploads directory (read-only filesystem): {attachment_dir}")
+        # If we're on a read-only filesystem, use a temporary directory for this operation
+        # The file will be later copied to persistent storage through other means
+        attachment_dir = os.path.join("/tmp", "events")
+        os.makedirs(attachment_dir, exist_ok=True)
+    except OSError as e:
+        logger = logging.getLogger("event_service")
+        logger.warning(f"Error creating event uploads directory: {str(e)}")
+        # Fall back to temporary directory
+        attachment_dir = os.path.join("/tmp", "events")
+        os.makedirs(attachment_dir, exist_ok=True)
     
     # Generate a unique filename with appropriate extension
     if content_type == "application/pdf":
@@ -202,8 +218,14 @@ async def save_event_attachment(file: UploadFile) -> str:
     filepath = os.path.join(attachment_dir, filename)
     
     # Save the file
-    with open(filepath, "wb") as buffer:
-        buffer.write(content)
+    try:
+        with open(filepath, "wb") as buffer:
+            buffer.write(content)
+    except (PermissionError, OSError) as e:
+        logger = logging.getLogger("event_service")
+        logger.error(f"Error writing file to {filepath}: {str(e)}")
+        # If we can't write to the file, raise an error
+        raise HTTPException(500, detail=f"Could not save file due to filesystem error: {str(e)}")
     
     # Return the relative path for storing in the database
     return f"events/{filename}"

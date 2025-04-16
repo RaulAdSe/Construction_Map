@@ -1,2 +1,2 @@
 // Global configuration settings
-export const API_URL = 'http://localhost:8000/api/v1'; 
+export const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1'; 

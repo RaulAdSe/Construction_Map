@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import '../styles/global.css';
 
 // Define API URL constant
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);

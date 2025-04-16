@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
 
 // Create a function to get the auth header
 const authHeader = () => {
