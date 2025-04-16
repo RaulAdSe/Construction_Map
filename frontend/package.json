@@ -47,5 +47,6 @@
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn"
     }
-  }
+  },
+  "proxy": "https://construction-map-backend-ypzdt6srya-uc.a.run.app"
 }

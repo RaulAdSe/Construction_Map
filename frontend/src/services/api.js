@@ -1,21 +1,21 @@
 import axios from 'axios';
+import { API_URL } from '../config'; // Import from central config
 
 // Add debug flag to control console output
-const DEBUG = false;
+const DEBUG = true; // Temporarily enable debugging
 
-const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
-
-// Create axios instance with default config
-const apiClient = axios.create({
+// Create an axios instance with default settings
+const api = axios.create({
   baseURL: API_URL,
+  timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-  },
-  withCredentials: true
+  }
 });
 
 // Add auth token to requests if available
-apiClient.interceptors.request.use((config) => {
+api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -27,7 +27,7 @@ apiClient.interceptors.request.use((config) => {
 });
 
 // Add response interceptor to handle common responses
-apiClient.interceptors.response.use(
+api.interceptors.response.use(
   response => {
     return response;
   },
@@ -57,9 +57,8 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Export the apiClient instance
-export { apiClient };
-export default apiClient;
+// Export the api instance
+export default api;
 
 // Auth services
 export const authService = {
@@ -69,7 +68,7 @@ export const authService = {
     params.append('password', password);
     params.append('grant_type', 'password');
     
-    const response = await apiClient.post('/auth/login', params, {
+    const response = await api.post('/auth/login', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -89,7 +88,7 @@ export const authService = {
   },
   
   register: async (userData) => {
-    return await apiClient.post('/auth/register', userData);
+    return await api.post('/auth/register', userData);
   },
   
   logout: () => {
@@ -101,45 +100,45 @@ export const authService = {
 // Project services
 export const projectService = {
   getProjects: async () => {
-    return await apiClient.get('/projects/');
+    return await api.get('/projects/');
   },
   
   getProject: async (id) => {
-    return await apiClient.get(`/projects/${id}`);
+    return await api.get(`/projects/${id}`);
   },
   
   createProject: async (projectData) => {
-    return await apiClient.post('/projects/', projectData);
+    return await api.post('/projects/', projectData);
   },
   
   updateProject: async (id, projectData) => {
-    return await apiClient.put(`/projects/${id}`, projectData);
+    return await api.put(`/projects/${id}`, projectData);
   },
   
   deleteProject: async (id) => {
-    return await apiClient.delete(`/projects/${id}`);
+    return await api.delete(`/projects/${id}`);
   },
   
   // Get all project tags
   getProjectTags: async (projectId) => {
-    return await apiClient.get(`/projects/${projectId}/tags`);
+    return await api.get(`/projects/${projectId}/tags`);
   },
   
   // Get all project members
   getProjectMembers: async (projectId) => {
-    return await apiClient.get(`/projects/${projectId}/members`);
+    return await api.get(`/projects/${projectId}/members`);
   },
   
   // Add a user to project
   addUserToProject: async (projectId, userId) => {
-    return await apiClient.post(`/projects/${projectId}/users`, { 
+    return await api.post(`/projects/${projectId}/users`, { 
       user_id: userId
     });
   },
   
   // Update a member's admin status
   updateMemberRole: async (projectId, userId, isAdmin) => {
-    return await apiClient.put(`/projects/${projectId}/members/${userId}/role`, {
+    return await api.put(`/projects/${projectId}/members/${userId}/role`, {
       role: isAdmin ? "ADMIN" : "MEMBER" 
     });
   },
@@ -152,7 +151,7 @@ export const projectService = {
       const fieldValue = String(field).trim();
       console.log(`Sending field update with value: "${fieldValue}"`);
       
-      const response = await apiClient.put(`/projects/${projectId}/users/${userId}/field`, 
+      const response = await api.put(`/projects/${projectId}/users/${userId}/field`, 
         { field: fieldValue },
         { 
           headers: {
@@ -171,18 +170,18 @@ export const projectService = {
   
   // Remove a user from a project
   removeUserFromProject: async (projectId, userId) => {
-    return await apiClient.delete(`/projects/${projectId}/users/${userId}`);
+    return await api.delete(`/projects/${projectId}/users/${userId}`);
   }
 };
 
 // Maps services
 export const mapService = {
   getMaps: async () => {
-    return await apiClient.get('/maps/');
+    return await api.get('/maps/');
   },
   
   getMap: async (id) => {
-    return await apiClient.get(`/maps/${id}`);
+    return await api.get(`/maps/${id}`);
   },
   
   createMap: async (mapData) => {
@@ -191,7 +190,7 @@ export const mapService = {
     formData.append('name', mapData.name);
     formData.append('file', mapData.file);
     
-    return await apiClient.post('/maps/', formData, {
+    return await api.post('/maps/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -206,7 +205,7 @@ export const mapService = {
       formData.append('file', mapData.file);
     }
     
-    return await apiClient.put(`/maps/${id}`, formData, {
+    return await api.put(`/maps/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -214,18 +213,18 @@ export const mapService = {
   },
   
   deleteMap: async (id) => {
-    return await apiClient.delete(`/maps/${id}`);
+    return await api.delete(`/maps/${id}`);
   }
 };
 
 // Events services
 export const eventService = {
   getEvents: async () => {
-    return await apiClient.get('/events/');
+    return await api.get('/events/');
   },
   
   getEvent: async (id) => {
-    return await apiClient.get(`/events/${id}`);
+    return await api.get(`/events/${id}`);
   },
   
   createEvent: async (eventData) => {
@@ -241,7 +240,7 @@ export const eventService = {
       formData.append('image', eventData.image);
     }
     
-    return await apiClient.post('/events/', formData, {
+    return await api.post('/events/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -256,7 +255,7 @@ export const eventService = {
     if (eventData.status) formData.append('status', eventData.status);
     if (eventData.image) formData.append('image', eventData.image);
     
-    return await apiClient.put(`/events/${id}`, formData, {
+    return await api.put(`/events/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -264,6 +263,6 @@ export const eventService = {
   },
   
   deleteEvent: async (id) => {
-    return await apiClient.delete(`/events/${id}`);
+    return await api.delete(`/events/${id}`);
   }
 }; 
