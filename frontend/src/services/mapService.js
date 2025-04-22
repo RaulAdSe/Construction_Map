@@ -101,12 +101,16 @@ export const fetchMaps = async (projectId) => {
   try {
     console.log(`Fetching maps for project ${projectId}`);
     
-    // Fix the URL construction to ensure consistency
-    // Use /maps/ with trailing slash to match endpoint expectations
+    // Fix the URL construction to ensure consistency and include /v1/ in the path
+    // Use /api/v1/maps/ with trailing slash to match endpoint expectations
     const url = `/maps/?project_id=${encodeURIComponent(projectId)}`;
     
     // Debug the final URL for troubleshooting
-    const fullUrl = new URL(url.startsWith('/') ? url.substring(1) : url, SECURE_API_URL).toString();
+    // Note: This is just for the log display - the actual request uses api.get which already has the correct baseURL
+    const fullUrl = new URL(
+      `api/v1${url.startsWith('/') ? url : '/' + url}`, 
+      SECURE_API_URL
+    ).toString();
     console.log(`Request URL for maps: ${fullUrl}`);
     
     // Use the api instance which already has HTTPS enforcement
