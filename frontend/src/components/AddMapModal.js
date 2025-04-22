@@ -35,12 +35,13 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
     setLoading(true);
     
     try {
-      const newMap = await addMap(projectId, {
-        name: mapName,
-        description: mapDescription,
-        mapType,
-        file: mapFile,
-      });
+      const newMap = await addMap(
+        projectId, 
+        mapName, 
+        mapFile, 
+        mapType
+      );
+      
       onMapAdded(newMap);
       resetForm();
       onHide();

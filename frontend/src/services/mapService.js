@@ -159,14 +159,39 @@ export const addMap = async (projectId, name, file, mapType = 'implantation') =>
       return config;
     });
     
+    // Log what we're sending for debugging
+    console.log('Sending map upload request with data:', {
+      projectId,
+      name,
+      mapType,
+      fileType: file.type,
+      fileSize: file.size,
+      endpoint: `${secureBaseUrl}/maps/`
+    });
+    
     const response = await formApi.post('/maps/', formData);
     
     return response.data;
   } catch (error) {
     console.error('Error adding map:', error);
-    if (error.message && error.message.includes('Network Error')) {
+    
+    // Enhanced error logging
+    if (error.response) {
+      // The request was made and the server responded with an error status
+      console.error('Response error data:', error.response.data);
+      console.error('Response status:', error.response.status);
+      console.error('Response headers:', error.response.headers);
+      
+      if (error.response.status === 422) {
+        console.error('Validation error. Check that all required fields are provided correctly.');
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('No response received:', error.request);
+    } else if (error.message && error.message.includes('Network Error')) {
       console.error('Network error detected - possibly a mixed content issue. Check HTTPS security.');
     }
+    
     throw error;
   }
 };
