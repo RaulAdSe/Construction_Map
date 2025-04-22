@@ -18,7 +18,8 @@ import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import MobileSwitcher from '../components/common/MobileSwitcher';
 import MapEventTypeFilter from '../components/MapEventTypeFilter';
 import { useMobile } from '../components/common/MobileProvider';
-import { fetchMaps, fetchProjects, fetchProjectById } from '../services/mapService';
+import { fetchMaps } from '../services/mapService';
+import { projectService } from '../services/api';
 import { fetchEvents } from '../services/eventService';
 import { isUserAdmin } from '../utils/permissions';
 import '../assets/styles/MapViewer.css';
@@ -310,74 +311,52 @@ const MapViewer = ({ onLogout }) => {
   }, [activeTab, projectId, selectedMap]);
   
   const loadProjectData = async (pid) => {
+    if (DEBUG) console.log(`Loading project data for project ID: ${pid}`);
+    setLoading(true);
+    
     try {
-      setLoading(true);
+      // Load project details first
+      const projectResponse = await projectService.getProject(pid);
+      const projectData = projectResponse.data;
       
-      // Fetch the specific project by ID
-      const projectData = await fetchProjectById(pid);
+      if (DEBUG) console.log('Project data loaded:', projectData);
       setProject(projectData);
       
-      // Use a debounce mechanism to prevent multiple rapid calls
-      const mapsCacheKey = `maps_cache_${pid}`;
-      const cachedMapsData = sessionStorage.getItem(mapsCacheKey);
-      let mapsData;
-      
-      if (cachedMapsData && Date.now() - JSON.parse(cachedMapsData).timestamp < 5000) {
-        // Use cached data if it's less than 5 seconds old
-        mapsData = JSON.parse(cachedMapsData).data;
-        console.log('Using cached maps data');
-      } else {
-        // Fetch maps for the project
-        mapsData = await fetchMaps(pid);
-        
-        // Cache the maps data with timestamp
-        sessionStorage.setItem(mapsCacheKey, JSON.stringify({
-          timestamp: Date.now(),
-          data: mapsData
-        }));
-      }
-      
-      // Set maps state
+      // Then load maps for the project
+      const mapsData = await fetchMaps(pid);
+      if (DEBUG) console.log('Maps loaded:', mapsData);
       setMaps(mapsData);
       
-      // Fetch events for each map
-      const allEvents = [];
-      for (const map of mapsData) {
-        const mapEvents = await fetchEvents(map.id);
-        
-        // Add map name to each event for better display
-        const eventsWithMapName = mapEvents.map(event => ({
-          ...event,
-          map_name: map.name
-        }));
-        
-        allEvents.push(...eventsWithMapName);
-      }
-      setEvents(allEvents);
+      // Find main map (implantation type)
+      const mainMap = mapsData.find(map => map.map_type === 'implantation');
       
-      // Select the main map (implantation type) if available, otherwise select the first map
-      if (mapsData.length > 0) {
-        const mainMap = mapsData.find(map => map.map_type === 'implantation');
-        if (mainMap) {
-          if (DEBUG) console.log('Found and selected main map:', mainMap.name);
-          setSelectedMap(mainMap);
-          
-          // Initialize visible maps with the main map ID
-          setVisibleMapIds([mainMap.id]);
-        } else {
-          if (DEBUG) console.log('No main map found, selecting first map');
-          setSelectedMap(mapsData[0]);
-          
-          // Initialize visible maps with the first map ID
-          setVisibleMapIds([mapsData[0].id]);
-        }
-      } else {
-        setSelectedMap(null);
-        setVisibleMapIds([]);
+      // Set the selected map - prefer main map, fall back to first map, or null if none
+      const mapToSelect = mainMap || (mapsData.length > 0 ? mapsData[0] : null);
+      setSelectedMap(mapToSelect);
+      
+      // Initialize visible maps with the main map
+      if (mainMap) {
+        setVisibleMapIds([mainMap.id]);
       }
+      
+      // Finally load events for the project
+      const eventsData = await fetchEvents(pid);
+      if (DEBUG) console.log('Events loaded:', eventsData);
+      setEvents(eventsData);
+      
+      // Initialize map visibility settings
+      const initialSettings = {};
+      mapsData.forEach(map => {
+        initialSettings[map.id] = { 
+          visible: map.map_type === 'implantation', 
+          opacity: 100
+        };
+      });
+      setMapVisibilitySettings(initialSettings);
+      
     } catch (error) {
       console.error('Error loading project data:', error);
-      showNotification(translate('Error loading project data. Please try again.'), 'error');
+      showNotification(translate('Failed to load project data'), 'danger');
     } finally {
       setLoading(false);
     }

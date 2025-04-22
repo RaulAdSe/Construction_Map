@@ -52,7 +52,7 @@ api.interceptors.request.use(config => {
 export const fetchProjects = async () => {
   try {
     // Force HTTPS for this critical request
-    const projectsUrl = '/projects';
+    const projectsUrl = '/projects/';  // Ensure trailing slash for consistency with other endpoints
     // Log the full URL being used (for debugging)
     console.log('Fetching projects from:', ensureHttps(
       `${SECURE_API_URL}${projectsUrl.startsWith('/') ? projectsUrl : '/' + projectsUrl}`
@@ -69,7 +69,7 @@ export const fetchProjects = async () => {
 
 export const createProject = async (projectData) => {
   try {
-    const response = await api.post('/projects', projectData);
+    const response = await api.post('/projects/', projectData);
     return response.data;
   } catch (error) {
     console.error('Error creating project:', error);
@@ -79,7 +79,7 @@ export const createProject = async (projectData) => {
 
 export const deleteProject = async (projectId) => {
   try {
-    const response = await api.delete(`/projects/${projectId}`);
+    const response = await api.delete(`/projects/${projectId}/`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting project ${projectId}:`, error);
@@ -89,7 +89,7 @@ export const deleteProject = async (projectId) => {
 
 export const fetchProjectById = async (projectId) => {
   try {
-    const response = await api.get(`/projects/${projectId}`);
+    const response = await api.get(`/projects/${projectId}/`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching project ${projectId}:`, error);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Navbar, Spinner, Alert, Modal, Form, Tabs, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { fetchProjects, createProject, deleteProject } from '../services/mapService';
+import { projectService } from '../services/api';
 import { isUserAdmin } from '../utils/permissions';
 import MonitoringDashboard from '../components/monitoring/MonitoringDashboard';
 import NotificationBell from '../components/NotificationBell';
@@ -49,8 +49,8 @@ const ProjectList = ({ onLogout }) => {
   const loadProjects = async () => {
     try {
       setLoading(true);
-      const projectsData = await fetchProjects();
-      setProjects(projectsData);
+      const response = await projectService.getProjects();
+      setProjects(response.data);
       setError('');
     } catch (err) {
       console.error('Error loading projects:', err);
@@ -72,7 +72,7 @@ const ProjectList = ({ onLogout }) => {
     
     try {
       setCreating(true);
-      await createProject(newProject);
+      await projectService.createProject(newProject);
       setShowModal(false);
       setNewProject({ name: '', description: '' });
       setError('');
@@ -96,7 +96,7 @@ const ProjectList = ({ onLogout }) => {
     
     try {
       setDeleting(true);
-      await deleteProject(projectToDelete.id);
+      await projectService.deleteProject(projectToDelete.id);
       setShowDeleteModal(false);
       setProjectToDelete(null);
       // Show success message and reload projects
