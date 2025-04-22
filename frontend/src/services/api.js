@@ -1,12 +1,15 @@
 import axios from 'axios';
-import { API_URL } from '../config'; // Import from central config
+import { API_URL, ensureHttps } from '../config'; // Import from central config
 
 // Add debug flag to control console output
 const DEBUG = true; // Temporarily enable debugging
 
+// Always ensure API_URL uses HTTPS
+const SECURE_API_URL = ensureHttps(API_URL);
+
 // Create an axios instance with default settings
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: SECURE_API_URL,
   timeout: 10000,
   withCredentials: true,
   headers: {
@@ -20,6 +23,22 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // IMPORTANT: Force HTTPS for all requests
+  if (config.url) {
+    // If it's an absolute URL (contains ://)
+    if (config.url.includes('://')) {
+      config.url = ensureHttps(config.url);
+    }
+  }
+  
+  // Also force HTTPS in the baseURL
+  if (config.baseURL) {
+    config.baseURL = ensureHttps(config.baseURL);
+  }
+  
+  if (DEBUG) console.log('Request URL:', ensureHttps(config.baseURL + (config.url || '')));
+  
   return config;
 }, (error) => {
   if (DEBUG) console.error('Request error:', error);
