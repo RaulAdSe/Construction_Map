@@ -47,7 +47,12 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
       onHide();
     } catch (error) {
       console.error('Error adding map:', error);
-      setError(translate('Failed to add map. Please try again.'));
+      // Check if we have a more specific error message from the server
+      if (error.response && error.response.data && error.response.data.detail) {
+        setError(translate(error.response.data.detail));
+      } else {
+        setError(translate('Failed to add map. Please try again.'));
+      }
     } finally {
       setLoading(false);
     }
@@ -79,8 +84,9 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
       return;
     }
     
-    if (!file.type.match('image.*')) {
-      setError(translate('Please select an image file'));
+    // Check if the file is a PDF
+    if (!file.type.match('application/pdf')) {
+      setError(translate('Please select a PDF file'));
       setMapFile(null);
       setPreview('');
       return;
@@ -88,12 +94,8 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
     
     setMapFile(file);
     
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    // For PDFs, we can't show a preview, so we'll just clear any existing preview
+    setPreview('');
     
     setError('');
   };
@@ -141,27 +143,24 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
           </Form.Group>
           
           <Form.Group className="mb-3">
-            <Form.Label>{translate('Upload Image')}</Form.Label>
+            <Form.Label>{translate('Upload PDF Map')}</Form.Label>
             <Form.Control
               ref={fileInputRef}
               type="file"
               onChange={handleFileChange}
-              accept="image/*"
+              accept="application/pdf"
               required
             />
             <Form.Text className="text-muted">
-              {translate('Drop your image here, or click to select')}
+              {translate('Select a PDF file. Only PDF format is accepted.')}
             </Form.Text>
           </Form.Group>
           
-          {preview && (
+          {mapFile && (
             <div className="text-center mt-3 mb-3">
-              <h6>{translate('Preview')}</h6>
-              <img 
-                src={preview} 
-                alt={translate('Map preview')} 
-                style={{ maxWidth: '100%', maxHeight: '200px' }}
-              />
+              <Alert variant="info">
+                <i className="bi bi-file-earmark-pdf"></i> {mapFile.name} ({Math.round(mapFile.size / 1024)} KB)
+              </Alert>
             </div>
           )}
         </Modal.Body>
