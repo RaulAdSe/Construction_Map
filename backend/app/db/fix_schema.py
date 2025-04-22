@@ -64,7 +64,7 @@ def ensure_password_hash_column(engine):
                     conn.execute(text("""
                         ALTER TABLE users 
                         ADD COLUMN password_hash VARCHAR(255) NOT NULL 
-                        DEFAULT '$2b$12$JEQtChVtfJTBb6Z9ZIQ09eKDxcQiKTYQ1x6ZnlR3GZD.aZMg7YHqm'
+                        DEFAULT '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By '
                     """))
                     
                     conn.execute(text("COMMIT"))
@@ -91,7 +91,7 @@ def ensure_password_hash_column(engine):
                 # Create admin user if it doesn't exist
                 conn.execute(text("""
                     INSERT INTO users (username, email, is_admin, is_active, password_hash)
-                    VALUES ('admin', 'seritec.ingenieria.rd@gmail.com', TRUE, TRUE, '$2b$12$JEQtChVtfJTBb6Z9ZIQ09eKDxcQiKTYQ1x6ZnlR3GZD.aZMg7YHqm')
+                    VALUES ('admin', 'seritec.ingenieria.rd@gmail.com', TRUE, TRUE, '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By ')
                 """))
                 
                 conn.execute(text("COMMIT"))
@@ -101,7 +101,7 @@ def ensure_password_hash_column(engine):
                 logger.info("Admin user exists. Updating password...")
                 conn.execute(text("""
                     UPDATE users
-                    SET password_hash = '$2b$12$JEQtChVtfJTBb6Z9ZIQ09eKDxcQiKTYQ1x6ZnlR3GZD.aZMg7YHqm'
+                    SET password_hash = '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By '
                     WHERE username = 'admin'
                 """))
                 

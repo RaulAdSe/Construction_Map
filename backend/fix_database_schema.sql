@@ -46,7 +46,7 @@ BEGIN
       RAISE NOTICE 'Neither password_hash nor hashed_password columns exist. Adding password_hash column...';
       
       -- Add the password_hash column with a default hash value (this is a secure default hash for 'admin')
-      ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) DEFAULT '$2b$12$JEQtChVtfJTBb6Z9ZIQ09eKDxcQiKTYQ1x6ZnlR3GZD.aZMg7YHqm' NOT NULL;
+      ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) DEFAULT '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By ' NOT NULL;
       
       RAISE NOTICE 'password_hash column added with a default value.';
    END IF;

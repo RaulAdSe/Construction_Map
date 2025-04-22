@@ -28,8 +28,17 @@ class Map(MapBase):
     
     @computed_field
     def content_url(self) -> str:
-        # Use absolute URL with the backend base URL
-        return f"http://localhost:8000/uploads/{self.filename}"
+        # Use HTTPS protocol to ensure Content Security Policy compliance
+        from app.core.config import settings
+        
+        # In production, use the domain from settings with HTTPS
+        base_url = "https://construction-map-backend-ypzdt6srya-uc.a.run.app"
+        
+        # For development, use localhost with HTTPS or domain override
+        if settings.ENVIRONMENT == "development":
+            base_url = "https://localhost:8000"
+            
+        return f"{base_url}/uploads/{self.filename}"
     
     class Config:
         orm_mode = True

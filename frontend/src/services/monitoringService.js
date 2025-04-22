@@ -1,21 +1,38 @@
 import axios from 'axios';
+import { ensureHttps } from '../config';
 
-// Extract the base URL without the /api/v1 part
-const getBaseUrl = () => {
-  return 'https://construction-map-backend-ypzdt6srya-uc.a.run.app';
-};
-
-const BASE_URL = getBaseUrl();
+// Use HTTPS for the base URL
+const BASE_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app';
 
 // Create axios instance with auth header
 const getAuthAxios = () => {
   const token = localStorage.getItem('token');
-  return axios.create({
+  const axiosInstance = axios.create({
     baseURL: BASE_URL,
     headers: {
       'Authorization': `Bearer ${token}`
     }
   });
+  
+  // Add interceptor to force HTTPS
+  axiosInstance.interceptors.request.use(config => {
+    // Ensure URL uses HTTPS
+    if (config.url) {
+      // If it's an absolute URL (contains ://)
+      if (config.url.includes('://')) {
+        config.url = config.url.replace(/^http:\/\//i, 'https://');
+      }
+    }
+    
+    // Also ensure baseURL uses HTTPS
+    if (config.baseURL && config.baseURL.includes('://')) {
+      config.baseURL = config.baseURL.replace(/^http:\/\//i, 'https://');
+    }
+    
+    return config;
+  });
+  
+  return axiosInstance;
 };
 
 // Health check endpoints

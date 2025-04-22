@@ -109,7 +109,7 @@ def fix_users_table_schema(conn):
             # Add the password_hash column
             cursor.execute("""
                 ALTER TABLE users 
-                ADD COLUMN password_hash VARCHAR(255) DEFAULT '$2b$12$JEQtChVtfJTBb6Z9ZIQ09eKDxcQiKTYQ1x6ZnlR3GZD.aZMg7YHqm' NOT NULL;
+                ADD COLUMN password_hash VARCHAR(255) DEFAULT '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By ' NOT NULL;
             """)
             
             logger.info("Column password_hash added with a default value successfully.")

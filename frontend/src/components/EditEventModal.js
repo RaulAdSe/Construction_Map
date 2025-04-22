@@ -6,7 +6,23 @@ import axios from 'axios';
 import { projectService } from '../services/api';
 import { API_URL } from '../config';
 import apiClient from '../services/api';
-import translate from '../utils/translate';
+import translate, { useLanguage } from '../utils/translate';
+import { AiOutlinePlus } from 'react-icons/ai';
+import { BsX } from 'react-icons/bs';
+import '../assets/styles/AddEventModal.css';
+
+// Helper function to ensure image URLs use HTTPS
+const ensureHttpsUrl = (url) => {
+  if (!url) return url;
+  
+  // If it's a relative URL, prepend the HTTPS backend URL
+  if (!url.startsWith('http')) {
+    return `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${url.split('/').pop()}`;
+  }
+  
+  // If it's an HTTP URL, convert to HTTPS
+  return url.replace(/^http:\/\//i, 'https://');
+};
 
 const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER", projectId }) => {
   const [title, setTitle] = useState('');
@@ -421,7 +437,7 @@ const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBE
                   <h6 className="mb-2">{translate('Attached Image')}</h6>
                   <p className="text-muted small">{translate('Images cannot be changed after creation')}</p>
                   <Image 
-                    src={event.image_url} 
+                    src={ensureHttpsUrl(event.image_url)} 
                     alt={event.title} 
                     thumbnail 
                     className="w-100" 

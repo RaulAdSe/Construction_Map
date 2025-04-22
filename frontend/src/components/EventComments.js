@@ -183,7 +183,8 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     return false;
   }, []);
 
-  const baseUrl = process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app';
+  // Always use HTTPS for backend URL
+  const baseUrl = (process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app').replace('http:', 'https:');
 
   return (
     <div className="event-comments">

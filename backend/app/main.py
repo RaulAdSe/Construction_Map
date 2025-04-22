@@ -8,6 +8,8 @@ import logging
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from fastapi.responses import JSONResponse
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from app.api.v1.api import api_router
 from app.db.database import get_db
@@ -57,16 +59,25 @@ try:
         version="1.0.0",
     )
 
-    # Configure CORS - production settings
+    # Add HTTPS redirect middleware in production
+    if in_cloud_run:
+        logger.info("Adding HTTPS redirect middleware for production")
+        # app.add_middleware(HTTPSRedirectMiddleware)  # Commented out to prevent redirect loops
+
+    # Configure CORS - production settings with HTTPS only
     origins = [
         "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
-        "http://construction-map-frontend-ypzdt6srya-uc.a.run.app",
         "https://www.construction-map-frontend-ypzdt6srya-uc.a.run.app",
-        "https://construction-map-frontend-77413952899.us-central1.run.app", 
-        "http://construction-map-frontend-77413952899.us-central1.run.app",
-        "http://localhost:3000",  # For local development
-        "http://127.0.0.1:3000"   # For local development
+        "https://construction-map-frontend-77413952899.us-central1.run.app"
     ]
+    
+    # Only add HTTP origins for local development
+    if not in_cloud_run:
+        logger.info("Adding HTTP origins for local development")
+        origins.extend([
+            "http://localhost:3000",
+            "http://127.0.0.1:3000"
+        ])
 
     app.add_middleware(
         CORSMiddleware,
@@ -78,6 +89,29 @@ try:
                         "X-Total-Count", "Access-Control-Allow-Origin"],
         max_age=600,  # Cache preflight requests for 10 minutes
     )
+
+    # Add custom exception middleware to ensure CORS headers are sent even for error responses
+    @app.middleware("http")
+    async def add_cors_headers_to_errors(request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        except Exception as e:
+            # Log the error
+            logger.error(f"Unhandled exception: {str(e)}")
+            logger.error(traceback.format_exc())
+            
+            # Create a response with the error
+            response_content = {"detail": str(e)}
+            response = JSONResponse(status_code=500, content=response_content)
+            
+            # Add CORS headers
+            origin = request.headers.get("origin")
+            if origin in origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+            
+            return response
 
     # Test database connection before initializing API routes
     @app.on_event("startup")

@@ -1,25 +1,36 @@
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL, ensureHttps } from '../config';
 
-// Create a function to get the auth header
-const authHeader = () => {
-  const token = localStorage.getItem('token');
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
-
-// Create instance with default config
+// Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   }
 });
 
-// Add auth header to every request
+// Add request interceptor to include auth token and force HTTPS
 apiClient.interceptors.request.use(config => {
-  const headers = authHeader();
-  config.headers = { ...config.headers, ...headers };
+  // Add authorization header
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  
+  // Ensure URL uses HTTPS for all absolute URLs
+  if (config.url) {
+    // If it's an absolute URL (contains ://)
+    if (config.url.includes('://')) {
+      config.url = config.url.replace(/^http:\/\//i, 'https://');
+    }
+  }
+  
+  // Also ensure baseURL uses HTTPS
+  if (config.baseURL && config.baseURL.includes('://')) {
+    config.baseURL = config.baseURL.replace(/^http:\/\//i, 'https://');
+  }
+  
   return config;
 });
 

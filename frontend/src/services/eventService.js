@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_URL } from '../config';
+import { API_URL, ensureHttps } from '../config';
 
 // Create API instance with default config
 const api = axios.create({
@@ -16,6 +16,20 @@ api.interceptors.request.use(config => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Always force HTTPS for every request
+  if (config.url) {
+    // If it's an absolute URL (contains ://)
+    if (config.url.includes('://')) {
+      config.url = config.url.replace(/^http:\/\//i, 'https://');
+    }
+  }
+  
+  // Also check baseURL if present
+  if (config.baseURL && config.baseURL.includes('://')) {
+    config.baseURL = config.baseURL.replace(/^http:\/\//i, 'https://');
+  }
+  
   return config;
 });
 
@@ -24,7 +38,7 @@ const DEBUG = false;
 
 export const fetchEvents = async (mapId) => {
   try {
-    const response = await api.get(`/maps/${mapId}/events`);
+    const response = await api.get(`${API_URL}/maps/${mapId}/events`);
     
     // Ensure each event has a created_by_user_name
     const eventsWithUserNames = response.data.map(event => {
@@ -57,7 +71,7 @@ export const fetchEvents = async (mapId) => {
 // Helper function to get detailed event information including username
 export const getEventDetails = async (eventId) => {
   try {
-    const response = await api.get(`/events/${eventId}`);
+    const response = await api.get(`${API_URL}/events/${eventId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching event details for event ${eventId}:`, error);
@@ -71,15 +85,24 @@ export const addEvent = async (eventData) => {
     
     // Check if eventData is FormData (for multipart/form-data with file upload)
     if (eventData instanceof FormData) {
-      // Use the api instance that already has the baseURL configured
-      response = await api.post(`/events`, eventData, {
+      // Get token for authorization header
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      // Ensure URL is HTTPS
+      const url = ensureHttps(`${API_URL}/events`);
+      
+      // FormData requires different content type header
+      response = await axios.post(url, eventData, {
         headers: {
+          ...headers,
           'Content-Type': 'multipart/form-data'
         }
       });
     } else {
-      // Regular JSON data
-      response = await api.post(`/events`, eventData);
+      // Regular JSON data - ensure URL is HTTPS
+      const url = ensureHttps(`${API_URL}/events`);
+      response = await api.post(url, eventData);
     }
     
     return response.data;
@@ -92,7 +115,7 @@ export const addEvent = async (eventData) => {
 export const updateEvent = async (eventId, eventData) => {
   try {
     // Get current event data to preserve fields not in the update
-    const response = await api.get(`/events/${eventId}`);
+    const response = await api.get(`${API_URL}/events/${eventId}`);
     const currentEvent = { ...response.data };
     
     // Make a copy of the data to avoid mutating the original
@@ -105,7 +128,7 @@ export const updateEvent = async (eventId, eventData) => {
     // This completely replaces any problematic active_maps data
     data.active_maps = {}; 
     
-    const updateResponse = await api.put(`/events/${eventId}`, data);
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId}:`, error);
@@ -115,7 +138,7 @@ export const updateEvent = async (eventId, eventData) => {
 
 export const deleteEvent = async (eventId) => {
   try {
-    const response = await api.delete(`/events/${eventId}`);
+    const response = await api.delete(`${API_URL}/events/${eventId}`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting event ${eventId}:`, error);
@@ -166,7 +189,7 @@ export const updateEventStatus = async (eventId, status, userRole) => {
     if (DEBUG) console.log(`Updating event ${eventId} status to ${status}`);
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`/events/${eventId}`, {
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
       status: status,
       is_admin_request: isAdmin
     });
@@ -197,7 +220,7 @@ export const updateEventState = async (eventId, state) => {
     }
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`/events/${eventId}`, {
+    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
       state: state,
       is_admin_request: isAdmin
     });
@@ -260,7 +283,7 @@ export const getFilteredEvents = async (options) => {
       tags.forEach(tag => params.append('tags', tag));
     }
     
-    const response = await api.get(`/events/?${params.toString()}`);
+    const response = await api.get(`${API_URL}/events/?${params.toString()}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching filtered events:', error);

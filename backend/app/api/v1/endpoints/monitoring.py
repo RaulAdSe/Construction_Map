@@ -125,8 +125,8 @@ def get_db_health(db: Session = Depends(get_db), current_user: User = Depends(ge
     try:
         # Measure query response time
         start_time = time.time()
-        # Simple query to check DB connectivity and response time
-        result = db.execute(text("SELECT 1")).fetchall()
+        # Simple query to check DB connectivity and response time - Use text() properly
+        result = db.execute(text("SELECT 1")).scalar()
         query_time = time.time() - start_time
         
         # Get recent slow queries

@@ -180,7 +180,10 @@ gcloud run deploy ${SERVICE_NAME} \
     --set-env-vars="CLOUD_DB_IAM_AUTHENTICATION=false" \
     --set-env-vars="USE_CLOUD_STORAGE=true" \
     --set-env-vars="CLOUD_STORAGE_BUCKET=${STORAGE_BUCKET}" \
-    --set-env-vars="SKIP_DB_SCHEMA_UPDATE=true"
+    --set-env-vars="SKIP_DB_SCHEMA_UPDATE=true" \
+    --set-env-vars="ENFORCE_HTTPS=false" \
+    --set-env-vars="SECURE_COOKIES=true" \
+    --set-env-vars="SECRET_KEY=3e08dde562fdd25e09c65b47b5d4a9e10e1d5e8ed2d34fc783cb0ecdb2fef77e"
 
 # Get the URL of the deployed service
 SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} --region ${REGION} --format="value(status.url)")

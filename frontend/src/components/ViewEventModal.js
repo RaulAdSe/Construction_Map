@@ -227,14 +227,25 @@ const ViewEventModal = ({
     }
   };
   
+  const ensureHttpsUrl = (url) => {
+    if (!url) return url;
+    
+    // If it's a relative URL, prepend the HTTPS backend URL
+    if (!url.startsWith('http')) {
+      return `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${url.split('/').pop()}`;
+    }
+    
+    // If it's an HTTP URL, convert to HTTPS
+    return url.replace(/^http:\/\//i, 'https://');
+  };
+  
   const renderImage = () => {
     if (memoizedEvent && memoizedEvent.image_url) {
+      // Get secure URL
+      const fileUrl = ensureHttpsUrl(memoizedEvent.image_url);
+      
       // Check if it's a PDF
       if (memoizedEvent.image_url.toLowerCase().endsWith('.pdf')) {
-        const fileUrl = memoizedEvent.image_url.startsWith('http')
-          ? memoizedEvent.image_url
-          : `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
-        
         return (
           <iframe
             src={fileUrl}
@@ -247,10 +258,6 @@ const ViewEventModal = ({
       }
       
       // For regular images
-      const fileUrl = memoizedEvent.image_url.startsWith('http')
-        ? memoizedEvent.image_url
-        : `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${memoizedEvent.image_url.split('/').pop()}`;
-      
       return (
         <img
           src={fileUrl}

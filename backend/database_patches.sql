@@ -12,7 +12,7 @@ BEGIN
     ) THEN
         ALTER TABLE users 
         ADD COLUMN password_hash VARCHAR(255) NOT NULL
-        DEFAULT '$2b$12$JEQtChVtfJTBb6Z9ZIQ09eKDxcQiKTYQ1x6ZnlR3GZD.aZMg7YHqm';
+        DEFAULT '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By ';
     END IF;
 END $$;
 

@@ -51,7 +51,8 @@ gcloud run deploy ${SERVICE_NAME} \
     --port=80 \
     --min-instances=0 \
     --max-instances=3 \
-    --ingress=all
+    --ingress=all \
+    --set-env-vars=REACT_APP_API_URL=https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1
 
 # Get the URL of the deployed service
 SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} --region=${REGION} --format="value(status.url)")

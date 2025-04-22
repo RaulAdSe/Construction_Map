@@ -46,6 +46,7 @@ class ProjectUser(ProjectUserBase):
 class Project(ProjectBase):
     id: int
     users: List[ProjectUser] = []
+    created_at: Optional[datetime] = None
     
     class Config:
         orm_mode = True
