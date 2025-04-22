@@ -2,6 +2,7 @@ from pydantic import BaseModel, computed_field
 from typing import Optional, Dict, Any
 from datetime import datetime
 from app.core.config import settings
+import os
 
 
 class MapBase(BaseModel):
@@ -34,8 +35,9 @@ class Map(MapBase):
         # In production, use the domain from settings with HTTPS
         base_url = "https://construction-map-backend-ypzdt6srya-uc.a.run.app"
         
-        # For development, use localhost with HTTPS
-        if settings.DEBUG:
+        # Only use localhost when explicitly in development environment
+        # Check both DEBUG flag and if not running in Cloud Run (K_SERVICE env var)
+        if settings.DEBUG and not os.getenv("K_SERVICE"):
             base_url = "https://localhost:8000"
             
         return f"{base_url}/uploads/{self.filename}"
