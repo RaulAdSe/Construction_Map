@@ -100,11 +100,25 @@ export const fetchProjectById = async (projectId) => {
 export const fetchMaps = async (projectId) => {
   try {
     console.log(`Fetching maps for project ${projectId}`);
-    // Use relative path with properly encoded query parameter
-    const response = await api.get(`/maps?project_id=${encodeURIComponent(projectId)}`);
+    
+    // Fix the URL construction to ensure consistency
+    // Use /maps/ with trailing slash to match endpoint expectations
+    const url = `/maps/?project_id=${encodeURIComponent(projectId)}`;
+    
+    // Debug the final URL for troubleshooting
+    const fullUrl = new URL(url.startsWith('/') ? url.substring(1) : url, SECURE_API_URL).toString();
+    console.log(`Request URL for maps: ${fullUrl}`);
+    
+    // Use the api instance which already has HTTPS enforcement
+    const response = await api.get(url);
     return response.data;
   } catch (error) {
     console.error(`Error fetching maps for project ${projectId}:`, error);
+    // Add additional logging for debugging mixed content issues
+    if (error.message && error.message.includes('Network Error')) {
+      console.error('Network error detected - possibly a mixed content issue. Check if all URLs use HTTPS.');
+      console.error('Request config:', error.config);
+    }
     throw error;
   }
 };
@@ -123,17 +137,36 @@ export const addMap = async (projectId, name, file, mapType = 'implantation') =>
       'Content-Type': 'multipart/form-data'
     };
     
+    // Make absolutely sure we're using HTTPS 
+    const secureBaseUrl = ensureHttps(SECURE_API_URL);
+    console.log(`Using secure base URL for form upload: ${secureBaseUrl}`);
+    
     // Create a new instance with the same baseURL for FormData
     const formApi = axios.create({
-      baseURL: SECURE_API_URL,
+      baseURL: secureBaseUrl,
       headers
     });
     
-    const response = await formApi.post('/maps', formData);
+    // Add interceptor to this instance too
+    formApi.interceptors.request.use(config => {
+      // Force HTTPS for all requests
+      if (config.url && config.url.includes('://')) {
+        config.url = ensureHttps(config.url);
+      }
+      if (config.baseURL) {
+        config.baseURL = ensureHttps(config.baseURL);
+      }
+      return config;
+    });
+    
+    const response = await formApi.post('/maps/', formData);
     
     return response.data;
   } catch (error) {
     console.error('Error adding map:', error);
+    if (error.message && error.message.includes('Network Error')) {
+      console.error('Network error detected - possibly a mixed content issue. Check HTTPS security.');
+    }
     throw error;
   }
 };
