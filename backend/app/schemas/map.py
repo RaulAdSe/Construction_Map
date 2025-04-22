@@ -34,8 +34,8 @@ class Map(MapBase):
         # In production, use the domain from settings with HTTPS
         base_url = "https://construction-map-backend-ypzdt6srya-uc.a.run.app"
         
-        # For development, use localhost with HTTPS or domain override
-        if settings.ENVIRONMENT == "development":
+        # For development, use localhost with HTTPS
+        if settings.DEBUG:
             base_url = "https://localhost:8000"
             
         return f"{base_url}/uploads/{self.filename}"
