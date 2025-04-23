@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi.responses import JSONResponse
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi import Request
 
 from app.api.v1.api import api_router
 from app.db.database import get_db
@@ -90,28 +91,20 @@ try:
         max_age=600,  # Cache preflight requests for 10 minutes
     )
 
-    # Add custom exception middleware to ensure CORS headers are sent even for error responses
+    # Add a custom middleware to ensure proper HTTPS headers
     @app.middleware("http")
-    async def add_cors_headers_to_errors(request, call_next):
-        try:
-            response = await call_next(request)
-            return response
-        except Exception as e:
-            # Log the error
-            logger.error(f"Unhandled exception: {str(e)}")
-            logger.error(traceback.format_exc())
-            
-            # Create a response with the error
-            response_content = {"detail": str(e)}
-            response = JSONResponse(status_code=500, content=response_content)
-            
-            # Add CORS headers
-            origin = request.headers.get("origin")
-            if origin in origins:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-            
-            return response
+    async def enforce_https_if_needed(request: Request, call_next):
+        # Get the original response
+        response = await call_next(request)
+        
+        # Add security headers
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        
+        # Add header to help prevent mixed content warnings
+        response.headers["Content-Security-Policy"] = "upgrade-insecure-requests"
+        
+        return response
 
     # Test database connection before initializing API routes
     @app.on_event("startup")

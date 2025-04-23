@@ -70,7 +70,8 @@ def login_access_token(
         "access_token": create_access_token(
             user.username, 
             expires_delta=access_token_expires,
-            user_id=user.id
+            user_id=user.id,
+            is_admin=user.is_admin
         ),
         "token_type": "bearer",
         "user": {

@@ -1,9 +1,12 @@
 import axios from 'axios';
 import { API_URL, ensureHttps } from '../config';
 
-// Create API instance with default config
+// Ensure API_URL is always HTTPS
+const SECURE_API_URL = ensureHttps(API_URL);
+
+// Create API instance with default config and secure base URL
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: SECURE_API_URL,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'
@@ -21,13 +24,13 @@ api.interceptors.request.use(config => {
   if (config.url) {
     // If it's an absolute URL (contains ://)
     if (config.url.includes('://')) {
-      config.url = config.url.replace(/^http:\/\//i, 'https://');
+      config.url = ensureHttps(config.url);
     }
   }
   
   // Also check baseURL if present
   if (config.baseURL && config.baseURL.includes('://')) {
-    config.baseURL = config.baseURL.replace(/^http:\/\//i, 'https://');
+    config.baseURL = ensureHttps(config.baseURL);
   }
   
   return config;
@@ -36,9 +39,21 @@ api.interceptors.request.use(config => {
 // Add debug flag to control console output
 const DEBUG = false;
 
-export const fetchEvents = async (mapId) => {
+export const fetchEvents = async (projectId) => {
   try {
-    const response = await api.get(`${API_URL}/maps/${mapId}/events`);
+    if (!projectId) {
+      console.error('Missing project ID in fetchEvents call');
+      return [];
+    }
+    
+    // Ensure we're using a proper URL format and HTTPS
+    const url = `/projects/${projectId}/events`;
+    
+    // Log for debugging
+    console.log(`Fetching events for project ${projectId} from: ${ensureHttps(api.defaults.baseURL + url)}`);
+    
+    // Use the API instance which ensures HTTPS
+    const response = await api.get(url);
     
     // Ensure each event has a created_by_user_name
     const eventsWithUserNames = response.data.map(event => {
@@ -63,7 +78,7 @@ export const fetchEvents = async (mapId) => {
     // Wait for all events to be processed
     return Promise.all(eventsWithUserNames);
   } catch (error) {
-    console.error('Error fetching events:', error);
+    console.error(`Error fetching events for project ${projectId}:`, error);
     throw error;
   }
 };
@@ -71,7 +86,8 @@ export const fetchEvents = async (mapId) => {
 // Helper function to get detailed event information including username
 export const getEventDetails = async (eventId) => {
   try {
-    const response = await api.get(`${API_URL}/events/${eventId}`);
+    // Use proper endpoint format with the api instance
+    const response = await api.get(`/events/${eventId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching event details for event ${eventId}:`, error);
@@ -89,20 +105,20 @@ export const addEvent = async (eventData) => {
       const token = localStorage.getItem('token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       
-      // Ensure URL is HTTPS
-      const url = ensureHttps(`${API_URL}/events`);
-      
-      // FormData requires different content type header
-      response = await axios.post(url, eventData, {
+      // Create a new axios instance with secure baseURL for FormData
+      const formApi = axios.create({
+        baseURL: SECURE_API_URL,
         headers: {
           ...headers,
           'Content-Type': 'multipart/form-data'
         }
       });
+      
+      // Make the request with the proper path
+      response = await formApi.post('/events', eventData);
     } else {
-      // Regular JSON data - ensure URL is HTTPS
-      const url = ensureHttps(`${API_URL}/events`);
-      response = await api.post(url, eventData);
+      // Regular JSON data - use the api instance
+      response = await api.post('/events', eventData);
     }
     
     return response.data;
@@ -115,7 +131,7 @@ export const addEvent = async (eventData) => {
 export const updateEvent = async (eventId, eventData) => {
   try {
     // Get current event data to preserve fields not in the update
-    const response = await api.get(`${API_URL}/events/${eventId}`);
+    const response = await api.get(`/events/${eventId}`);
     const currentEvent = { ...response.data };
     
     // Make a copy of the data to avoid mutating the original
@@ -128,7 +144,7 @@ export const updateEvent = async (eventId, eventData) => {
     // This completely replaces any problematic active_maps data
     data.active_maps = {}; 
     
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, data);
+    const updateResponse = await api.put(`/events/${eventId}`, data);
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId}:`, error);
@@ -138,7 +154,7 @@ export const updateEvent = async (eventId, eventData) => {
 
 export const deleteEvent = async (eventId) => {
   try {
-    const response = await api.delete(`${API_URL}/events/${eventId}`);
+    const response = await api.delete(`/events/${eventId}`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting event ${eventId}:`, error);
@@ -189,7 +205,7 @@ export const updateEventStatus = async (eventId, status, userRole) => {
     if (DEBUG) console.log(`Updating event ${eventId} status to ${status}`);
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+    const updateResponse = await api.put(`/events/${eventId}`, {
       status: status,
       is_admin_request: isAdmin
     });
@@ -220,7 +236,7 @@ export const updateEventState = async (eventId, state) => {
     }
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`${API_URL}/events/${eventId}`, {
+    const updateResponse = await api.put(`/events/${eventId}`, {
       state: state,
       is_admin_request: isAdmin
     });
@@ -283,7 +299,7 @@ export const getFilteredEvents = async (options) => {
       tags.forEach(tag => params.append('tags', tag));
     }
     
-    const response = await api.get(`${API_URL}/events/?${params.toString()}`);
+    const response = await api.get(`/events/?${params.toString()}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching filtered events:', error);

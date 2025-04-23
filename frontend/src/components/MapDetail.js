@@ -382,12 +382,40 @@ const MapDetail = ({
   
   // Function to render a single map layer
   const renderMapLayer = (currentMap, zIndex, isOverlay = false) => {
-    if (!currentMap || !currentMap.content_url) {
-      console.log("No map or content_url for:", currentMap?.id, currentMap?.name);
+    if (!currentMap) {
+      console.log("No map data provided");
       return null;
     }
     
-    const url = currentMap.content_url;
+    // Prioritize file_url (cloud storage) over content_url if available
+    let url = currentMap.file_url && currentMap.file_url.includes('storage.googleapis.com') 
+      ? currentMap.file_url 
+      : currentMap.content_url;
+      
+    // Fallback to content_url if no file_url
+    if (!url) {
+      url = currentMap.content_url;
+    }
+    
+    // If still no URL, we can't render the map
+    if (!url) {
+      console.log("No URL available for map:", currentMap?.id, currentMap?.name);
+      return null;
+    }
+    
+    // Ensure URL uses HTTPS - critical for preventing mixed content warnings
+    if (url.startsWith('http:')) {
+      const oldUrl = url;
+      url = url.replace('http:', 'https:');
+      console.warn('Converted map URL from HTTP to HTTPS:', oldUrl, '→', url);
+    }
+    
+    // For absolute URLs that don't include http/https, add https:// prefix
+    if (!url.startsWith('http') && !url.startsWith('/') && (url.includes('.') || url.includes('localhost'))) {
+      url = 'https://' + url;
+      console.warn('Added HTTPS protocol to URL:', url);
+    }
+    
     const fileExt = url.split('.').pop().toLowerCase();
     const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
     
@@ -430,7 +458,10 @@ const MapDetail = ({
                 handleImageLoad(e);
               }
             }}
-            onError={() => handleImageError()}
+            onError={(e) => {
+              console.error(`Error loading map from URL: ${url}`, e);
+              handleImageError();
+            }}
             className="consistent-pdf-view"
           />
         </div>
@@ -453,7 +484,10 @@ const MapDetail = ({
                 handleImageLoad(e);
               }
             }}
-            onError={() => handleImageError()}
+            onError={(e) => {
+              console.error(`Error loading map image from URL: ${url}`, e);
+              handleImageError();
+            }}
             className="consistent-map-image"
           />
         </div>
@@ -473,7 +507,10 @@ const MapDetail = ({
                 handleImageLoad(e);
               }
             }}
-            onError={() => handleImageError()}
+            onError={(e) => {
+              console.error(`Error loading map content from URL: ${url}`, e);
+              handleImageError();
+            }}
           />
         </div>
       );
@@ -648,7 +685,13 @@ const MapDetail = ({
   
   // Function to render map content with layers
   const renderMapContent = () => {
-    if (!implantationMap || !implantationMap.content_url) {
+    // Check if we have a valid map with URL
+    const hasValidMap = implantationMap && (
+      (implantationMap.file_url && implantationMap.file_url.includes('storage.googleapis.com')) || 
+      implantationMap.content_url
+    );
+    
+    if (!hasValidMap) {
       return <div className="no-content">No content available</div>;
     }
     
@@ -681,7 +724,7 @@ const MapDetail = ({
         
         <div 
           className="map-content-container" 
-          ref={setMapContainerRef}
+          ref={mapContainerRef}
           style={containerSize}
           onClick={(e) => {
             console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
@@ -699,317 +742,25 @@ const MapDetail = ({
               const x = (e.clientX - rect.left) / viewportScale;
               const y = (e.clientY - rect.top) / viewportScale;
               
-              console.log(`MapDetail: Calculated click position (${x.toFixed(2)}, ${y.toFixed(2)}) with scale=${viewportScale}`);
+              console.log(`MapDetail click position: x=${x}, y=${y}`);
               
-              // Calculate as percentages for consistency
-              const xPercent = (x / contentSize.width) * 100;
-              const yPercent = (y / contentSize.height) * 100;
-              
-              if (onMapClick) {
-                console.log('MapDetail: Calling parent onMapClick handler');
-                // Create enhanced map object with visible maps
-                const mapWithVisibleLayers = {
-                  ...map,
-                  visibleMaps: visibleMaps
-                };
-                onMapClick(mapWithVisibleLayers, xPercent, yPercent);
-              } else {
-                console.log('MapDetail: No onMapClick handler provided');
-              }
-            } else {
-              console.log('MapDetail: Click ignored - not in location selection mode or mapContentRef is null');
+              // Pass the click coordinates to the parent component
+              onMapClick && onMapClick(map, x, y);
             }
           }}
         >
-          <div
-            className="map-content"
-            ref={setMapContentRef}
-            style={contentStyle}
-          >
-            {/* Always render main map first */}
-            {renderMapLayer(implantationMap, 10)}
-            
-            {/* Then render overlay maps */}
-            {overlayMapObjects.map((m, index) => renderMapLayer(m, 20 + index, true))}
-            
-            {/* Render event markers within the content container */}
-            {renderEventMarkers()}
-          </div>
+          {renderMapLayer(implantationMap, 0)}
+          {overlayMapObjects.map(m => renderMapLayer(m, 1, true))}
         </div>
       </>
     );
   };
   
-  // Render event markers with proper click handling - optimized
-  const renderEventMarkers = () => {
-    if (!visibleEvents || visibleEvents.length === 0) {
-      return null;
-    }
-    
-    // Log marker rendering only when eventKey changes
-    if (eventKey !== lastEventKeyRef.current) {
-      console.log(`Rendering ${visibleEvents.length} markers with key: ${eventKey}`);
-      lastEventKeyRef.current = eventKey;
-    }
-    
-    // Use a consistent key structure for the container
-    return (
-      <div 
-        className="event-markers-container"
-        key={`marker-container-${eventKey || 'default'}`}
-      >
-        {visibleEvents.map(event => (
-          <EventMarker
-            key={`event-${event.id}`}
-            event={event}
-            x={event.x_coord}
-            y={event.y_coord}
-            viewportScale={viewportScale}
-            onClick={handleEventClick}
-          />
-        ))}
-      </div>
-    );
-  };
-  
-  // Add a useEffect to notify parent component when visibleMaps changes
-  useEffect(() => {
-    // Only notify parent if callback is provided
-    if (onVisibleMapsChanged) {
-      // Create an object with map IDs and their opacity settings
-      const mapSettings = {};
-      visibleMaps.forEach(id => {
-        mapSettings[id] = {
-          opacity: mapOpacities[id] || (id === implantationMap?.id ? 1.0 : 0.5)
-        };
-      });
-      
-      onVisibleMapsChanged(visibleMaps, mapSettings);
-    }
-    
-    // Log only when debugging is enabled
-    if (DEBUG) {
-      console.log("Visible maps changed:", visibleMaps);
-      console.log("Current visible events:", visibleEvents.length);
-    }
-  }, [visibleMaps, mapOpacities, onVisibleMapsChanged, implantationMap?.id]); // Fixed dependency array
-  
-  // Console log on mount to debug events visibility
-  useEffect(() => {
-    if (DEBUG) {
-      console.log("MapDetail mounted with events:", events.length);
-      console.log("Visible maps:", visibleMaps);
-      console.log("Visible events:", visibleEvents.length);
-    }
-    // Don't add the missing dependencies to avoid re-running on every render
-    // This effect should only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array means this runs only on mount
-  
-  // Use ref callbacks wrapped in useCallback to prevent unnecessary updates
-  const setMapContainerRef = useCallback(node => {
-    if (node !== null) {
-      mapContainerRef.current = node;
-      updateViewportScaling();
-    }
-  }, []);
-
-  const setMapContentRef = useCallback(node => {
-    if (node !== null) {
-      mapContentRef.current = node;
-      if (!initialContentSize.current && node.getBoundingClientRect) {
-        const rect = node.getBoundingClientRect();
-        initialContentSize.current = {
-          width: rect.width || 1200,
-          height: rect.height || 900
-        };
-      }
-    }
-  }, []);
-  
   return (
-    <div className={`map-detail-container ${isMobile ? 'mobile-map-detail' : ''}`}>
-      <div 
-        ref={setMapContainerRef}
-        className="map-container content-fit-view" 
-        data-map-id={map?.id}
-        data-scale={viewportScale.toFixed(3)}
-        onClick={(e) => {
-          console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
-          
-          // Skip all click handling on mobile - we handle it with touch events
-          if (isMobile) {
-            console.log('MapDetail: Ignoring click event on mobile - using touch events instead');
-            return;
-          }
-          
-          // Desktop click handling:
-          if (isSelectingLocation && mapContentRef.current) {
-            // Calculate click position relative to map content
-            const rect = mapContentRef.current.getBoundingClientRect();
-            const x = (e.clientX - rect.left) / viewportScale;
-            const y = (e.clientY - rect.top) / viewportScale;
-            
-            console.log(`MapDetail: Calculated click position (${x.toFixed(2)}, ${y.toFixed(2)}) with scale=${viewportScale}`);
-            
-            // Calculate as percentages for consistency
-            const xPercent = (x / contentSize.width) * 100;
-            const yPercent = (y / contentSize.height) * 100;
-            
-            if (onMapClick) {
-              console.log('MapDetail: Calling parent onMapClick handler');
-              // Create enhanced map object with visible maps
-              const mapWithVisibleLayers = {
-                ...map,
-                visibleMaps: visibleMaps
-              };
-              onMapClick(mapWithVisibleLayers, xPercent, yPercent);
-            } else {
-              console.log('MapDetail: No onMapClick handler provided');
-            }
-          } else {
-            console.log('MapDetail: Click ignored - not in location selection mode or mapContentRef is null');
-          }
-        }}
-      >
-        {renderMapContent()}
-        
-        {loadError && (
-          <Alert variant="danger" className="map-error-overlay">
-            Failed to load map content. Please check the file and try again.
-          </Alert>
-        )}
-        
-        {isSelectingLocation && (
-          <div className="selecting-location-overlay">
-            <div className="selecting-location-message">
-              Click on the map to place your event
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Mobile controls button - moved outside map container to make it floating */}
-      {isMobile && overlayMaps.length > 0 && (
-        <Button
-          variant="primary"
-          className="mobile-layers-toggle"
-          onClick={toggleMobileControls}
-        >
-          <i className="bi bi-layers"></i>
-        </Button>
-      )}
-      
-      {/* Mobile optimized map layers panel */}
-      {isMobile ? (
-        <div className={`mobile-overlay-controls ${showMobileControls ? 'show' : ''}`}>
-          <div className="mobile-overlay-header">
-            <h6>Map Layers</h6>
-            <Button variant="link" className="close-btn" onClick={toggleMobileControls}>
-              <i className="bi bi-x-lg"></i>
-            </Button>
-          </div>
-          <div className="mobile-overlay-body">
-            <ListGroup>
-              <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
-                <Form.Label htmlFor={`mobile-map-opacity-${implantationMap?.id}`} className="mb-0">
-                  {implantationMap?.name} (Main)
-                </Form.Label>
-                <Form.Range 
-                  id={`mobile-map-opacity-${implantationMap?.id}`}
-                  value={(mapOpacities[implantationMap?.id] || 1.0) * 100}
-                  onChange={(e) => handleOpacityChange(implantationMap?.id, parseInt(e.target.value))}
-                  min="50"
-                  max="100"
-                  style={{ width: '120px' }}
-                />
-              </ListGroup.Item>
-              
-              {overlayMaps.map(overlayMap => (
-                <ListGroup.Item 
-                  key={overlayMap.id}
-                  className="d-flex justify-content-between align-items-center"
-                  style={{ opacity: visibleMaps.includes(overlayMap.id) ? 1 : 0.5 }}
-                >
-                  <Form.Check 
-                    type="checkbox"
-                    id={`mobile-map-toggle-${overlayMap.id}`}
-                    label={overlayMap.name}
-                    checked={visibleMaps.includes(overlayMap.id)}
-                    onChange={() => toggleMapVisibility(overlayMap.id)}
-                    className="mb-0"
-                  />
-                  {visibleMaps.includes(overlayMap.id) && (
-                    <Form.Range 
-                      value={(mapOpacities[overlayMap.id] || 0.5) * 100}
-                      onChange={(e) => handleOpacityChange(overlayMap.id, parseInt(e.target.value))}
-                      min="20"
-                      max="100"
-                      style={{ width: '100px' }}
-                    />
-                  )}
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
-          </div>
-        </div>
-      ) : (
-        /* Original desktop controls */
-        <div className="map-overlay-controls mt-3">
-          <h6>Map Layers</h6>
-          {implantationMap && (
-            <ListGroup>
-              <ListGroup.Item className="d-flex justify-content-between align-items-center main-map-item">
-                <div>
-                  <Form.Check 
-                    type="checkbox"
-                    id={`map-toggle-${implantationMap.id}`}
-                    label={`${implantationMap.name} (Main)`}
-                    checked={true}
-                    className="me-2"
-                    disabled={true} // Main map cannot be toggled off
-                  />
-                </div>
-                {/* Add opacity slider for main map */}
-                <div style={{ width: '50%' }}>
-                  <Form.Range 
-                    value={(mapOpacities[implantationMap.id] || 1.0) * 100}
-                    onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
-                    min="50"
-                    max="100"
-                  />
-                </div>
-              </ListGroup.Item>
-              
-              {overlayMaps.map(overlayMap => (
-                <ListGroup.Item key={overlayMap.id} className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <Form.Check 
-                      type="checkbox"
-                      id={`map-toggle-${overlayMap.id}`}
-                      label={overlayMap.name}
-                      checked={visibleMaps.includes(overlayMap.id)}
-                      onChange={() => toggleMapVisibility(overlayMap.id)}
-                      className="me-2"
-                    />
-                  </div>
-                  <div style={{ width: '50%' }}>
-                    <Form.Range 
-                      value={(mapOpacities[overlayMap.id] || 0.5) * 100}
-                      onChange={(e) => handleOpacityChange(overlayMap.id, parseInt(e.target.value))}
-                      min="20"
-                      max="100"
-                      disabled={!visibleMaps.includes(overlayMap.id)}
-                    />
-                  </div>
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
-          )}
-        </div>
-      )}
+    <div className="map-detail">
+      {renderMapContent()}
     </div>
   );
 };
 
-export default MapDetail; 
+export default MapDetail;

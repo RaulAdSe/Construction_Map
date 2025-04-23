@@ -12,7 +12,7 @@ ALGORITHM = "HS256"
 
 
 def create_access_token(
-    subject: Union[str, Any], expires_delta: Optional[timedelta] = None, user_id: Optional[int] = None
+    subject: Union[str, Any], expires_delta: Optional[timedelta] = None, user_id: Optional[int] = None, is_admin: Optional[bool] = None
 ) -> str:
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -21,10 +21,12 @@ def create_access_token(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
     
-    # Include user ID in the token if provided
+    # Include user ID and admin status in the token if provided
     to_encode = {"exp": expire, "sub": str(subject)}
     if user_id is not None:
         to_encode["user_id"] = user_id
+    if is_admin is not None:
+        to_encode["is_admin"] = is_admin
     
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

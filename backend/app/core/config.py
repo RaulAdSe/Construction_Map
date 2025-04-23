@@ -99,7 +99,6 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Construction Map API"
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"  # Default to True for development
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")
     
     # Database
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")

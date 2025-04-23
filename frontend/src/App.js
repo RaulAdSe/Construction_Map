@@ -8,6 +8,8 @@ import { TranslationProvider } from './components/common/TranslationProvider';
 import { MobileProvider } from './components/common/MobileProvider';
 import { setLanguage } from './utils/translate';
 import { checkAuth, clearExpiredToken } from './services/authService';
+// Import API Test Utility for debugging
+import './utils/ApiTestUtil';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

@@ -18,12 +18,13 @@ import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import MobileSwitcher from '../components/common/MobileSwitcher';
 import MapEventTypeFilter from '../components/MapEventTypeFilter';
 import { useMobile } from '../components/common/MobileProvider';
-import { fetchMaps } from '../services/mapService';
+import { fetchMaps, performApiDiagnostics } from '../services/mapService';
 import { projectService } from '../services/api';
 import { fetchEvents } from '../services/eventService';
 import { isUserAdmin } from '../utils/permissions';
 import '../assets/styles/MapViewer.css';
 import translate from '../utils/translate';
+import { ensureHttps } from '../config';
 
 
 const DEBUG = false;
@@ -312,8 +313,8 @@ const MapViewer = ({ onLogout }) => {
   
   const loadProjectData = async (pid) => {
     if (DEBUG) console.log(`Loading project data for project ID: ${pid}`);
-    setLoading(true);
-    
+      setLoading(true);
+      
     try {
       // Load project details first
       const projectResponse = await projectService.getProject(pid);
@@ -322,41 +323,81 @@ const MapViewer = ({ onLogout }) => {
       if (DEBUG) console.log('Project data loaded:', projectData);
       setProject(projectData);
       
-      // Then load maps for the project
-      const mapsData = await fetchMaps(pid);
-      if (DEBUG) console.log('Maps loaded:', mapsData);
+      // Then load maps for the project with forced HTTPS
+      try {
+        const mapsData = await fetchMaps(pid);
+        if (DEBUG) console.log('Maps loaded:', mapsData);
       setMaps(mapsData);
       
-      // Find main map (implantation type)
-      const mainMap = mapsData.find(map => map.map_type === 'implantation');
+        // Find main map (implantation type)
+        const mainMap = mapsData.find(map => map.map_type === 'implantation');
       
-      // Set the selected map - prefer main map, fall back to first map, or null if none
-      const mapToSelect = mainMap || (mapsData.length > 0 ? mapsData[0] : null);
-      setSelectedMap(mapToSelect);
-      
-      // Initialize visible maps with the main map
-      if (mainMap) {
-        setVisibleMapIds([mainMap.id]);
+        // Set the selected map - prefer main map, fall back to first map, or null if none
+        const mapToSelect = mainMap || (mapsData.length > 0 ? mapsData[0] : null);
+        setSelectedMap(mapToSelect);
+        
+        // Initialize visible maps with the main map
+        if (mainMap) {
+          setVisibleMapIds([mainMap.id]);
+        }
+        
+        // Initialize map visibility settings
+        const initialSettings = {};
+        mapsData.forEach(map => {
+          initialSettings[map.id] = { 
+            visible: map.map_type === 'implantation', 
+            opacity: 100
+          };
+        });
+        setMapVisibilitySettings(initialSettings);
+      } catch (mapError) {
+        console.error('Error loading maps:', mapError);
+        if (mapError.message && mapError.message.includes('Network Error')) {
+          showNotification(translate('Error loading maps. Please check HTTPS security.'), 'danger');
+      } else {
+          showNotification(translate('Error loading maps'), 'warning');
+        }
       }
       
       // Finally load events for the project
-      const eventsData = await fetchEvents(pid);
-      if (DEBUG) console.log('Events loaded:', eventsData);
-      setEvents(eventsData);
-      
-      // Initialize map visibility settings
-      const initialSettings = {};
-      mapsData.forEach(map => {
-        initialSettings[map.id] = { 
-          visible: map.map_type === 'implantation', 
-          opacity: 100
-        };
-      });
-      setMapVisibilitySettings(initialSettings);
+      try {
+        const eventsData = await fetchEvents(pid);
+        if (DEBUG) console.log('Events loaded:', eventsData);
+        setEvents(eventsData);
+      } catch (eventError) {
+        console.error('Error loading events:', eventError);
+        showNotification(translate('Error loading events'), 'warning');
+      }
       
     } catch (error) {
       console.error('Error loading project data:', error);
-      showNotification(translate('Failed to load project data'), 'danger');
+      
+      // More detailed error reporting
+      if (error.message && error.message.includes('Network Error')) {
+        showNotification(translate('Network error. This could be a HTTPS (mixed content) security issue.'), 'danger');
+        
+        // Run diagnostics
+        console.log('Running API diagnostics to identify the issue...');
+        performApiDiagnostics().then(results => {
+          if (results.errors.length > 0) {
+            console.error('API Diagnostics found issues:', results.errors);
+            if (results.suggestions.length > 0) {
+              console.info('Suggestions to fix:', results.suggestions);
+              showNotification(translate('API connection issue: ' + results.suggestions[0]), 'warning');
+            }
+          }
+        });
+      } else if (error.response && error.response.status === 404) {
+        showNotification(translate('Maps endpoint not found. API configuration issue.'), 'danger');
+      } else if (error.response && error.response.status === 401) {
+        showNotification(translate('Session expired. Please log in again.'), 'warning');
+        // Force logout
+        setTimeout(() => {
+          if (typeof onLogout === 'function') onLogout();
+        }, 2000);
+      } else {
+        showNotification(translate('Failed to load project data. Check console for details.'), 'danger');
+      }
     } finally {
       setLoading(false);
     }
@@ -370,6 +411,9 @@ const MapViewer = ({ onLogout }) => {
         const mapsCacheKey = `maps_cache_${projectId}`;
         
         // Only fetch maps, not the entire project data
+        console.log(`Refreshing maps data for project: ${projectId} (using HTTPS)`);
+        
+        // Make sure projectId is treated as a number
         const mapsData = await fetchMaps(parseInt(projectId, 10));
         
         // Update the cache
@@ -385,7 +429,14 @@ const MapViewer = ({ onLogout }) => {
         showNotification(translate('Maps updated successfully!'), 'success');
       } catch (error) {
         console.error('Error refreshing maps:', error);
+        
+        // Check for mixed content errors
+        if (error.message && error.message.includes('Network Error')) {
+          console.error('Network error detected - possibly a mixed content issue. Check HTTPS.');
+          showNotification(translate('Network error. Please check HTTPS security.'), 'danger');
+        } else {
         showNotification(translate('Error refreshing maps data.'), 'error');
+        }
       }
     }
   };

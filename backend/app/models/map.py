@@ -16,6 +16,7 @@ class Map(Base):
     version = Column(Float, nullable=False, default=1.0)  # Add version number field
     transform_data = Column(JSON, nullable=True)  # JSON field for alignment info
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    file_url = Column(String, nullable=True)  # URL for the file, especially for cloud storage
 
     # Relationships
     project = relationship("Project", back_populates="maps")

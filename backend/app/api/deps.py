@@ -46,6 +46,12 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
+    expired_token_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token has expired. Please log in again.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
     if not token:
         raise credentials_exception
         
@@ -59,13 +65,32 @@ def get_current_user(
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
+        
+        # Check if token has is_admin claim
+        is_admin_in_token = payload.get("is_admin")
+        logger.debug(f"Token has is_admin claim: {is_admin_in_token}")
+        
     except JWTError as e:
         logger.error(f"JWT error: {str(e)}")
+        
+        # Check if it's specifically a token expiration error
+        if "expired" in str(e).lower():
+            logger.warning(f"Token expired for request: {request.url.path}")
+            raise expired_token_exception
+        
         raise credentials_exception
         
     user = db.query(User).filter(User.username == token_data.username).first()
     if user is None:
         raise credentials_exception
+        
+    # Update user admin status from token if available
+    # This ensures the admin status is consistent with what was issued in the token
+    if is_admin_in_token is not None and user.is_admin != is_admin_in_token:
+        logger.warning(f"User {user.username} has different admin status in DB vs token")
+        user.is_admin = is_admin_in_token
+        # Note: we don't commit this change to the database
+        
     return user
 
 

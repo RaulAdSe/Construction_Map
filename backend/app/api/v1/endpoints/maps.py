@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Request
 from sqlalchemy.orm import Session
+import os
 
 from app.api.deps import get_current_active_user, get_db
 from app.models.user import User
@@ -37,6 +38,19 @@ def get_maps(
     
     # Get maps
     maps = map_service.get_maps(db, project_id, skip, limit)
+    
+    # Ensure all maps have cloud storage URLs in production
+    in_cloud_run = os.getenv("K_SERVICE") is not None
+    if in_cloud_run:
+        from app.services.storage import get_file_url
+        for map_obj in maps:
+            # Only update if file_url is missing
+            if not map_obj.file_url and map_obj.filename:
+                try:
+                    map_obj.file_url = get_file_url(map_obj.filename, directory="maps")
+                except Exception as e:
+                    print(f"Error generating file_url for map {map_obj.id}: {str(e)}")
+    
     return maps
 
 
@@ -58,6 +72,28 @@ def get_map(
     project = project_service.get_project(db, map_obj.project_id)
     if not any(pu.user_id == current_user.id for pu in project.users):
         raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Ensure the map has a file_url (particularly in cloud environment)
+    in_cloud_run = os.getenv("K_SERVICE") is not None
+    if (in_cloud_run or not map_obj.file_url) and map_obj.filename:
+        try:
+            # Update the file_url
+            map_obj.file_url = map_service.get_file_url(map_obj.filename, directory="maps")
+            
+            # Ensure URL uses HTTPS
+            if map_obj.file_url and map_obj.file_url.startswith('http:'):
+                map_obj.file_url = map_obj.file_url.replace('http:', 'https:')
+                print(f"Converted map URL from HTTP to HTTPS: {map_obj.file_url}")
+            
+            # Only persist to DB if we're in cloud run to ensure URLs are saved
+            if in_cloud_run:
+                db.commit()
+        except Exception as e:
+            print(f"Error updating file_url for map {map_id}: {str(e)}")
+            # Set a default cloud storage URL if we're in cloud run and something went wrong
+            if in_cloud_run and map_obj.filename:
+                bucket_name = os.getenv("CLOUD_STORAGE_BUCKET", "servitec-map-storage")
+                map_obj.file_url = f"https://storage.googleapis.com/{bucket_name}/maps/{map_obj.filename}"
     
     return map_obj
 
@@ -214,3 +250,143 @@ def delete_map(
         raise HTTPException(status_code=500, detail="Failed to delete map")
     
     return None 
+
+
+@router.post("/update-file-urls", response_model=Dict[str, Any])
+def update_map_file_urls(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Update file_url for all maps that have NULL file_url.
+    Only admins can run this operation.
+    """
+    # Check if user is admin
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Only administrators can perform this operation")
+    
+    try:
+        # Get all maps with NULL file_url
+        maps_to_update = db.query(Map).filter(Map.file_url.is_(None)).all()
+        
+        updated_count = 0
+        not_updated_count = 0
+        
+        # Process each map
+        for map_obj in maps_to_update:
+            try:
+                if map_obj.filename:
+                    # Get the correct URL using the storage service
+                    file_url = map_service.get_file_url(map_obj.filename, directory="maps")
+                    
+                    # Ensure URL uses HTTPS
+                    if file_url and file_url.startswith('http:'):
+                        file_url = file_url.replace('http:', 'https:')
+                    
+                    map_obj.file_url = file_url
+                    updated_count += 1
+                else:
+                    not_updated_count += 1
+            except Exception as e:
+                print(f"Error updating file_url for map {map_obj.id}: {str(e)}")
+                not_updated_count += 1
+        
+        # Update ALL maps to ensure they use HTTPS (not just NULL ones)
+        maps_with_http = db.query(Map).filter(Map.file_url.like('http:%')).all()
+        http_fixed_count = 0
+        
+        for map_obj in maps_with_http:
+            if map_obj.file_url and map_obj.file_url.startswith('http:'):
+                map_obj.file_url = map_obj.file_url.replace('http:', 'https:')
+                http_fixed_count += 1
+        
+        # Commit changes
+        db.commit()
+        
+        # Log the activity
+        log_user_activity(
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update_map_urls",
+            ip_address=request.client.host if request.client else "Unknown",
+            user_type="admin",
+            details={
+                "updated_count": updated_count,
+                "not_updated_count": not_updated_count,
+                "http_fixed_count": http_fixed_count,
+                "total_processed": len(maps_to_update) + len(maps_with_http)
+            }
+        )
+        
+        return {
+            "success": True,
+            "updated_count": updated_count,
+            "not_updated_count": not_updated_count,
+            "http_fixed_count": http_fixed_count,
+            "total_processed": len(maps_to_update) + len(maps_with_http)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update map file URLs: {str(e)}"
+        )
+
+
+@router.get("/check-mixed-content", response_model=Dict[str, Any])
+def check_mixed_content(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Check for potential mixed content issues with map URLs.
+    Returns maps that have HTTP URLs which could cause mixed content warnings.
+    """
+    # Check if user is admin
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Only administrators can perform this operation")
+    
+    try:
+        # Find maps with HTTP URLs
+        http_maps = db.query(Map).filter(Map.file_url.like('http:%')).all()
+        
+        # Get a sample of maps for checking
+        sample_maps = db.query(Map).limit(5).all()
+        
+        # Check storage service configuration
+        storage_info = {
+            "cloud_storage_enabled": os.getenv("USE_CLOUD_STORAGE", "false").lower() == "true",
+            "storage_bucket": os.getenv("CLOUD_STORAGE_BUCKET", "servitec-map-storage"),
+            "in_cloud_run": os.getenv("K_SERVICE") is not None
+        }
+        
+        # Collect data about each map for diagnosis
+        map_data = []
+        for map_obj in http_maps + sample_maps:
+            # Skip duplicates
+            if any(m["id"] == map_obj.id for m in map_data):
+                continue
+                
+            # Get map details for diagnosis
+            map_data.append({
+                "id": map_obj.id,
+                "name": map_obj.name,
+                "filename": map_obj.filename,
+                "file_url": map_obj.file_url,
+                "has_http": map_obj.file_url and map_obj.file_url.startswith('http:') if map_obj.file_url else False,
+                "computed_url": map_service.get_file_url(map_obj.filename, directory="maps") if map_obj.filename else None,
+            })
+        
+        return {
+            "maps_with_http": len(http_maps),
+            "storage_config": storage_info,
+            "sample_maps": map_data,
+            "in_cloud_run": os.getenv("K_SERVICE") is not None
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check mixed content: {str(e)}"
+        ) 
