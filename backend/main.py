@@ -9,7 +9,6 @@ import time
 import sys
 import traceback
 from typing import Optional
-from datetime import datetime, timedelta
 from fastapi.responses import FileResponse
 
 # Import the necessary modules using the correct paths
@@ -29,7 +28,11 @@ try:
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://construction-map-frontend-ypzdt6srya-uc.a.run.app"],  # Only allow the specific frontend domain
+        allow_origins=[
+            "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",  # Original frontend
+            "https://construction-map-frontend-77413952899.us-central1.run.app", # New frontend domain
+            "http://localhost:3000",  # For local development
+        ],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
@@ -37,6 +40,36 @@ try:
                         "X-Total-Count", "Access-Control-Allow-Origin"],
         max_age=600,  # Cache preflight requests for 10 minutes
     )
+
+    # Add global exception handler for proper CORS headers in error responses
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        # Import here to avoid circular imports
+        from fastapi.responses import JSONResponse
+        import traceback
+        
+        # Determine status code
+        status_code = 500
+        if hasattr(exc, "status_code"):
+            status_code = exc.status_code
+        
+        # Log the detailed error
+        error_msg = f"Global exception handler caught: {str(exc)}"
+        print(error_msg)
+        print(f"Traceback: {traceback.format_exc()}")
+        
+        # Ensure we include CORS headers in the error response
+        return JSONResponse(
+            status_code=status_code,
+            content={"detail": str(exc)},
+            headers={
+                "Access-Control-Allow-Origin": "https://construction-map-frontend-77413952899.us-central1.run.app",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Expose-Headers": "*",
+            }
+        )
 
     # Add logging middleware
     @app.middleware("http")

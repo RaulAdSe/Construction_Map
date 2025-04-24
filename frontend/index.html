@@ -366,7 +366,7 @@
             mapSelector.innerHTML = '';
             
             // Get available maps
-            fetch('/api/maps')
+            fetch('/api/v1/maps')
                 .then(response => response.json())
                 .then(maps => {
                     if (maps.length === 0) {
@@ -536,7 +536,7 @@
             
             console.log('Submitting event data:', eventData);
             
-            fetch('/api/events', {
+            fetch('/api/v1/events', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

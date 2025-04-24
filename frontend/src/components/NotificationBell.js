@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, X, Trash, Mail } from 'react-feather';
 import { Badge, Button, Card, ListGroup, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import '../styles/global.css';
-
-// Define API URL constant
-const API_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1';
+import api from '../api'; // Import central API instance
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -24,12 +21,7 @@ const NotificationBell = () => {
   const fetchNotifications = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_URL}/notifications`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      const response = await api.get('notifications');
       
       if (response.data && Array.isArray(response.data.notifications)) {
         // Ensure newest notifications are at the top (should be handled by backend)
@@ -53,12 +45,7 @@ const NotificationBell = () => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await axios.get(`${API_URL}/notifications/unread-count`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      const response = await api.get('notifications/unread-count');
       
       if (typeof response.data === 'number') {
         setUnreadCount(response.data);
@@ -72,14 +59,8 @@ const NotificationBell = () => {
 
   const markAsRead = async (notificationId) => {
     try {
-      await axios.patch(`${API_URL}/notifications/${notificationId}`, {
+      await api.patch(`notifications/${notificationId}`, {
         read: true
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        withCredentials: true
       });
       
       // Update local state
@@ -98,13 +79,7 @@ const NotificationBell = () => {
 
   const markAllAsRead = async () => {
     try {
-      await axios.post(`${API_URL}/notifications/mark-all-read`, {}, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        withCredentials: true
-      });
+      await api.post('notifications/mark-all-read', {});
       
       // Update local state
       setNotifications(notifications.map(notification => ({ ...notification, read: true })));
@@ -118,12 +93,7 @@ const NotificationBell = () => {
     e.stopPropagation(); // Prevent triggering the notification click
     
     try {
-      await axios.delete(`${API_URL}/notifications/${notificationId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      await api.delete(`notifications/${notificationId}`);
       
       // Update local state
       const updatedNotifications = notifications.filter(
@@ -248,44 +218,43 @@ const NotificationBell = () => {
       const newState = !emailNotificationsEnabled;
       
       // Call API to update user preference
-      await axios.post(`${API_URL}/users/preferences/email-notifications`, 
-        { enabled: newState },
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          },
-          withCredentials: true
-        }
+      await api.post('users/preferences/email-notifications', 
+        { enabled: newState }
       );
       
-      // Update local state
       setEmailNotificationsEnabled(newState);
       
-      // Show feedback (you could use your notification system here)
-      console.log(`Email notifications ${newState ? 'enabled' : 'disabled'}`);
+      // Show success message
+      if (typeof window.showToast === 'function') {
+        window.showToast({
+          message: newState 
+            ? 'Email notifications enabled' 
+            : 'Email notifications disabled',
+          type: 'success'
+        });
+      }
     } catch (error) {
       console.error('Error updating email notification preferences:', error);
-      // Error handling - you might want to show an error message
+      // Show error message
+      if (typeof window.showToast === 'function') {
+        window.showToast({
+          message: 'Failed to update notification settings',
+          type: 'error'
+        });
+      }
     }
   };
 
   // Fetch email notification preference
   const fetchEmailPreference = async () => {
     try {
-      const response = await axios.get(`${API_URL}/users/preferences/email-notifications`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true
-      });
+      const response = await api.get('users/preferences/email-notifications');
       
-      if (response.data && response.data.hasOwnProperty('enabled')) {
-        setEmailNotificationsEnabled(response.data.enabled);
-      }
+      // Set state based on server response
+      setEmailNotificationsEnabled(response.data?.enabled === true);
     } catch (error) {
-      console.error('Error fetching email preferences:', error);
-      // Default to enabled if we can't fetch the preference
+      console.error('Error fetching email notification preferences:', error);
+      // Default to enabled if we can't fetch preference
       setEmailNotificationsEnabled(true);
     }
   };

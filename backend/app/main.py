@@ -93,18 +93,26 @@ try:
 
     # Add a custom middleware to ensure proper HTTPS headers
     @app.middleware("http")
-    async def enforce_https_if_needed(request: Request, call_next):
-        # Get the original response
-        response = await call_next(request)
-        
-        # Add security headers
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        
-        # Add header to help prevent mixed content warnings
-        response.headers["Content-Security-Policy"] = "upgrade-insecure-requests"
-        
-        return response
+    async def add_cors_headers_to_errors(request: Request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        except Exception as exc:
+            # Log the full error for debugging
+            print(f"Unhandled error: {str(exc)}")
+            print(f"Traceback: {traceback.format_exc()}")
+            
+            # Create a proper error response with CORS headers
+            return JSONResponse(
+                status_code=500,
+                content={"detail": str(exc)},
+                headers={
+                    "Access-Control-Allow-Origin": "https://construction-map-frontend-77413952899.us-central1.run.app",
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Allow-Methods": "*",
+                    "Access-Control-Allow-Headers": "*",
+                }
+            )
 
     # Test database connection before initializing API routes
     @app.on_event("startup")

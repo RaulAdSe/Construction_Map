@@ -327,7 +327,25 @@ const MapViewer = ({ onLogout }) => {
       try {
         const mapsData = await fetchMaps(pid);
         if (DEBUG) console.log('Maps loaded:', mapsData);
-      setMaps(mapsData);
+        
+        // Additional safety check - ensure all map URLs use HTTPS
+        if (mapsData && Array.isArray(mapsData)) {
+          mapsData.forEach(map => {
+            // Ensure file_url uses HTTPS
+            if (map.file_url && map.file_url.startsWith('http:')) {
+              console.warn('[MapViewer] Converting map HTTP URL to HTTPS:', map.file_url);
+              map.file_url = map.file_url.replace(/^http:/i, 'https:');
+            }
+            
+            // Ensure content_url uses HTTPS
+            if (map.content_url && map.content_url.startsWith('http:')) {
+              console.warn('[MapViewer] Converting map content HTTP URL to HTTPS:', map.content_url);
+              map.content_url = map.content_url.replace(/^http:/i, 'https:');
+            }
+          });
+        }
+        
+        setMaps(mapsData);
       
         // Find main map (implantation type)
         const mainMap = mapsData.find(map => map.map_type === 'implantation');

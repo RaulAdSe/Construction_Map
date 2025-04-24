@@ -458,7 +458,17 @@ export const projectService = {
     };
     
     return await api.delete(`/projects/${projectId}/users/${userId}`, secureConfig);
-  }
+  },
+  
+  getById: async (projectId) => {
+    try {
+      const response = await api.get(`projects/${projectId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching project with ID ${projectId}:`, error);
+      throw error;
+    }
+  },
 };
 
 // Maps services - REMOVED duplicate service, now only in mapService.js
@@ -534,4 +544,114 @@ export const eventService = {
     
     return await api.delete(`/events/${id}`, secureConfig);
   }
-}; 
+};
+
+// Ensure consistent API endpoint paths with /v1/ segment
+export const apiService = {
+  /**
+   * Makes a GET request ensuring the endpoint has correct format
+   * @param {string} endpoint - The API endpoint
+   * @param {object} options - Additional axios options
+   * @returns {Promise} - API response
+   */
+  get: (endpoint, options = {}) => {
+    const fixedEndpoint = ensureProperEndpoint(endpoint);
+    console.log(`[API Service] GET ${fixedEndpoint}`);
+    return api.get(fixedEndpoint, options);
+  },
+  
+  /**
+   * Makes a POST request ensuring the endpoint has correct format
+   * @param {string} endpoint - The API endpoint
+   * @param {object} data - Data to post
+   * @param {object} options - Additional axios options
+   * @returns {Promise} - API response
+   */
+  post: (endpoint, data, options = {}) => {
+    const fixedEndpoint = ensureProperEndpoint(endpoint);
+    console.log(`[API Service] POST ${fixedEndpoint}`);
+    return api.post(fixedEndpoint, data, options);
+  },
+  
+  /**
+   * Makes a PUT request ensuring the endpoint has correct format
+   * @param {string} endpoint - The API endpoint
+   * @param {object} data - Data to put
+   * @param {object} options - Additional axios options
+   * @returns {Promise} - API response
+   */
+  put: (endpoint, data, options = {}) => {
+    const fixedEndpoint = ensureProperEndpoint(endpoint);
+    console.log(`[API Service] PUT ${fixedEndpoint}`);
+    return api.put(fixedEndpoint, data, options);
+  },
+  
+  /**
+   * Makes a DELETE request ensuring the endpoint has correct format
+   * @param {string} endpoint - The API endpoint
+   * @param {object} options - Additional axios options
+   * @returns {Promise} - API response
+   */
+  delete: (endpoint, options = {}) => {
+    const fixedEndpoint = ensureProperEndpoint(endpoint);
+    console.log(`[API Service] DELETE ${fixedEndpoint}`);
+    return api.delete(fixedEndpoint, options);
+  }
+};
+
+/**
+ * Ensures the endpoint has the correct format with /v1/
+ * @param {string} endpoint - The API endpoint to fix
+ * @returns {string} - Properly formatted endpoint
+ */
+function ensureProperEndpoint(endpoint) {
+  if (!endpoint) return endpoint;
+  
+  // Remove any leading slashes
+  let fixedEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+  
+  // Handle absolute URLs
+  if (fixedEndpoint.includes('://')) {
+    // Extract the path portion from absolute URL
+    try {
+      const url = new URL(fixedEndpoint);
+      const path = url.pathname;
+      
+      // Check if path has /api/ but not /api/v1/
+      if (path.includes('/api/') && !path.includes('/api/v1/')) {
+        const newPath = path.replace('/api/', '/api/v1/');
+        url.pathname = newPath;
+        return url.toString();
+      }
+      
+      return fixedEndpoint;
+    } catch (e) {
+      console.error('Error parsing URL:', e);
+      return fixedEndpoint;
+    }
+  }
+  
+  // Handle endpoints with /api/ but without /v1/
+  if (fixedEndpoint.includes('/api/') && !fixedEndpoint.includes('/api/v1/')) {
+    return fixedEndpoint.replace('/api/', '/api/v1/');
+  }
+  
+  // Handle endpoints that start with api/ but not api/v1/
+  if (fixedEndpoint.startsWith('api/') && !fixedEndpoint.startsWith('api/v1/')) {
+    return fixedEndpoint.replace('api/', 'api/v1/');
+  }
+  
+  // Add api/v1/ prefix for endpoints without it that are likely API endpoints
+  const isApiEndpoint = [
+    'maps', 'projects', 'events', 'users', 'auth', 'monitoring', 
+    'notifications', 'comments'
+  ].some(segment => 
+    fixedEndpoint.startsWith(segment) || fixedEndpoint.startsWith(`/${segment}`)
+  );
+  
+  if (isApiEndpoint && !fixedEndpoint.includes('api/v1/')) {
+    fixedEndpoint = `api/v1/${fixedEndpoint}`;
+  }
+  
+  return fixedEndpoint;
+} 
