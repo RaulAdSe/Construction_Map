@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { Spinner, Alert, Form, ListGroup, Button } from 'react-bootstrap';
 import EventMarker from './EventMarker';
 import { useMobile } from './common/MobileProvider';
+import translate from '../utils/translate';
 
 const DEBUG = false; // Set to true only when debugging is needed
 
@@ -79,6 +80,11 @@ const MapDetail = ({
       contentWidth = initialContentSize.current.width;
       contentHeight = initialContentSize.current.height;
     } else {
+      // Add a safety check to confirm mapContentRef.current is still valid
+      if (!mapContentRef.current) {
+        console.warn('Map content reference became null during viewport scaling calculation');
+        return;
+      }
       const contentRect = mapContentRef.current.getBoundingClientRect();
       contentWidth = contentRect.width || 1200;
       contentHeight = contentRect.height || 900;
@@ -194,7 +200,12 @@ const MapDetail = ({
       const container = mapContainerRef.current;
       
       const handleClick = (e) => {
-        // Get the content element's bounding rect
+        // Ensure mapContentRef is not null before accessing it
+        if (!mapContentRef.current) {
+          console.warn('Map content reference is null, cannot calculate coordinates');
+          return;
+        }
+        
         const contentRect = mapContentRef.current.getBoundingClientRect();
         
         // Get click coordinates relative to the container
@@ -230,18 +241,25 @@ const MapDetail = ({
   }, [isSelectingLocation, map, onMapClick, visibleMaps, viewportScale]);
   
   const handleImageLoad = (e) => {
-    setImageLoaded(true);
-    if (DEBUG) {
-      console.log("Map image loaded, events should now be visible");
-    }
-    
-    // Store initial content size if not already set
-    if (!initialContentSize.current && mapContentRef.current) {
+    // Store initial size of loaded content for reference
+    if (mapContentRef.current) {
       const contentRect = mapContentRef.current.getBoundingClientRect();
       initialContentSize.current = {
         width: contentRect.width || 1200,
         height: (contentRect.height || 900) * 0.9425 // Apply height adjustment only once
       };
+      
+      if (DEBUG) {
+        console.log(`Image loaded with dimensions: ${contentRect.width}×${contentRect.height}`);
+      }
+    } else {
+      console.warn('Map content reference is null, cannot calculate loaded image dimensions');
+      initialContentSize.current = { width: 1200, height: 900 }; // Set default size
+    }
+    
+    setImageLoaded(true);
+    if (DEBUG) {
+      console.log("Map image loaded, events should now be visible");
     }
     
     // Trigger viewport scaling calculation after image is loaded
@@ -273,7 +291,11 @@ const MapDetail = ({
         console.log('MapDetail sample events:', sample.map(e => ({
           id: e.id,
           state: e.state,
-          title: e.title
+          title: e.title,
+          x_coordinate: e.x_coordinate,
+          y_coordinate: e.y_coordinate,
+          location_x: e.location_x,
+          location_y: e.location_y
         })));
       }
       
@@ -627,7 +649,10 @@ const MapDetail = ({
         e.preventDefault();
         e.stopPropagation();
         
-        if (!mapContentRef.current) return;
+        if (!mapContentRef.current) {
+          console.warn('Map content reference is null, cannot calculate touch coordinates');
+          return;
+        }
         
         const touch = e.changedTouches[0];
         const rect = mapContentRef.current.getBoundingClientRect();
@@ -749,16 +774,221 @@ const MapDetail = ({
             }
           }}
         >
-          {renderMapLayer(implantationMap, 0)}
-          {overlayMapObjects.map(m => renderMapLayer(m, 1, true))}
+          <div ref={mapContentRef} style={contentStyle} className="map-content">
+            {renderMapLayer(implantationMap, 0)}
+            {overlayMapObjects.map(m => renderMapLayer(m, 1, true))}
+
+            {/* Render events as markers */}
+            {imageLoaded && visibleEvents && visibleEvents.map((event) => {
+              console.log(`Rendering marker for event ${event.id}`, {
+                x_coordinate: event.x_coordinate,
+                y_coordinate: event.y_coordinate,
+                location_x: event.location_x,
+                location_y: event.location_y
+              });
+              return (
+                <EventMarker
+                  key={`event-${event.id}-${eventKey}`}
+                  event={event}
+                  x={event.x_coordinate || event.location_x}
+                  y={event.y_coordinate || event.location_y}
+                  onClick={() => handleEventClick(event)}
+                />
+              );
+            })}
+          </div>
         </div>
       </>
     );
   };
   
+  // Completely separated map layer rendering function
+  const renderMapLayers = () => {
+    if (!overlayMaps.length) return null;
+    
+    if (isMobile && !showMobileControls) {
+      // For mobile, only render the floating button when not showing controls
+      return (
+        <Button 
+          variant="primary"
+          onClick={toggleMobileControls}
+          className="toggle-layers-btn"
+          style={{
+            position: 'fixed',
+            bottom: '85px',
+            right: '20px',
+            zIndex: 1000,
+            borderRadius: '50%',
+            width: '50px',
+            height: '50px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}
+        >
+          <span>LAYERS</span>
+        </Button>
+      );
+    }
+    
+    const layerStyles = isMobile ? {
+      position: 'fixed',
+      bottom: '20px',
+      right: '20px', 
+      left: '20px',
+      zIndex: 1001,
+      boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+      maxHeight: '80vh'
+    } : {
+      position: 'relative',
+      width: '100%',
+      padding: '15px',
+      backgroundColor: '#f8f9fa',
+      border: '1px solid #dee2e6',
+      borderRadius: '5px'
+    };
+    
+    return (
+      (!isMobile || showMobileControls) && (
+        <div className="map-layers-control" style={layerStyles}>
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h5 className="m-0">{translate('Map Layers')}</h5>
+            {isMobile && (
+              <Button 
+                variant="link" 
+                className="p-0 text-secondary" 
+                onClick={toggleMobileControls}
+                aria-label="Close"
+              >
+                X
+              </Button>
+            )}
+          </div>
+          <ListGroup>
+            {/* Always show implantation map at the top */}
+            {implantationMap && (
+              <ListGroup.Item 
+                key={`layer-${implantationMap.id}`} 
+                className="d-flex justify-content-between align-items-center"
+              >
+                <div className="d-flex align-items-center">
+                  <Form.Check
+                    type="checkbox"
+                    checked={visibleMaps.includes(implantationMap.id)}
+                    disabled={true} // Can't toggle the main map
+                    label={`${implantationMap.name} (${translate('Main')})`}
+                    id={`map-layer-${implantationMap.id}`}
+                  />
+                </div>
+                <Form.Range
+                  value={mapOpacities[implantationMap.id] * 100}
+                  onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value, 10))}
+                  min={20}
+                  max={100}
+                  className="opacity-slider"
+                />
+              </ListGroup.Item>
+            )}
+            
+            {/* Then show all overlay maps */}
+            {overlayMaps.map(map => (
+              <ListGroup.Item 
+                key={`layer-${map.id}`} 
+                className="d-flex justify-content-between align-items-center"
+              >
+                <div className="d-flex align-items-center">
+                  <Form.Check
+                    type="checkbox"
+                    checked={visibleMaps.includes(map.id)}
+                    onChange={() => toggleMapVisibility(map.id)}
+                    label={map.name}
+                    id={`map-layer-${map.id}`}
+                  />
+                </div>
+                {visibleMaps.includes(map.id) && (
+                  <Form.Range
+                    value={mapOpacities[map.id] * 100}
+                    onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value, 10))}
+                    min={20}
+                    max={100}
+                    className="opacity-slider"
+                  />
+                )}
+              </ListGroup.Item>
+            ))}
+          </ListGroup>
+        </div>
+      )
+    );
+  };
+  
+  // Mobile toggle button only - keep separate for clean structure
+  const renderMobileToggleButton = () => {
+    if (!isMobile || !overlayMaps.length || showMobileControls) return null;
+    
+    return (
+      <Button 
+        variant="primary"
+        onClick={toggleMobileControls}
+        className="toggle-layers-btn"
+        style={{
+          position: 'fixed',
+          bottom: '85px',
+          right: '20px',
+          zIndex: 1000,
+          borderRadius: '50%',
+          width: '50px',
+          height: '50px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+          fontSize: '12px',
+          fontWeight: 'bold'
+        }}
+      >
+        <span>LAYERS</span>
+      </Button>
+    );
+  };
+  
   return (
-    <div className="map-detail">
-      {renderMapContent()}
+    <div className="map-detail-container" style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      minHeight: '100%',
+      paddingBottom: '200px' // Add substantial padding at the bottom
+    }}>
+      <div className="map-content-section" style={{ 
+        position: 'relative', 
+        flex: '1 0 auto',
+        marginBottom: '50px' // Add space below the map content
+      }}>
+        {renderMapContent()}
+        {isMobile && renderMobileToggleButton()}
+      </div>
+      
+      {/* Separate section for map layers in desktop view */}
+      {!isMobile && (
+        <div className="map-layers-section" style={{ 
+          marginTop: '750px', // Much larger top margin to push it down
+          marginBottom: '200px', // Larger bottom margin too
+          padding: '30px', // More padding to make it easier to see
+          border: '1px solid #eee',
+          borderRadius: '8px',
+          backgroundColor: '#f9f9f9',
+          width: '80%', // Make it a bit narrower than the full width
+          alignSelf: 'center' // Center it horizontally
+        }}>
+          {renderMapLayers()}
+        </div>
+      )}
+      
+      {/* Mobile layers are rendered with fixed positioning */}
+      {isMobile && showMobileControls && renderMapLayers()}
     </div>
   );
 };

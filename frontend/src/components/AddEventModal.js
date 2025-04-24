@@ -146,27 +146,52 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
     // Use the active map configuration from the current map view
     const activeMapSettings = visibleMaps;
     
-    // Create FormData for multipart upload (if there's an image)
-    const formData = new FormData();
-    formData.append('project_id', projectId);
-    formData.append('map_id', mapId);
-    formData.append('title', title);
-    formData.append('description', description || '');
-    formData.append('status', status);
-    formData.append('state', type);
-    formData.append('x_coordinate', position.x);
-    formData.append('y_coordinate', position.y);
-    formData.append('active_maps', JSON.stringify(activeMapSettings));
-    
-    if (selectedTags.length > 0) {
-      formData.append('tags', JSON.stringify(selectedTags));
-    }
-    
-    if (uploadFile) {
-      formData.append('image', uploadFile);
-    }
-    
     try {
+      // Create FormData for multipart upload (if there's an image)
+      const formData = new FormData();
+      
+      // Database requires 'name' field but API endpoint expects 'title'
+      // Adding both to satisfy both requirements
+      formData.append('project_id', projectId);
+      formData.append('map_id', mapId);
+      formData.append('name', title);
+      formData.append('title', title);
+      
+      // Add other fields
+      formData.append('description', description || '');
+      formData.append('status', status);
+      formData.append('state', type);
+      
+      // Database has both coordinate naming conventions - include both
+      formData.append('x_coordinate', position.x);
+      formData.append('y_coordinate', position.y);
+      formData.append('location_x', position.x);
+      formData.append('location_y', position.y);
+      
+      // Fix JSON serialization for active_maps
+      // Ensure it's always a valid JSON object, not an array
+      const activeMapObj = typeof activeMapSettings === 'object' && !Array.isArray(activeMapSettings) 
+        ? activeMapSettings 
+        : { [mapId]: { opacity: { visible: true, opacity: 100 } } };
+      formData.append('active_maps', JSON.stringify(activeMapObj));
+      
+      // Handle tags - FastAPI is expecting a specific format
+      if (selectedTags.length > 0) {
+        // Looking at the test in backend/tests/test_events.py, they send tags as a JSON string
+        // in the test case: "tags": '["test", "issue"]'
+        formData.append('tags', JSON.stringify(selectedTags));
+      }
+      
+      if (uploadFile) {
+        formData.append('image', uploadFile);
+      }
+      
+      // Debug FormData contents
+      console.log('Submitting event with data:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+      
       const newEvent = await addEvent(formData);
       onEventAdded(newEvent);
       resetForm();

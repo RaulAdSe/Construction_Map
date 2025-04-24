@@ -78,8 +78,8 @@ const ContactsTab = ({ projectId, effectiveIsAdmin }) => {
     setUpdatingField(true);
     
     try {
-      // Make API call to update user's field
-      await projectService.updateUserField(projectId, userId, editField.value);
+      // Make API call to update user's field - use the correct function name
+      await projectService.updateMemberField(projectId, userId, editField.value);
       
       // Update local state
       setMembers(members.map(member => 

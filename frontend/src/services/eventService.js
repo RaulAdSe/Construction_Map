@@ -180,19 +180,86 @@ export const addEvent = async (eventData) => {
   try {
     let response;
     
-    // Check if eventData is FormData (for multipart/form-data with file upload)
-    if (eventData instanceof FormData) {
-      // Use the central API instance but with content-type header for this request
-      response = await api.post('events', eventData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-    } else {
-      // Regular JSON data - use the api instance
-      response = await api.post('events', eventData);
+    // DIRECT FIX: Use a fully qualified HTTPS URL instead of relying on axios composition
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/`;
+    console.log(`[EventService] Using direct secure URL for adding event: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
     }
     
+    // Check if eventData is FormData (for multipart/form-data with file upload)
+    if (eventData instanceof FormData) {
+      // Ensure required fields are present for database compatibility
+      const requiredFields = ['project_id', 'map_id', 'name', 'title'];
+      for (const field of requiredFields) {
+        if (!eventData.has(field)) {
+          console.error(`[EventService] Missing required field: ${field}`);
+          throw new Error(`Missing required field: ${field}`);
+        }
+      }
+      
+      // For FastAPI Form validation, tags needs special handling
+      // Looking at backend test cases, it seems to expect a JSON string:
+      // "tags": '["test", "issue"]'
+      // Rather than trying to modify the FormData here, we ensure it's correctly
+      // formatted in the AddEventModal component
+      
+      // Explicitly log what we're sending
+      console.log('[EventService] Sending event data as FormData with fields:');
+      for (let pair of eventData.entries()) {
+        console.log(pair[0] + ': ' + (pair[0].includes('image') ? '[File data]' : pair[1]));
+      }
+      
+      // Use content-type header for multipart/form-data
+      secureConfig.headers['Content-Type'] = 'multipart/form-data';
+      response = await api.post(directSecureUrl, eventData, secureConfig);
+    } else {
+      // For regular JSON data, ensure required fields
+      const requiredFields = ['project_id', 'map_id', 'name', 'title'];
+      for (const field of requiredFields) {
+        if (!eventData[field]) {
+          // Set title = name if one exists but the other doesn't
+          if (field === 'title' && eventData.name) {
+            eventData.title = eventData.name;
+          } else if (field === 'name' && eventData.title) {
+            eventData.name = eventData.title;
+          } else {
+            console.error(`[EventService] Missing required field: ${field}`);
+            throw new Error(`Missing required field: ${field}`);
+          }
+        }
+      }
+      
+      // Ensure coordinates exist in both formats
+      if (eventData.x_coordinate && !eventData.location_x) {
+        eventData.location_x = eventData.x_coordinate;
+        eventData.location_y = eventData.y_coordinate;
+      } else if (eventData.location_x && !eventData.x_coordinate) {
+        eventData.x_coordinate = eventData.location_x;
+        eventData.y_coordinate = eventData.location_y;
+      }
+      
+      // FIX: Remove empty tags array
+      if (eventData.tags && Array.isArray(eventData.tags) && eventData.tags.length === 0) {
+        const { tags, ...dataWithoutEmptyTags } = eventData;
+        eventData = dataWithoutEmptyTags;
+      }
+      
+      console.log('[EventService] Sending event data as JSON:', eventData);
+      response = await api.post(directSecureUrl, eventData, secureConfig);
+    }
+    
+    console.log('[EventService] Event created successfully:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error adding event:', error);
@@ -202,8 +269,25 @@ export const addEvent = async (eventData) => {
 
 export const updateEvent = async (eventId, eventData) => {
   try {
+    // DIRECT FIX: Use fully qualified HTTPS URLs instead of relying on axios composition
+    const getUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}`;
+    console.log(`[EventService] Using direct secure URL for getting event: ${getUrl}`);
+    
+    // Create a secure config for the GET request
+    const getConfig = {
+      url: getUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      getConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    
     // Get current event data to preserve fields not in the update
-    const response = await api.get(`events/${eventId}`);
+    const response = await api.get(getUrl, getConfig);
     const currentEvent = { ...response.data };
     
     // Make a copy of the data to avoid mutating the original
@@ -216,7 +300,22 @@ export const updateEvent = async (eventId, eventData) => {
     // This completely replaces any problematic active_maps data
     data.active_maps = {}; 
     
-    const updateResponse = await api.put(`events/${eventId}`, data);
+    // Create the PUT URL and config
+    const putUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}`;
+    console.log(`[EventService] Using direct secure URL for updating event: ${putUrl}`);
+    
+    const putConfig = {
+      url: putUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token to PUT request too
+    if (token) {
+      putConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    const updateResponse = await api.put(putUrl, data, putConfig);
     return updateResponse.data;
   } catch (error) {
     console.error(`Error updating event ${eventId}:`, error);
@@ -226,7 +325,24 @@ export const updateEvent = async (eventId, eventData) => {
 
 export const deleteEvent = async (eventId) => {
   try {
-    const response = await api.delete(`events/${eventId}`);
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const deleteUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}`;
+    console.log(`[EventService] Using direct secure URL for deleting event: ${deleteUrl}`);
+    
+    // Create a secure config with the direct URL
+    const deleteConfig = {
+      url: deleteUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      deleteConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    const response = await api.delete(deleteUrl, deleteConfig);
     return response.data;
   } catch (error) {
     console.error(`Error deleting event ${eventId}:`, error);
@@ -236,8 +352,24 @@ export const deleteEvent = async (eventId) => {
 
 export const updateEventStatus = async (eventId, status, userRole) => {
   try {
-    // Get the current JWT token to check the username
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}`;
+    console.log(`[EventService] Using direct secure URL for updating event status: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
     const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Get the current JWT token to check the username
     let isAdmin = false;
     
     // First check if we have a user object in localStorage
@@ -277,10 +409,10 @@ export const updateEventStatus = async (eventId, status, userRole) => {
     if (DEBUG) console.log(`Updating event ${eventId} status to ${status}`);
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`events/${eventId}`, {
+    const updateResponse = await api.put(directSecureUrl, {
       status: status,
       is_admin_request: isAdmin
-    });
+    }, secureConfig);
     
     return updateResponse.data;
   } catch (error) {
@@ -291,6 +423,23 @@ export const updateEventStatus = async (eventId, status, userRole) => {
 
 export const updateEventState = async (eventId, state) => {
   try {
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}`;
+    console.log(`[EventService] Using direct secure URL for updating event state: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    
     if (DEBUG) console.log(`Updating event ${eventId} state to ${state}`);
     
     // Get admin status
@@ -308,10 +457,10 @@ export const updateEventState = async (eventId, state) => {
     }
     
     // Match the expected format for EventUpdate
-    const updateResponse = await api.put(`events/${eventId}`, {
+    const updateResponse = await api.put(directSecureUrl, {
       state: state,
       is_admin_request: isAdmin
-    });
+    }, secureConfig);
     
     return updateResponse.data;
   } catch (error) {
@@ -371,8 +520,25 @@ export const getFilteredEvents = async (options) => {
       tags.forEach(tag => params.append('tags', tag));
     }
     
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/?${params.toString()}`;
+    console.log(`[EventService] Using direct secure URL for filtered events: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
+    }
+    
     // Use the events endpoint with query parameters
-    const response = await api.get(`events?${params.toString()}`);
+    const response = await api.get(directSecureUrl, secureConfig);
     return response.data;
   } catch (error) {
     console.error('Error fetching filtered events:', error);
@@ -387,14 +553,28 @@ export const fetchEventComments = async (eventId) => {
       return [];
     }
     
-    // Use the correct endpoint pattern for event comments as per the API docs
-    const url = `events/${eventId}/comments`;
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}/comments`;
+    console.log(`[EventService] Using direct secure URL for fetching comments: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
+    }
     
     // Log for debugging
     console.log(`Fetching comments for event ${eventId}`);
     
     // Use the centralized API instance
-    const response = await api.get(url);
+    const response = await api.get(directSecureUrl, secureConfig);
     
     return response.data;
   } catch (error) {
@@ -411,11 +591,25 @@ export const fetchEventComments = async (eventId) => {
  */
 export const addEventComment = async (eventId, commentData) => {
   try {
-    // Use the correct endpoint pattern for adding event comments
-    const url = `events/${eventId}/comments`;
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}/comments`;
+    console.log(`[EventService] Using direct secure URL for adding comment: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
+    }
     
     // Use the centralized API instance
-    const response = await api.post(url, commentData);
+    const response = await api.post(directSecureUrl, commentData, secureConfig);
     
     return response.data;
   } catch (error) {
@@ -433,11 +627,25 @@ export const addEventComment = async (eventId, commentData) => {
  */
 export const updateEventComment = async (eventId, commentId, updateData) => {
   try {
-    // Use the correct endpoint pattern for updating event comments
-    const url = `events/${eventId}/comments/${commentId}`;
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}/comments/${commentId}`;
+    console.log(`[EventService] Using direct secure URL for updating comment: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
+    }
     
     // Use the centralized API instance with PUT method
-    const response = await api.put(url, updateData);
+    const response = await api.put(directSecureUrl, updateData, secureConfig);
     
     return response.data;
   } catch (error) {
@@ -454,11 +662,25 @@ export const updateEventComment = async (eventId, commentId, updateData) => {
  */
 export const deleteEventComment = async (eventId, commentId) => {
   try {
-    // Use the correct endpoint pattern for deleting event comments
-    const url = `events/${eventId}/comments/${commentId}`;
+    // DIRECT FIX: Use a fully qualified HTTPS URL
+    const directSecureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}/comments/${commentId}`;
+    console.log(`[EventService] Using direct secure URL for deleting comment: ${directSecureUrl}`);
+    
+    // Create a secure config with the direct URL
+    const secureConfig = {
+      url: directSecureUrl,
+      baseURL: '', // Remove baseURL to prevent axios from combining it with the URL
+      headers: {}
+    };
+    
+    // Add token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      secureConfig.headers.Authorization = `Bearer ${token}`;
+    }
     
     // Use the centralized API instance with DELETE method
-    const response = await api.delete(url);
+    const response = await api.delete(directSecureUrl, secureConfig);
     
     return response.data;
   } catch (error) {
