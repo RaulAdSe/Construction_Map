@@ -61,7 +61,8 @@ const EventMarker = ({
   y, // Accept y coordinate directly
   viewportScale = 1, // Accept viewport scale
   isMobile = false, 
-  disabled = false 
+  disabled = false,
+  style = {}  // Accept additional styles
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isTouched, setIsTouched] = useState(false);
@@ -181,10 +182,11 @@ const EventMarker = ({
     boxShadow: (isHovered || isTouched) 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
       : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`,
-    zIndex: 1000, // Higher than map layers but lower than UI panels
+    zIndex: 100, // Lower z-index so panels can appear above
     pointerEvents: 'auto', // Crucial - ensure marker receives events even if parent has pointer-events: none
     display: 'block', // Ensure marker is visible
-    visibility: 'visible' // Force visibility
+    visibility: 'visible', // Force visibility
+    ...style // Apply any additional styles passed as props
   };
 
   // Log event marker details for debugging

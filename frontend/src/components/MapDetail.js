@@ -802,9 +802,7 @@ const MapDetail = ({
               width: '100%',
               height: '100%',
               zIndex: 2000,
-              pointerEvents: 'none',
-              border: '1px solid red', // Debug border to see container
-              backgroundColor: 'rgba(255,255,255,0.1)' // Slight background to see container
+              pointerEvents: 'none'
             }} className="event-markers-container">
               <div className="debug-marker-info" style={{
                 position: 'absolute',
@@ -815,7 +813,8 @@ const MapDetail = ({
                 padding: '5px',
                 borderRadius: '5px',
                 fontSize: '10px',
-                zIndex: 3000
+                zIndex: 3000,
+                display: 'none'
               }}>
                 Map size: {contentSize.width}x{contentSize.height} | Scale: {viewportScale.toFixed(2)}
               </div>
@@ -868,7 +867,7 @@ const MapDetail = ({
                   return null;
                 }
                 
-                // Debug marker - a simpler visible element to confirm positioning
+                // Smaller, simpler debug marker - a simpler visible element to confirm positioning
                 const debugMarker = (
                   <div
                     key={`debug-marker-${event.id}`}
@@ -876,15 +875,17 @@ const MapDetail = ({
                       position: 'absolute',
                       left: `${xCoord}%`,
                       top: `${yCoord}%`,
-                      width: '20px',
-                      height: '20px',
-                      backgroundColor: 'red',
+                      width: '10px',
+                      height: '10px',
+                      backgroundColor: isIncidence(event) ? '#FF0000' : 
+                                      isCheck(event) ? '#3399FF' : 
+                                      isRequest(event) ? '#9966CC' : '#FF9900',
                       borderRadius: '50%',
                       transform: 'translate(-50%, -50%)',
                       zIndex: 2500,
                       pointerEvents: 'auto',
                       cursor: 'pointer',
-                      border: '2px solid white'
+                      border: 'none'
                     }}
                     onClick={() => handleEventClick(event)}
                   >
@@ -893,10 +894,10 @@ const MapDetail = ({
                 
                 return (
                   <>
-                    {/* The debug marker */}
+                    {/* The debug marker - now our primary marker */}
                     {debugMarker}
                     
-                    {/* The regular EventMarker component */}
+                    {/* The regular EventMarker component - now hidden */}
                     <EventMarker
                       key={`event-${event.id}-${eventKey}`}
                       event={event}
@@ -905,6 +906,8 @@ const MapDetail = ({
                       viewportScale={viewportScale}
                       isMobile={isMobile}
                       onClick={() => handleEventClick(event)}
+                      disabled={true}
+                      style={{display: 'none'}}
                     />
                   </>
                 );
