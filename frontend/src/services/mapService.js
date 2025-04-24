@@ -103,13 +103,15 @@ export const fetchMaps = async (projectId) => {
 /**
  * Upload a new map to a project
  * @param {string|number} projectId - ID of the project to add the map to
+ * @param {string} name - Name of the map
  * @param {File} file - The map file to upload
- * @param {Object} metadata - Additional map metadata
+ * @param {string} mapType - Type of map (implantation or overlay)
+ * @param {Object} [additionalMetadata] - Any additional metadata for the map
  * @returns {Promise<Object>} - Promise resolving to the newly created map
  */
-export const addMap = async (projectId, file, metadata) => {
-  if (!projectId || !file) {
-    throw new Error('Project ID and file are required');
+export const addMap = async (projectId, name, file, mapType, additionalMetadata = {}) => {
+  if (!projectId || !file || !name) {
+    throw new Error('Project ID, name and file are required');
   }
   
   try {
@@ -119,13 +121,16 @@ export const addMap = async (projectId, file, metadata) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('project_id', projectId);
+    formData.append('name', name);
+    formData.append('map_type', mapType || 'overlay');
     
-    // Add metadata fields if provided
-    if (metadata) {
-      if (metadata.name) formData.append('name', metadata.name);
-      if (metadata.description) formData.append('description', metadata.description);
-      if (metadata.map_type) formData.append('map_type', metadata.map_type);
-      if (metadata.transform_data) formData.append('transform_data', JSON.stringify(metadata.transform_data));
+    // Add any additional metadata
+    if (additionalMetadata.description) {
+      formData.append('description', additionalMetadata.description);
+    }
+    
+    if (additionalMetadata.transform_data) {
+      formData.append('transform_data', JSON.stringify(additionalMetadata.transform_data));
     }
     
     // Use simple endpoint and let interceptor standardize it
@@ -154,6 +159,39 @@ export const addMap = async (projectId, file, metadata) => {
         throw new Error('You do not have permission to add maps to this project.');
       } else if (status === 413) {
         throw new Error('The map file is too large. Please try a smaller file.');
+      } else if (status === 422) {
+        // Handle validation errors from FastAPI
+        const errorDetail = error.response.data.detail;
+        console.log('Validation error details:', errorDetail);
+        
+        if (Array.isArray(errorDetail)) {
+          // Extract meaningful error messages from FastAPI validation errors
+          const errorMsgs = errorDetail.map(err => {
+            // Get field name (last item in loc array)
+            const field = err.loc[err.loc.length - 1];
+            
+            // Map common errors to user-friendly messages
+            if (err.type === 'value_error.missing') {
+              return `The ${field} field is required`;
+            }
+            
+            if (err.type === 'type_error.none.not_allowed') {
+              return `The ${field} field cannot be empty`;
+            }
+            
+            // Return the original message if no mapping exists
+            return `${field}: ${err.msg}`;
+          });
+          
+          throw new Error(`Please check your map data: ${errorMsgs.join(', ')}`);
+        } else {
+          // For non-array errors, try to extract a meaningful message
+          const errorMsg = typeof errorDetail === 'string' 
+            ? errorDetail
+            : JSON.stringify(errorDetail);
+            
+          throw new Error(`Server validation error: ${errorMsg}`);
+        }
       } else {
         throw new Error(`Server error (${status}): ${error.response.data.detail || 'Unknown error'}`);
       }

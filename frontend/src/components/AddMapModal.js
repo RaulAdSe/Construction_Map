@@ -39,7 +39,8 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
         projectId, 
         mapName, 
         mapFile, 
-        mapType
+        mapType,
+        { description: mapDescription }
       );
       
       onMapAdded(newMap);
@@ -47,12 +48,8 @@ const AddMapModal = ({ show, onHide, onMapAdded, projectId }) => {
       onHide();
     } catch (error) {
       console.error('Error adding map:', error);
-      // Check if we have a more specific error message from the server
-      if (error.response && error.response.data && error.response.data.detail) {
-        setError(translate(error.response.data.detail));
-      } else {
-        setError(translate('Failed to add map. Please try again.'));
-      }
+      // Display the error message from the server or a user-friendly one
+      setError(error.message || translate('Failed to add map. Please try again.'));
     } finally {
       setLoading(false);
     }

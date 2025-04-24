@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { API_URL, API_PATH, ensureHttps, isDevelopment } from './config';
 
+// Debug flag - enable for development, disable for production
+const DEBUG = isDevelopment || false;
+
 // Always use secure connections
 const SECURE_API_URL = ensureHttps(API_URL) + API_PATH;
 console.log('API using base URL:', SECURE_API_URL);
