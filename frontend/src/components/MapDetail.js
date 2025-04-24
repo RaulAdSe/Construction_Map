@@ -780,18 +780,35 @@ const MapDetail = ({
 
             {/* Render events as markers */}
             {imageLoaded && visibleEvents && visibleEvents.map((event) => {
+              // Extract numeric coordinates, ensure they're numbers
+              const xCoord = parseFloat(event.x_coordinate || event.location_x);
+              const yCoord = parseFloat(event.y_coordinate || event.location_y);
+              
               console.log(`Rendering marker for event ${event.id}`, {
-                x_coordinate: event.x_coordinate,
-                y_coordinate: event.y_coordinate,
-                location_x: event.location_x,
-                location_y: event.location_y
+                id: event.id,
+                title: event.title || event.name,
+                x: xCoord,
+                y: yCoord,
+                raw_x: event.x_coordinate,
+                raw_y: event.y_coordinate,
+                raw_location_x: event.location_x,
+                raw_location_y: event.location_y
               });
+              
+              // Skip rendering if coordinates are not valid numbers
+              if (isNaN(xCoord) || isNaN(yCoord)) {
+                console.warn(`Invalid coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
+                return null;
+              }
+              
               return (
                 <EventMarker
                   key={`event-${event.id}-${eventKey}`}
                   event={event}
-                  x={event.x_coordinate || event.location_x}
-                  y={event.y_coordinate || event.location_y}
+                  x={xCoord}
+                  y={yCoord}
+                  viewportScale={viewportScale}
+                  isMobile={isMobile}
                   onClick={() => handleEventClick(event)}
                 />
               );

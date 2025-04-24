@@ -180,8 +180,12 @@ const EventMarker = ({
     transform: `translate(-50%, -50%) scale(${isHovered || isTouched ? viewportScale * 1.15 : viewportScale})`,
     boxShadow: (isHovered || isTouched) 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
-      : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`
+      : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`,
+    zIndex: 9999 // Ensure markers are above all other elements
   };
+
+  // Log event marker details for debugging
+  console.log(`EventMarker: Rendering marker for event ${event.id} at position (${xCoord}%, ${yCoord}%)`);
 
   // Get type badge
   const getTypeBadge = () => {
