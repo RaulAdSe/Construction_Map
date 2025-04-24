@@ -1,10 +1,14 @@
 // Global configuration settings
 // Force HTTPS for all backend connections
 let apiUrl = window.location.hostname === 'localhost'
-  ? '/api/v1' // Use relative URL for local development
-  : process.env.REACT_APP_API_URL || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1'; // Force HTTPS in production
+  ? '' // Use relative URL for local development
+  : process.env.REACT_APP_API_URL || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app'; // Force HTTPS in production
 
 console.debug('[Config] Initial API URL:', apiUrl);
+
+// Set development environment flag
+export const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
+console.debug('[Config] Running in development mode:', isDevelopment);
 
 // Always ensure HTTPS is used, even if somehow HTTP appears in config
 if (apiUrl.startsWith('http:')) {
@@ -16,20 +20,33 @@ if (apiUrl.startsWith('http:')) {
 export const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
 console.debug('[Config] Running in HTTPS mode:', isHttps);
 
-// Validate URL structure
-if (apiUrl.includes('://')) {
-  // For absolute URLs, ensure they end with /api/v1
-  if (!apiUrl.endsWith('/api/v1')) {
-    if (apiUrl.includes('/api/v1')) {
-      // Contains but doesn't end with /api/v1, which may cause path issues
-      console.warn('[Config] API URL contains but does not end with /api/v1:', apiUrl);
-    } else {
-      // Add /api/v1 to the end of the URL
-      console.warn('[Config] API URL missing /api/v1 path, adding it:', apiUrl);
-      apiUrl = apiUrl.endsWith('/') ? `${apiUrl}api/v1` : `${apiUrl}/api/v1`;
-    }
+// Remove '/api/v1' from the base URL if it's there
+// We'll add it separately as API_PATH
+if (apiUrl.endsWith('/api/v1')) {
+  console.warn('[Config] Removing /api/v1 from base URL as it will be added separately');
+  apiUrl = apiUrl.substring(0, apiUrl.length - 7); // Remove '/api/v1'
+} else if (apiUrl.includes('/api/v1/')) {
+  console.warn('[Config] URL contains /api/v1/ with trailing path, normalizing');
+  const pattern = /^(.*?)\/api\/v1\/.*$/;
+  const match = apiUrl.match(pattern);
+  if (match) {
+    apiUrl = match[1]; // Take everything before /api/v1/
+    console.log('[Config] Base URL normalized to:', apiUrl);
   }
 }
+
+// Ensure localhost URLs have the correct format
+if (window.location.hostname === 'localhost') {
+  // For frontend on localhost, ensure absolute API URL if it's not a relative URL
+  if (!apiUrl.startsWith('/') && apiUrl !== '') {
+    console.log('[Config] Using absolute API URL for localhost frontend:', apiUrl);
+  }
+}
+
+// Update for new frontend domain
+export const FRONTEND_URL = isHttps
+  ? 'https://construction-map-frontend-77413952899.us-central1.run.app'
+  : window.location.origin;
 
 // Helper function to ensure HTTPS is always used
 export const ensureHttps = (url) => {
@@ -37,22 +54,23 @@ export const ensureHttps = (url) => {
   
   // Return unchanged if it's a relative URL
   if (url.startsWith('/')) {
-    console.debug('[Config] Keeping relative URL unchanged:', url);
     return url;
   }
   
   // Force HTTPS for all absolute URLs - always convert to HTTPS
   if (url.startsWith('http:')) {
-    console.warn('[Config] HTTP URL encountered and converted to HTTPS:', url);
-    return url.replace(/^http:\/\//i, 'https://');
+    const secureUrl = url.replace(/^http:/i, 'https:');
+    console.warn('[Config] HTTP URL converted to HTTPS:', url, '->', secureUrl);
+    return secureUrl;
   }
   
   // If URL doesn't start with http: or https:, and looks like a domain, add https://
   if (!url.startsWith('https://')) {
     // Only add https:// if it's not a relative URL and contains a domain
     if (url.includes('.') || url.includes('localhost') || url.includes('storage.googleapis.com')) {
-      console.debug('[Config] Adding HTTPS protocol to URL:', url);
-      return `https://${url}`;
+      const secureUrl = `https://${url}`;
+      console.warn('[Config] Added HTTPS protocol to URL:', url, '->', secureUrl);
+      return secureUrl;
     }
   }
   
@@ -75,10 +93,18 @@ export const isMixedContentUrl = (url) => {
 // For safety, let's specifically set the backend URL to HTTPS
 export const BACKEND_URL = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app';
 
-// Export the API URL (with explicit check for HTTPS)
+// Export the base URL without /api/v1 (with explicit check for HTTPS)
 export const API_URL = ensureHttps(apiUrl);
 
-console.debug('[Config] Final API_URL:', API_URL);
+// Export the API path for consistent usage across the application
+export const API_PATH = '/api/v1';
+
+// Full API URL is the combination of base URL and path
+export const FULL_API_URL = API_URL + API_PATH;
+
+console.debug('[Config] Final API_URL (base):', API_URL);
+console.debug('[Config] API_PATH:', API_PATH);
+console.debug('[Config] FULL_API_URL:', FULL_API_URL);
 
 // Add a global fetch interceptor to enforce HTTPS on all requests
 if (typeof window !== 'undefined' && window.fetch) {
@@ -94,17 +120,54 @@ if (typeof window !== 'undefined' && window.fetch) {
       const originalUrl = url;
       url = ensureHttps(url);
       
+      // Fix API endpoint paths
+      if (url.includes('construction-map-backend') && !url.includes('/api/v1/')) {
+        // If URL points to backend but doesn't have /api/v1/
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
+        
+        // Check if we need to add /api/v1
+        if (!path.startsWith('/api/v1/') && 
+            (path.startsWith('/maps') || 
+             path.startsWith('/projects') || 
+             path.startsWith('/events') || 
+             path.startsWith('/auth'))) {
+          
+          const newUrl = url.replace(path, '/api/v1' + path);
+          console.warn('[Fetch Interceptor] Adding missing /api/v1 path:', url, '->', newUrl);
+          url = newUrl;
+        }
+      }
+      
       if (originalUrl !== url) {
-        console.warn('[Fetch Interceptor] Converted URL from HTTP to HTTPS:', originalUrl, '->', url);
+        console.warn('[Fetch Interceptor] Modified URL:', originalUrl, '->', url);
       }
     } 
     // If URL is a Request object with an http: URL
     else if (url instanceof Request) {
       const originalUrl = url.url;
-      const secureUrl = ensureHttps(url.url);
+      let secureUrl = ensureHttps(url.url);
+      
+      // Fix API endpoint paths
+      if (secureUrl.includes('construction-map-backend') && !secureUrl.includes('/api/v1/')) {
+        // If URL points to backend but doesn't have /api/v1/
+        const urlObj = new URL(secureUrl);
+        const path = urlObj.pathname;
+        
+        // Check if we need to add /api/v1
+        if (!path.startsWith('/api/v1/') && 
+            (path.startsWith('/maps') || 
+             path.startsWith('/projects') || 
+             path.startsWith('/events') || 
+             path.startsWith('/auth'))) {
+          
+          secureUrl = secureUrl.replace(path, '/api/v1' + path);
+          console.warn('[Fetch Interceptor] Adding missing /api/v1 path to Request:', url.url, '->', secureUrl);
+        }
+      }
       
       if (secureUrl !== url.url) {
-        console.warn('[Fetch Interceptor] Converted Request URL from HTTP to HTTPS:', originalUrl, '->', secureUrl);
+        console.warn('[Fetch Interceptor] Modified Request URL:', originalUrl, '->', secureUrl);
         // Create a new Request with the secure URL
         url = new Request(secureUrl, url);
       }
@@ -128,8 +191,31 @@ if (typeof window !== 'undefined' && window.XMLHttpRequest) {
       const originalUrl = url;
       url = ensureHttps(url);
       
+      // Fix API endpoint paths
+      if (url.includes('construction-map-backend') && !url.includes('/api/v1/')) {
+        // If URL points to backend but doesn't have /api/v1/
+        try {
+          const urlObj = new URL(url);
+          const path = urlObj.pathname;
+          
+          // Check if we need to add /api/v1
+          if (!path.startsWith('/api/v1/') && 
+              (path.startsWith('/maps') || 
+               path.startsWith('/projects') || 
+               path.startsWith('/events') || 
+               path.startsWith('/auth'))) {
+            
+            const newUrl = url.replace(path, '/api/v1' + path);
+            console.warn('[XHR Interceptor] Adding missing /api/v1 path:', url, '->', newUrl);
+            url = newUrl;
+          }
+        } catch (e) {
+          console.error('[XHR Interceptor] Error processing URL:', e);
+        }
+      }
+      
       if (originalUrl !== url) {
-        console.warn('[XHR Interceptor] Converted URL from HTTP to HTTPS:', originalUrl, '->', url);
+        console.warn('[XHR Interceptor] Modified URL:', originalUrl, '->', url);
       }
     }
     

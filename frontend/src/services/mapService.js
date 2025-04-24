@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_URL, ensureHttps } from '../config';
-import api from './api'; // Import the centralized API instance
+import api from '../api'; // Import the centralized API instance from the correct path
 
 // For debugging only
 console.info('Using secure API URL:', ensureHttps(API_URL));
@@ -19,6 +19,14 @@ const formatEndpoint = (endpoint) => {
   }
   return endpoint;
 };
+
+// Export the secure API domain and path for consistent usage
+export const SECURE_API_DOMAIN = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app';
+export const SECURE_API_PATH = '/api/v1';
+export const SECURE_API_URL = `${SECURE_API_DOMAIN}${SECURE_API_PATH}`;
+
+// For debugging only
+console.info('[MapService] Using secure API URL:', SECURE_API_URL);
 
 // Project functions
 export const fetchProjects = async () => {
@@ -72,53 +80,22 @@ export const fetchProjectById = async (projectId) => {
  * @returns {Promise<Array>} - Promise resolving to an array of map objects
  */
 export const fetchMaps = async (projectId) => {
-  if (!projectId) {
-    console.error('[MapService Error] Project ID is required');
-    return [];
-  }
-  
   try {
-    console.debug(`[MapService Debug] Fetching maps for project ${projectId}`);
+    console.log('[MapService] Using direct secure URL:', `${SECURE_API_URL}/maps/?project_id=${projectId}`);
+    const response = await api.get(`/maps/?project_id=${projectId}`);
     
-    // According to the FastAPI docs, the correct endpoint is:
-    // GET /api/v1/maps/ with project_id as a query parameter
-    const response = await api.get('maps', {
-      params: { project_id: projectId }
+    // Process maps and convert URLs to https
+    return response.data.map(map => {
+      if (map.file_url && map.file_url.startsWith('http:')) {
+        map.file_url = map.file_url.replace('http:', 'https:');
+      }
+      return map;
     });
-    
-    console.log(`[MapService] Successfully fetched ${response.data?.length || 0} maps for project ${projectId}`);
-    
-    // Ensure all file_urls use HTTPS
-    if (response.data && Array.isArray(response.data)) {
-      response.data.forEach(map => {
-        if (map.file_url) {
-          if (map.file_url.startsWith('http:')) {
-            console.warn('[MapService] Converting HTTP URL to HTTPS:', map.file_url);
-            map.file_url = map.file_url.replace(/^http:/i, 'https:');
-          }
-        }
-        if (map.content_url) {
-          if (map.content_url.startsWith('http:')) {
-            console.warn('[MapService] Converting content_url HTTP to HTTPS');
-            map.content_url = map.content_url.replace(/^http:/i, 'https:');
-          }
-        }
-      });
-    }
-    
-    return response.data;
   } catch (error) {
     console.error(`[MapService Error] Failed to fetch maps for project ${projectId}:`, error);
     
-    // If unauthorized, redirect to login
-    if (error.response && error.response.status === 401) {
-      console.warn('[MapService] Token expired while fetching maps. Redirecting to login...');
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-      throw new Error('Session expired. Please log in again.');
-    }
-    
-    // Fallback to empty array after logging the error
+    // TEMPORARY FIX: Return empty array instead of throwing error to prevent app crash
+    console.warn("[MapService] Returning empty array due to backend error. Please check server logs.");
     return [];
   }
 };
@@ -151,8 +128,7 @@ export const addMap = async (projectId, file, metadata) => {
       if (metadata.transform_data) formData.append('transform_data', JSON.stringify(metadata.transform_data));
     }
     
-    // According to FastAPI docs, the correct endpoint is:
-    // POST /api/v1/maps/
+    // Use simple endpoint and let interceptor standardize it
     const response = await api.post('maps', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -197,6 +173,8 @@ export const addMap = async (projectId, file, metadata) => {
 export const getMapById = async (mapId) => {
   try {
     console.debug(`[MapService Debug] Fetching map ${mapId}`);
+    
+    // Use simpler path structure - let the interceptor standardize it
     const response = await api.get(`maps/${mapId}`);
     
     // Ensure file_url is HTTPS
@@ -239,7 +217,10 @@ export const getMapById = async (mapId) => {
 export const deleteMap = async (mapId) => {
   try {
     console.debug(`[MapService Debug] Deleting map ${mapId}`);
+    
+    // Use simple path format - interceptor will standardize it
     const response = await api.delete(`maps/${mapId}`);
+    
     return response.data;
   } catch (error) {
     console.error(`[MapService Error] Failed to delete map with ID ${mapId}:`, error);
@@ -276,7 +257,10 @@ export const deleteMap = async (mapId) => {
 export const updateMap = async (mapId, updateData) => {
   try {
     console.debug(`[MapService Debug] Updating map ${mapId}`);
-    const response = await api.patch(`maps/${mapId}`, updateData);
+    
+    // Use simple path format - interceptor will standardize it
+    const response = await api.put(`maps/${mapId}`, updateData);
+    
     return response.data;
   } catch (error) {
     console.error(`[MapService Error] Failed to update map with ID ${mapId}:`, error);
@@ -309,6 +293,7 @@ export const updateMap = async (mapId, updateData) => {
 export const createMap = async (formData) => {
   try {
     console.debug('[MapService Debug] Creating map with formData');
+    // Use simple path and let interceptor handle standardization
     const response = await api.post('maps', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -346,7 +331,12 @@ export const createMap = async (formData) => {
 export const getMapPreview = async (mapId) => {
   try {
     console.debug(`[MapService Debug] Fetching preview for map ${mapId}`);
+    
+    // Use the correct endpoint pattern from documentation
     const response = await api.get(`maps/${mapId}/preview`);
+    
+    // For debugging in case of issues
+    console.log(`[MapService] Map preview request URL: ${api.defaults.baseURL}/maps/${mapId}/preview`);
     
     if (response.data && response.data.preview_url) {
       return ensureHttps(response.data.preview_url);
@@ -355,6 +345,12 @@ export const getMapPreview = async (mapId) => {
     return null;
   } catch (error) {
     console.error(`[MapService Error] Failed to fetch preview for map ${mapId}:`, error);
+    
+    // Check specifically for HTTP/HTTPS mixed content issues
+    if (error.message && error.message.includes('Network Error')) {
+      console.error('[MapService] Possible mixed content issue when fetching map preview. Check HTTPS configuration.');
+    }
+    
     return null;
   }
 };

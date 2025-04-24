@@ -1,12 +1,14 @@
 import axios from 'axios';
-import { API_URL, ensureHttps } from '../config';
+import { API_URL, API_PATH, FULL_API_URL, ensureHttps } from '../config';
 
-// Always use cloud URL to avoid localhost references in production
-const AUTH_URL = ensureHttps(`${API_URL}/auth`);
+// Debug the values from config
+console.log('[Auth Debug] Base URL:', API_URL);
+console.log('[Auth Debug] API Path:', API_PATH);
+console.log('[Auth Debug] Full API URL:', FULL_API_URL);
 
-// Create instance with default config
+// Create instance with default config - using the base URL
 const api = axios.create({
-  baseURL: AUTH_URL,
+  baseURL: API_URL,
   withCredentials: true,
   headers: {
     'Accept': 'application/json',
@@ -65,56 +67,68 @@ export const isTokenExpired = (token) => {
   }
 };
 
-// Clear token if it's expired
+// Clear token if expired
 export const clearExpiredToken = () => {
   const token = localStorage.getItem('token');
   if (token && isTokenExpired(token)) {
-    console.log('Clearing expired token');
+    console.warn('[Auth] Token expired, removing from storage');
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    return true;
+    return true; // Token was expired and removed
   }
-  return false;
+  return false; // Token is still valid or doesn't exist
+};
+
+// Add this function to check token before API calls
+export const checkTokenBeforeApiCall = () => {
+  const wasExpired = clearExpiredToken();
+  if (wasExpired) {
+    console.warn('[Auth] Expired token detected before API call - redirecting to login');
+    // Only redirect if not already on login page
+    if (!window.location.pathname.includes('/login')) {
+      window.location.href = '/login';
+    }
+    return false;
+  }
+  return true;
 };
 
 export const login = async (username, password) => {
   try {
-    console.log('Attempting login with API URL:', AUTH_URL);
-    
-    // Clear any expired tokens before login attempt
+    // Clear any expired tokens first
     clearExpiredToken();
     
-    // Use URLSearchParams for proper x-www-form-urlencoded format
-    const params = new URLSearchParams();
-    params.append('username', username);
-    params.append('password', password);
-    params.append('grant_type', 'password');
+    // Construct proper login URL using the full API URL
+    const loginUrl = `${FULL_API_URL}/auth/login`;
+    console.log('[Auth] Using login URL:', loginUrl);
     
-    // Ensure login URL is using HTTPS
-    const url = ensureHttps(`${AUTH_URL}/login`);
+    // Create form data
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('password', password);
+    formData.append('grant_type', 'password');
     
-    // Send login request without Authorization header
-    const response = await axios.post(url, params, {
-      withCredentials: true,
+    // Make request
+    const response = await axios.post(loginUrl, formData, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded'
-      }
+      },
+      withCredentials: true
     });
     
-    // Store the token and user data if available
+    // Store token and user data
     if (response.data.access_token) {
       localStorage.setItem('token', response.data.access_token);
       
       if (response.data.user) {
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        console.log('Auth service stored user data:', response.data.user);
+        console.log('[Auth] User data stored successfully');
       }
     }
     
     return response.data;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[Auth] Login error:', error);
     throw error;
   }
 };
@@ -127,17 +141,27 @@ export const logout = async () => {
       throw new Error('No token found');
     }
     
-    const response = await api.post(`${AUTH_URL}/logout`, {}, {
+    // Construct proper logout URL
+    const logoutUrl = `${FULL_API_URL}/auth/logout`;
+    console.log('[Auth] Using logout URL:', logoutUrl);
+    
+    // Make request
+    const response = await axios.post(logoutUrl, {}, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      withCredentials: true
     });
     
+    // Always clear tokens
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
     return response.data;
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error('[Auth] Logout error:', error);
     // Still remove token on error
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -158,15 +182,22 @@ export const checkAuth = async () => {
       return false;
     }
     
-    const response = await api.get(`${AUTH_URL}/me`, {
+    // Construct proper me URL
+    const meUrl = `${FULL_API_URL}/auth/me`;
+    console.log('[Auth] Using auth check URL:', meUrl);
+    
+    // Make request
+    const response = await axios.get(meUrl, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      },
+      withCredentials: true
     });
     
     return !!response.data;
   } catch (error) {
-    console.error('Auth check error:', error);
+    console.error('[Auth] Auth check error:', error);
     return false;
   }
 }; 
