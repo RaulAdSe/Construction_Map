@@ -25,7 +25,7 @@ class MapUpdate(BaseModel):
 class Map(MapBase):
     id: int
     filename: str
-    uploaded_at: datetime
+    uploaded_at: Optional[datetime] = None
     file_url: Optional[str] = None
     
     @computed_field

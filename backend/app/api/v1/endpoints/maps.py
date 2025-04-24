@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Request
 from sqlalchemy.orm import Session
 import os
+from datetime import datetime
 
 from app.api.deps import get_current_active_user, get_db
 from app.models.user import User
@@ -9,6 +10,9 @@ from app.schemas.map import Map, MapCreate, MapUpdate
 from app.services import map as map_service
 from app.services import project as project_service
 from app.api.v1.endpoints.monitoring import log_user_activity
+
+from fastapi.responses import JSONResponse  # Import missing JSONResponse
+import traceback  # Import missing module for traceback
 
 router = APIRouter()
 
@@ -21,37 +25,62 @@ def get_maps(
     skip: int = 0,
     limit: int = 100
 ):
-    """
-    Get all maps for a project.
-    """
-    if not project_id:
-        raise HTTPException(status_code=400, detail="Project ID is required")
+    try:
+        """
+        Get all maps for a project.
+        """
+        if not project_id:
+            raise HTTPException(status_code=400, detail="Project ID is required")
+            
+        # Check if project exists and user has access
+        project = project_service.get_project(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
         
-    # Check if project exists and user has access
-    project = project_service.get_project(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Check if user has access to project
-    if not any(pu.user_id == current_user.id for pu in project.users):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-    
-    # Get maps
-    maps = map_service.get_maps(db, project_id, skip, limit)
-    
-    # Ensure all maps have cloud storage URLs in production
-    in_cloud_run = os.getenv("K_SERVICE") is not None
-    if in_cloud_run:
-        from app.services.storage import get_file_url
+        # Check if user has access to project
+        if not any(pu.user_id == current_user.id for pu in project.users):
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+        # Get maps
+        maps = map_service.get_maps(db, project_id, skip, limit)
+        
+        # Fix any maps with NULL uploaded_at values before returning
         for map_obj in maps:
-            # Only update if file_url is missing
-            if not map_obj.file_url and map_obj.filename:
-                try:
-                    map_obj.file_url = get_file_url(map_obj.filename, directory="maps")
-                except Exception as e:
-                    print(f"Error generating file_url for map {map_obj.id}: {str(e)}")
+            if not hasattr(map_obj, 'uploaded_at') or map_obj.uploaded_at is None:
+                map_obj.uploaded_at = datetime.now()
+                
+        # Ensure all maps have cloud storage URLs in production
+        in_cloud_run = os.getenv("K_SERVICE") is not None
+        if in_cloud_run:
+            from app.services.storage import get_file_url
+            for map_obj in maps:
+                # Only update if file_url is missing
+                if not map_obj.file_url and map_obj.filename:
+                    try:
+                        map_obj.file_url = get_file_url(map_obj.filename, directory="maps")
+                    except Exception as e:
+                        print(f"Error generating file_url for map {map_obj.id}: {str(e)}")
+        
+        return maps
     
-    return maps
+    except Exception as e:
+    # Log detailed error for troubleshooting
+
+
+        print(f"Error in get_maps: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        
+        # Return error with CORS headers
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Error accessing maps: {str(e)}"},
+            headers={
+                "Access-Control-Allow-Origin": "https://construction-map-frontend-77413952899.us-central1.run.app",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
 
 
 @router.get("/{map_id}", response_model=Map)

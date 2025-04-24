@@ -70,6 +70,15 @@ def get_maps(db: Session, project_id: int, skip: int = 0, limit: int = 100) -> L
                 
         # Log successful retrieval
         print(f"Successfully retrieved {len(maps)} maps for project {project_id}")
+        
+        # Fix any maps with NULL uploaded_at values
+        for map_obj in maps:
+            if map_obj.uploaded_at is None:
+                # Set a default datetime value for NULL uploaded_at
+                map_obj.uploaded_at = datetime.now()
+                # Log the fix for debugging
+                print(f"Fixed NULL uploaded_at for map {map_obj.id}")
+                
         return maps
         
     except Exception as e:
