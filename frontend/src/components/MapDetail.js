@@ -454,7 +454,7 @@ const MapDetail = ({
       height: '100%',
       opacity: opacity,
       zIndex: zIndex,
-      pointerEvents: 'none', // Let clicks pass through to the base container
+      pointerEvents: 'none', // Let clicks pass through to the base container - CRITICAL for markers to work
     };
     
     // Use a reference to track if this layer has already been loaded
@@ -471,7 +471,8 @@ const MapDetail = ({
               width: '100%', 
               height: '100%', 
               border: 'none',
-              backgroundColor: 'transparent'
+              backgroundColor: 'transparent',
+              pointerEvents: 'none' // Ensure iframe doesn't capture pointer events
             }}
             frameBorder="0"
             onLoad={(e) => {
@@ -498,7 +499,8 @@ const MapDetail = ({
             style={{ 
               width: '100%', 
               height: '100%', 
-              objectFit: 'contain'
+              objectFit: 'contain',
+              pointerEvents: 'none' // Ensure image doesn't capture pointer events
             }}
             onLoad={(e) => {
               // Only trigger handleImageLoad once per image to prevent re-rendering loops
@@ -522,7 +524,12 @@ const MapDetail = ({
             src={url} 
             className="map-iframe-container consistent-iframe-view"
             title={currentMap.name}
-            style={{ width: '100%', height: '100%', border: 'none' }}
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              border: 'none',
+              pointerEvents: 'none' // Ensure iframe doesn't capture pointer events
+            }}
             onLoad={(e) => {
               // Only trigger handleImageLoad once per iframe to prevent re-rendering loops
               if (!imageLoaded) {
@@ -774,45 +781,60 @@ const MapDetail = ({
             }
           }}
         >
-          <div ref={mapContentRef} style={contentStyle} className="map-content">
+          <div ref={mapContentRef} style={{
+            ...contentStyle,
+            pointerEvents: 'none' // Make the content itself not capture pointer events
+          }} className="map-content">
             {renderMapLayer(implantationMap, 0)}
             {overlayMapObjects.map(m => renderMapLayer(m, 1, true))}
 
-            {/* Render events as markers */}
-            {imageLoaded && visibleEvents && visibleEvents.map((event) => {
-              // Extract numeric coordinates, ensure they're numbers
-              const xCoord = parseFloat(event.x_coordinate || event.location_x);
-              const yCoord = parseFloat(event.y_coordinate || event.location_y);
-              
-              console.log(`Rendering marker for event ${event.id}`, {
-                id: event.id,
-                title: event.title || event.name,
-                x: xCoord,
-                y: yCoord,
-                raw_x: event.x_coordinate,
-                raw_y: event.y_coordinate,
-                raw_location_x: event.location_x,
-                raw_location_y: event.location_y
-              });
-              
-              // Skip rendering if coordinates are not valid numbers
-              if (isNaN(xCoord) || isNaN(yCoord)) {
-                console.warn(`Invalid coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
-                return null;
-              }
-              
-              return (
-                <EventMarker
-                  key={`event-${event.id}-${eventKey}`}
-                  event={event}
-                  x={xCoord}
-                  y={yCoord}
-                  viewportScale={viewportScale}
-                  isMobile={isMobile}
-                  onClick={() => handleEventClick(event)}
-                />
-              );
-            })}
+            {/* Render events as markers - add a specific container to create proper stacking context */}
+            {imageLoaded && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 1000,
+                pointerEvents: 'none'
+              }}>
+                {visibleEvents && visibleEvents.map((event) => {
+                  // Extract numeric coordinates, ensure they're numbers
+                  const xCoord = parseFloat(event.x_coordinate || event.location_x);
+                  const yCoord = parseFloat(event.y_coordinate || event.location_y);
+                  
+                  console.log(`Rendering marker for event ${event.id}`, {
+                    id: event.id,
+                    title: event.title || event.name,
+                    x: xCoord,
+                    y: yCoord,
+                    raw_x: event.x_coordinate,
+                    raw_y: event.y_coordinate,
+                    raw_location_x: event.location_x,
+                    raw_location_y: event.location_y
+                  });
+                  
+                  // Skip rendering if coordinates are not valid numbers
+                  if (isNaN(xCoord) || isNaN(yCoord)) {
+                    console.warn(`Invalid coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
+                    return null;
+                  }
+                  
+                  return (
+                    <EventMarker
+                      key={`event-${event.id}-${eventKey}`}
+                      event={event}
+                      x={xCoord}
+                      y={yCoord}
+                      viewportScale={viewportScale}
+                      isMobile={isMobile}
+                      onClick={() => handleEventClick(event)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </>
