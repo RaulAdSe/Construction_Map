@@ -1712,4 +1712,20 @@ iframe[src*=".pdf"] {
     padding-right: 0 !important;
     max-width: 100% !important;
   }
+}
+
+/* Add a stronger, more specific rule for event markers */
+.map-content .event-marker {
+  position: absolute !important; 
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure marker hover state works */
+.map-content .event-marker:hover {
+  transform: translate(-50%, -50%) scale(1.2) !important;
+  z-index: 10000 !important;
 } 
