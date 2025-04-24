@@ -745,6 +745,9 @@ const MapDetail = ({
       marginTop: -(initialContentSize.current ? initialContentSize.current.height / 2 : contentSize.height / 2)
     };
     
+    // Debug log for contentSize to help with troubleshooting
+    console.log('Map Content Size:', contentSize, 'Initial Content Size:', initialContentSize.current);
+    
     return (
       <>
         {!imageLoaded && (
@@ -781,47 +784,119 @@ const MapDetail = ({
             }
           }}
         >
+          {/* Map content layers */}
           <div ref={mapContentRef} style={{
             ...contentStyle,
             pointerEvents: 'none' // Make the content itself not capture pointer events
           }} className="map-content">
             {renderMapLayer(implantationMap, 0)}
             {overlayMapObjects.map(m => renderMapLayer(m, 1, true))}
-
-            {/* Render events as markers - add a specific container to create proper stacking context */}
-            {imageLoaded && (
-              <div style={{
+          </div>
+          
+          {/* Separate markers container with fixed positioning relative to map container */}
+          {imageLoaded && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 2000,
+              pointerEvents: 'none',
+              border: '1px solid red', // Debug border to see container
+              backgroundColor: 'rgba(255,255,255,0.1)' // Slight background to see container
+            }} className="event-markers-container">
+              <div className="debug-marker-info" style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                zIndex: 1000,
-                pointerEvents: 'none'
+                top: '5px',
+                left: '5px',
+                background: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                padding: '5px',
+                borderRadius: '5px',
+                fontSize: '10px',
+                zIndex: 3000
               }}>
-                {visibleEvents && visibleEvents.map((event) => {
-                  // Extract numeric coordinates, ensure they're numbers
-                  const xCoord = parseFloat(event.x_coordinate || event.location_x);
-                  const yCoord = parseFloat(event.y_coordinate || event.location_y);
-                  
-                  console.log(`Rendering marker for event ${event.id}`, {
-                    id: event.id,
-                    title: event.title || event.name,
-                    x: xCoord,
-                    y: yCoord,
-                    raw_x: event.x_coordinate,
-                    raw_y: event.y_coordinate,
-                    raw_location_x: event.location_x,
-                    raw_location_y: event.location_y
-                  });
-                  
-                  // Skip rendering if coordinates are not valid numbers
-                  if (isNaN(xCoord) || isNaN(yCoord)) {
-                    console.warn(`Invalid coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
-                    return null;
+                Map size: {contentSize.width}x{contentSize.height} | Scale: {viewportScale.toFixed(2)}
+              </div>
+              
+              {visibleEvents && visibleEvents.map((event) => {
+                // Extract numeric coordinates, ensure they're numbers
+                let xCoord = parseFloat(event.x_coordinate || event.location_x);
+                let yCoord = parseFloat(event.y_coordinate || event.location_y);
+                
+                // Log raw coordinates before normalization
+                console.log(`Raw coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
+                
+                // If coordinates are exceptionally large (like percentages > 100),
+                // likely a coordinate system mismatch - normalize to 0-100 range
+                if (!isNaN(xCoord) && !isNaN(yCoord)) {
+                  if (xCoord > 100 || yCoord > 100) {
+                    // Coordinates are in pixels or some other absolute unit
+                    // Normalize to percentage range based on assumed 1000x1000 coordinate space
+                    const normalizeBase = 400; // Assume coordinates are based on a 400x400 grid
+                    const normalizedX = (xCoord / normalizeBase) * 100;
+                    const normalizedY = (yCoord / normalizeBase) * 100;
+                    
+                    console.log(`Normalized coordinates: x=${normalizedX.toFixed(2)}%, y=${normalizedY.toFixed(2)}% (from ${xCoord},${yCoord})`);
+                    
+                    xCoord = normalizedX;
+                    yCoord = normalizedY;
                   }
-                  
-                  return (
+                }
+                
+                // Clamp coordinates to reasonable range (0-100%)
+                xCoord = Math.min(Math.max(xCoord, 0), 100);
+                yCoord = Math.min(Math.max(yCoord, 0), 100);
+                
+                console.log(`Final marker position for event ${event.id}: x=${xCoord.toFixed(2)}%, y=${yCoord.toFixed(2)}%`);
+                
+                console.log(`Rendering marker for event ${event.id}`, {
+                  id: event.id,
+                  title: event.title || event.name,
+                  x: xCoord,
+                  y: yCoord,
+                  raw_x: event.x_coordinate,
+                  raw_y: event.y_coordinate,
+                  raw_location_x: event.location_x,
+                  raw_location_y: event.location_y
+                });
+                
+                // Skip rendering if coordinates are not valid numbers
+                if (isNaN(xCoord) || isNaN(yCoord)) {
+                  console.warn(`Invalid coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
+                  return null;
+                }
+                
+                // Debug marker - a simpler visible element to confirm positioning
+                const debugMarker = (
+                  <div
+                    key={`debug-marker-${event.id}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${xCoord}%`,
+                      top: `${yCoord}%`,
+                      width: '20px',
+                      height: '20px',
+                      backgroundColor: 'red',
+                      borderRadius: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 2500,
+                      pointerEvents: 'auto',
+                      cursor: 'pointer',
+                      border: '2px solid white'
+                    }}
+                    onClick={() => handleEventClick(event)}
+                  >
+                  </div>
+                );
+                
+                return (
+                  <>
+                    {/* The debug marker */}
+                    {debugMarker}
+                    
+                    {/* The regular EventMarker component */}
                     <EventMarker
                       key={`event-${event.id}-${eventKey}`}
                       event={event}
@@ -831,11 +906,11 @@ const MapDetail = ({
                       isMobile={isMobile}
                       onClick={() => handleEventClick(event)}
                     />
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  </>
+                );
+              })}
+            </div>
+          )}
         </div>
       </>
     );
@@ -1013,8 +1088,8 @@ const MapDetail = ({
       {/* Separate section for map layers in desktop view */}
       {!isMobile && (
         <div className="map-layers-section" style={{ 
-          marginTop: '750px', // Much larger top margin to push it down
-          marginBottom: '200px', // Larger bottom margin too
+          marginTop: '600px', // Reduced from 750px to 100px to position it closer to the map
+          marginBottom: '50px', // Reduced bottom margin as well
           padding: '30px', // More padding to make it easier to see
           border: '1px solid #eee',
           borderRadius: '8px',

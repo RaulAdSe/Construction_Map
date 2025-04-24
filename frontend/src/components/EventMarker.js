@@ -181,8 +181,10 @@ const EventMarker = ({
     boxShadow: (isHovered || isTouched) 
       ? `0 0 10px ${color}, 0 0 15px rgba(0, 0, 0, 0.5)` 
       : `0 0 6px ${color}, 0 0 10px rgba(0, 0, 0, 0.4)`,
-    zIndex: 9999, // Ensure markers are above all other elements
-    pointerEvents: 'auto' // Crucial - ensure marker receives events even if parent has pointer-events: none
+    zIndex: 1000, // Higher than map layers but lower than UI panels
+    pointerEvents: 'auto', // Crucial - ensure marker receives events even if parent has pointer-events: none
+    display: 'block', // Ensure marker is visible
+    visibility: 'visible' // Force visibility
   };
 
   // Log event marker details for debugging

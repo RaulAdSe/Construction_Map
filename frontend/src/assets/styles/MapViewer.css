@@ -1717,7 +1717,7 @@ iframe[src*=".pdf"] {
 /* Add a stronger, more specific rule for event markers */
 .map-content .event-marker {
   position: absolute !important; 
-  z-index: 9999 !important;
+  z-index: 1000 !important; /* Higher than map layers but lower than UI panels */
   pointer-events: auto !important;
   cursor: pointer !important;
   visibility: visible !important;
@@ -1727,5 +1727,5 @@ iframe[src*=".pdf"] {
 /* Ensure marker hover state works */
 .map-content .event-marker:hover {
   transform: translate(-50%, -50%) scale(1.2) !important;
-  z-index: 10000 !important;
+  z-index: 1001 !important; /* Just slightly higher than non-hovered markers */
 } 
