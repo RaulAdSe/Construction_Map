@@ -1077,7 +1077,7 @@ const MapDetail = ({
       display: 'flex', 
       flexDirection: 'column', 
       minHeight: '100%',
-      paddingBottom: '200px' // Add substantial padding at the bottom
+      paddingBottom: '400px' // Increased from 200px to 400px for more bottom space
     }}>
       <div className="map-content-section" style={{ 
         position: 'relative', 
