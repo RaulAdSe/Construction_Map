@@ -366,6 +366,43 @@ const MapDetail = ({
     }
   }, [onEventClick]);
   
+  // Helper functions for event type detection - consistent with filter logic
+  const isIncidence = (event) => {
+    if (!event || !event.state) return false;
+    const state = (event.state || '').toLowerCase();
+    return state === 'incidence' || state.includes('incidence');
+  };
+  
+  const isCheck = (event) => {
+    if (!event || !event.state) return false;
+    const state = (event.state || '').toLowerCase();
+    
+    // Expanded matching to catch more variations
+    const checkVariations = [
+      'periodic check', 
+      'check',
+      'periodic',
+      'revisión',
+      'revision',
+      'inspección',
+      'inspeccion',
+      'inspection',
+      'mantenimiento',
+      'maintenance'
+    ];
+    
+    // Check if any of our variations are found in the state
+    return checkVariations.some(variation => 
+      state === variation || state.includes(variation)
+    );
+  };
+  
+  const isRequest = (event) => {
+    if (!event || !event.state) return false;
+    const state = (event.state || '').toLowerCase();
+    return state === 'request' || state.includes('request');
+  };
+  
   const toggleMapVisibility = (mapId) => {
     setVisibleMaps(prevMaps => {
       // Don't allow toggling off the main map
