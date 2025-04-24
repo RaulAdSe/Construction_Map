@@ -122,15 +122,29 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     try {
       const formData = new FormData();
       formData.append('content', content);
+      
+      // Fix for file upload: Use 'image' parameter name to match backend expectations
       if (file) {
-        formData.append('attachment', file);
+        formData.append('image', file);
+        console.log('Attaching file to comment:', file.name, file.type, file.size);
       }
 
-      await api.post(`/events/${eventId}/comments`, formData, {
+      // Debug log to verify FormData content
+      for (let [key, value] of formData.entries()) {
+        console.log(`FormData: ${key} = ${value instanceof File ? 'File: ' + value.name : value}`);
+      }
+
+      // Use a direct secure URL to avoid URL composition issues
+      const secureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}/comments`;
+      console.log('Submitting comment to:', secureUrl);
+      
+      const response = await api.post(secureUrl, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      console.log('Comment submission successful:', response.data);
 
       // Reset form
       setContent('');
@@ -142,6 +156,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       fetchComments();
     } catch (err) {
       console.error('Error submitting comment:', err);
+      console.error('Error details:', err.response?.data || err.message);
       setError(translate('Failed to submit comment'));
     } finally {
       setSubmitting(false);
