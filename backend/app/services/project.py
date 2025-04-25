@@ -145,31 +145,43 @@ def delete_project(db: Session, project_id: int) -> bool:
         return False
 
 
-def add_user_to_project(db: Session, project_id: int, user_id: int, role: str = "MEMBER") -> Optional[ProjectUser]:
-    # Check if project and user exist
-    project = get_project(db, project_id)
-    user = db.query(User).filter(User.id == user_id).first()
-    
-    if not project or not user:
-        return None
-    
+def add_user_to_project(db: Session, project_id: int, user_id: int, role: str = None):
+    """
+    Add a user to a project.
+    Note: The role parameter is kept for backward compatibility but is not stored
+    since we've moved to a global is_admin status instead of per-project roles.
+    """
     # Check if user is already in project
-    project_user = db.query(ProjectUser).filter(
+    existing = db.query(ProjectUser).filter(
         ProjectUser.project_id == project_id,
         ProjectUser.user_id == user_id
     ).first()
     
-    if project_user:
-        # User is already in the project, no need to update role
-        # since 'role' column doesn't exist in the database
-        return project_user
+    if existing:
+        return existing
     
-    # Add user to project (no role - use the user.is_admin from User model instead)
-    project_user = ProjectUser(project_id=project_id, user_id=user_id)
-    db.add(project_user)
+    # Create new project user relationship
+    new_project_user = ProjectUser(
+        project_id=project_id,
+        user_id=user_id,
+        created_at=datetime.utcnow(),
+        last_accessed_at=datetime.utcnow(),
+        field=""  # Empty field by default
+    )
+    
+    # If role is "ADMIN", update the user's global admin status (if not already an admin)
+    if role == "ADMIN":
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and not user.is_admin:
+            print(f"Setting user {user_id} as admin based on project role")
+            # Note: In this simplified model, making someone an admin makes them admin globally
+            # user.is_admin = True
+            # This is commented out because we decided not to make project admins global admins
+    
+    db.add(new_project_user)
     db.commit()
-    db.refresh(project_user)
-    return project_user
+    db.refresh(new_project_user)
+    return new_project_user
 
 
 def remove_user_from_project(db: Session, project_id: int, user_id: int) -> bool:

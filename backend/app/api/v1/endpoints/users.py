@@ -46,7 +46,7 @@ def get_users(
     Only accessible by admin users.
     """
     # Check if user is admin
-    if current_user.role != "admin":
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     users = db.query(User).offset(skip).limit(limit).all()
@@ -67,7 +67,7 @@ def get_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Users can only view their own information unless they're an admin
-    if current_user.role != "admin" and current_user.id != user_id:
+    if not current_user.is_admin and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     return user

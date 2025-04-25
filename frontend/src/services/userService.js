@@ -37,15 +37,29 @@ apiClient.interceptors.request.use(config => {
 // Get all users (admin only)
 export const getAllUsers = async () => {
   try {
-    // Force HTTPS for this particular request
-    const secureUrl = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/users';
+    // Use multiple approaches to enforce HTTPS
+    // 1. Create URL with explicit HTTPS
+    let secureUrl = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/users/';
+    
+    // 2. Double-check URL is HTTPS before making request
+    if (secureUrl.startsWith('http:')) {
+      console.warn('HTTP URL detected, forcing HTTPS');
+      secureUrl = secureUrl.replace(/^http:\/\//i, 'https://');
+    }
+    
+    // 3. Set up a custom fetch with secure headers
     const response = await axios.get(secureUrl, {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        // Add upgrade-insecure-requests header to help browser upgrade HTTP to HTTPS
+        'Upgrade-Insecure-Requests': '1'
+      },
+      // 4. Additional safeguard - explicitly set protocol to secure
+      protocol: 'https:'
     });
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching users:', error);

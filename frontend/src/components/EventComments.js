@@ -120,13 +120,42 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     setError('');
 
     try {
+      // Process content to properly format mentions
+      // This helps avoid backend issues with notification processing
+      let processedContent = content;
+      
+      // Check if content contains mentions (@username) and ensure they're properly formatted
+      if (content.includes('@')) {
+        console.log('Content may contain mentions, preprocessing:', content);
+        
+        // Convert rich-text mentions to plain text if needed
+        // This helps prevent backend notification issues
+        processedContent = processedContent
+          .replace(/<span class="mention">@([^<]+)<\/span>/g, '@$1')
+          .replace(/@([a-zA-Z0-9_]+)/g, (match, username) => {
+            console.log('Detected mention:', username);
+            return `@${username}`;
+          });
+        
+        console.log('Processed content:', processedContent);
+      }
+      
       const formData = new FormData();
-      formData.append('content', content);
+      formData.append('content', processedContent);
       
       // Fix for file upload: Use 'image' parameter name to match backend expectations
       if (file) {
         formData.append('image', file);
         console.log('Attaching file to comment:', file.name, file.type, file.size);
+        
+        // Additional debug information for file type
+        if (file.type.startsWith('image/')) {
+          console.log('File is an image of type:', file.type);
+        } else if (file.type === 'application/pdf') {
+          console.log('File is a PDF');
+        } else {
+          console.warn('File has unexpected MIME type:', file.type);
+        }
       }
 
       // Debug log to verify FormData content
@@ -138,27 +167,99 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       const secureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/events/${eventId}/comments`;
       console.log('Submitting comment to:', secureUrl);
       
-      const response = await api.post(secureUrl, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      try {
+        const response = await api.post(secureUrl, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
 
-      console.log('Comment submission successful:', response.data);
+        console.log('Comment submission successful:', response.data);
+        console.log('Response image_url:', response.data.image_url);
 
-      // Reset form
-      setContent('');
-      setFile(null);
-      setPreviewUrl('');
-      setFileType(null);
-      
-      // Refresh comments
-      fetchComments();
+        // Reset form
+        setContent('');
+        setFile(null);
+        setPreviewUrl('');
+        setFileType(null);
+        
+        // Refresh comments
+        fetchComments();
+      } catch (err) {
+        console.error('Error submitting comment:', err);
+        console.error('Error details:', err.response?.data || err.message);
+        
+        // Check if this is a 500 error related to notifications (which happens with mentions)
+        if (err.response?.status === 500 && 
+            (err.response?.data?.detail?.includes('notifications') || 
+             err.response?.data?.detail?.includes('null value in column "content"'))) {
+          
+          console.log('Detected notification error with mentions, trying fallback method...');
+          
+          // Create a new FormData with the content modified to avoid the backend notification issue
+          // We'll preserve the @mention text but format it in a way that doesn't trigger the notification system
+          const fallbackFormData = new FormData();
+          
+          // Modify the content to preserve mentions visually but avoid notification processing
+          // Replace @username with "[@]username" which visually looks similar but won't trigger backend notification
+          const fallbackContent = processedContent.replace(/@([a-zA-Z0-9_]+)/g, '[@]$1');
+          
+          fallbackFormData.append('content', fallbackContent);
+          
+          // Re-add the image if it exists
+          if (file) {
+            fallbackFormData.append('image', file);
+          }
+          
+          console.log('Attempting fallback submission with modified content:', fallbackContent);
+          
+          try {
+            const fallbackResponse = await api.post(secureUrl, fallbackFormData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+            
+            console.log('Fallback comment submission successful:', fallbackResponse.data);
+            
+            // Reset form
+            setContent('');
+            setFile(null);
+            setPreviewUrl('');
+            setFileType(null);
+            
+            // Refresh comments
+            fetchComments();
+            
+            // Show a warning that mentions might not have triggered notifications
+            setError(translate('Comment posted, but user mentions may not have triggered notifications.'));
+            
+            // Clear the error message after 5 seconds
+            setTimeout(() => {
+              setError('');
+            }, 5000);
+            
+            return;
+          } catch (fallbackErr) {
+            console.error('Fallback comment submission also failed:', fallbackErr);
+            // Continue to the standard error handling below
+          }
+        }
+        
+        console.error('Error status:', err.response?.status);
+        console.error('Response headers:', err.response?.headers);
+        
+        let errorMessage = translate('Failed to submit comment');
+        if (err.response?.data?.detail) {
+          errorMessage += `: ${err.response.data.detail}`;
+        }
+        setError(errorMessage);
+      } finally {
+        setSubmitting(false);
+      }
     } catch (err) {
-      console.error('Error submitting comment:', err);
-      console.error('Error details:', err.response?.data || err.message);
-      setError(translate('Failed to submit comment'));
-    } finally {
+      console.error('Error in comment submission process:', err);
+      setError(translate('Error preparing comment for submission'));
       setSubmitting(false);
     }
   }, [content, eventId, file, fetchComments]);
@@ -278,15 +379,17 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
 
   // Check if a file is a PDF based on the URL or file_type
   const isPdfFile = useCallback((comment) => {
-    // Check the file_type property first (for newer comments)
+    // First, check the file_type property which is the most reliable indicator
     if (comment.file_type === 'pdf') {
       return true;
     }
     
-    // Fall back to checking the URL pattern (for older comments before file_type was added)
+    // If no file_type, check the URL pattern for clues
     if (comment.image_url) {
       const url = comment.image_url.toLowerCase();
-      return url.startsWith('/comments/pdf_') || url.endsWith('.pdf');
+      return url.startsWith('/comments/pdf_') || 
+             url.includes('/pdf_') || 
+             url.endsWith('.pdf');
     }
     
     return false;
@@ -311,6 +414,36 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
 
   // Always use HTTPS for backend URL
   const baseUrl = (process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app').replace('http:', 'https:');
+
+  // Properly handle attachment URLs to ensure consistent display
+  const ensureHttpsUrl = (url) => {
+    if (!url) return url;
+    
+    // If it's already a full URL, just ensure it uses HTTPS
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url.replace(/^http:\/\//i, 'https://');
+    }
+    
+    // If it's a relative URL starting with /uploads/
+    if (url.startsWith('/uploads/')) {
+      return `${baseUrl}${url}`;
+    }
+    
+    // If it's a relative URL starting with /comments/
+    if (url.startsWith('/comments/')) {
+      return `${baseUrl}${url}`;
+    }
+    
+    // If it's a relative path that includes 'comments/' (like when stored directly from API)
+    if (url.includes('comments/')) {
+      // Extract the filename only if it includes a path
+      const filename = url.split('/').pop();
+      return `${baseUrl}/uploads/comments/${filename}`;
+    }
+    
+    // For any other relative URL, assume it's a direct filename in the comments folder
+    return `${baseUrl}/uploads/comments/${url}`;
+  };
 
   return (
     <div className="event-comments">
@@ -436,6 +569,16 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
             const hasImageAttachment = comment.image_url && !isPdfFile(comment);
             const isCommentOwner = currentUserId && currentUserId === comment.user_id;
             
+            // Debug log for attachment URLs - help identify issues
+            if (comment.image_url) {
+              console.log(`Comment #${comment.id} has attachment:`, {
+                original_url: comment.image_url,
+                processed_url: ensureHttpsUrl(comment.image_url),
+                isPdf: hasPdfAttachment,
+                fileType: comment.file_type
+              });
+            }
+            
             return (
               <Card 
                 key={comment.id} 
@@ -484,10 +627,19 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                     {parseAndHighlightMentions(comment.content, handleMentionClick)}
                   </div>
                   
+                  {/* Hidden debug info - only visible in dev environment */}
+                  {process.env.NODE_ENV === 'development' && comment.image_url && (
+                    <div className="debug-info" style={{ fontSize: '10px', color: '#999', marginBottom: '5px' }}>
+                      <div>Original URL: {comment.image_url}</div>
+                      <div>Processed URL: {ensureHttpsUrl(comment.image_url)}</div>
+                      <div>File type: {comment.file_type || 'not specified'}</div>
+                    </div>
+                  )}
+                  
                   {hasImageAttachment && (
                     <div className="comment-attachment mt-3">
                       <Image 
-                        src={`${baseUrl}${comment.image_url}`} 
+                        src={ensureHttpsUrl(comment.image_url)} 
                         alt={translate('Comment attachment')} 
                         fluid 
                         className="comment-image" 
@@ -504,7 +656,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
                           <Button 
                             variant="link" 
                             onClick={() => {
-                              const fullUrl = `${baseUrl}${comment.image_url}`;
+                              const fullUrl = ensureHttpsUrl(comment.image_url);
                               window.open(fullUrl, '_blank');
                             }}
                             className="p-0"

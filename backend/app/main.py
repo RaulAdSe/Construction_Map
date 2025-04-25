@@ -67,9 +67,15 @@ try:
 
     # Configure CORS - production settings with HTTPS only
     origins = [
+        # Current frontend domain
         "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
         "https://www.construction-map-frontend-ypzdt6srya-uc.a.run.app",
-        "https://construction-map-frontend-77413952899.us-central1.run.app"
+        # Previous frontend domain
+        "https://construction-map-frontend-77413952899.us-central1.run.app",
+        # Any subdomain of construction-map-frontend
+        "https://*.construction-map-frontend-ypzdt6srya-uc.a.run.app",
+        # Allow all Cloud Run domains for flexibility
+        "https://*.run.app"
     ]
     
     # Only add HTTP origins for local development
@@ -102,12 +108,15 @@ try:
             print(f"Unhandled error: {str(exc)}")
             print(f"Traceback: {traceback.format_exc()}")
             
+            # Get the origin from the request
+            origin = request.headers.get("origin", "https://construction-map-frontend-ypzdt6srya-uc.a.run.app")
+            
             # Create a proper error response with CORS headers
             return JSONResponse(
                 status_code=500,
                 content={"detail": str(exc)},
                 headers={
-                    "Access-Control-Allow-Origin": "https://construction-map-frontend-77413952899.us-central1.run.app",
+                    "Access-Control-Allow-Origin": origin,
                     "Access-Control-Allow-Credentials": "true",
                     "Access-Control-Allow-Methods": "*",
                     "Access-Control-Allow-Headers": "*",

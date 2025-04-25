@@ -18,6 +18,44 @@ const api = axios.create({
   }
 });
 
+// Ensure we ALWAYS use HTTPS for backend
+const forceSecureBackendURL = (url) => {
+  // Handle different URL formats
+  if (!url) return url;
+  
+  // If URL contains our backend domain
+  if (url.includes('construction-map-backend')) {
+    // Make sure it starts with https://
+    if (url.startsWith('http:')) {
+      url = url.replace('http://', 'https://');
+      console.warn('[API] Forced HTTPS for backend URL:', url);
+    }
+    
+    // Ensure the correct domain format is used
+    if (!url.includes('ypzdt6srya-uc.a.run.app')) {
+      url = url.replace(/construction-map-backend[^\/]*/i, 
+                       'construction-map-backend-ypzdt6srya-uc.a.run.app');
+      console.warn('[API] Standardized backend domain:', url);
+    }
+    
+    // Ensure api/v1 path prefix is present
+    if (!url.includes('/api/v1')) {
+      // Only add for standard API paths
+      const patterns = ['/users', '/maps', '/projects', '/events', '/auth'];
+      for (const pattern of patterns) {
+        if (url.includes(pattern) && !url.includes('/api/v1')) {
+          const urlObj = new URL(url);
+          url = url.replace(urlObj.pathname, `/api/v1${urlObj.pathname}`);
+          console.warn('[API] Added missing /api/v1 prefix:', url);
+          break;
+        }
+      }
+    }
+  }
+  
+  return url;
+};
+
 // Request interceptor
 api.interceptors.request.use(config => {
   // First check if token is expired and handle it
@@ -32,17 +70,14 @@ api.interceptors.request.use(config => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
-  // Always ensure URL uses HTTPS
+  // Apply forced HTTPS to all URLs
   if (config.url) {
-    // If it's an absolute URL (contains ://)
-    if (config.url.includes('://')) {
-      config.url = ensureHttps(config.url);
-    }
+    config.url = forceSecureBackendURL(config.url);
   }
   
-  // Ensure baseURL uses HTTPS
+  // Also to baseURL
   if (config.baseURL) {
-    config.baseURL = ensureHttps(config.baseURL);
+    config.baseURL = forceSecureBackendURL(config.baseURL);
   }
   
   // Standardize endpoint path structure

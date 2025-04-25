@@ -162,11 +162,25 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
       formData.append('status', status);
       formData.append('state', type);
       
-      // Database has both coordinate naming conventions - include both
-      formData.append('x_coordinate', position.x);
-      formData.append('y_coordinate', position.y);
-      formData.append('location_x', position.x);
-      formData.append('location_y', position.y);
+      // Check if we have a valid mainMap reference with width/height
+      // This helps determine whether to store pixel or percentage coordinates
+      const mainMapWidth = mainMap?.width;
+      const mainMapHeight = mainMap?.height;
+      
+      // Get coordinates from position prop
+      const xPos = position?.x || 0;
+      const yPos = position?.y || 0;
+      
+      // Log coordinate handling for debugging
+      console.log(`Event position: x=${xPos}, y=${yPos}`);
+      console.log(`Map dimensions: width=${mainMapWidth || 'unknown'}, height=${mainMapHeight || 'unknown'}`);
+      
+      // Store coordinates as percentages (0-100) rather than pixels
+      // This normalizes coordinates across different map sizes
+      formData.append('x_coordinate', xPos);
+      formData.append('y_coordinate', yPos);
+      formData.append('location_x', xPos);
+      formData.append('location_y', yPos);
       
       // Fix JSON serialization for active_maps
       // Ensure it's always a valid JSON object, not an array

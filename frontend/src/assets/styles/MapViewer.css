@@ -276,16 +276,17 @@ iframe.clean-pdf-view {
 
 /* Map selection panel */
 .modal-panel {
-  display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.5);
-  z-index: 1000;
-  justify-content: center;
-  align-items: center;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  max-width: 500px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 20px;
+  z-index: 2000; /* Higher than markers to overlap them */
 }
 
 .panel-content {
@@ -502,8 +503,13 @@ iframe.clean-pdf-view {
 
 /* Map layers container */
 .map-layers-container {
-  position: relative;
-  z-index: 10;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1500; /* Above markers but below modal panels */
 }
 
 /* Map detail container */
@@ -594,14 +600,14 @@ iframe[src*=".pdf"] {
 
 /* Custom modal styles */
 .event-modal-dialog {
-  z-index: 10000 !important; /* Higher than everything else */
+  z-index: 3000 !important; /* Higher than everything else */
   position: relative;
 }
 
 /* Modal backdrop should dim the screen */
 .event-modal-backdrop {
   background-color: rgba(0, 0, 0, 0.5) !important; 
-  z-index: 8999 !important;
+  z-index: 2999 !important;
 }
 
 /* Make sure tabs and UI elements stay on top */
@@ -1037,7 +1043,7 @@ iframe[src*=".pdf"] {
 
 /* Mobile sidebar styles */
 .mobile-sidebar {
-  z-index: 1080 !important; /* Ensure sidebar is above navbar but below modals */
+  z-index: 2500 !important; /* Above markers but below modals */
 }
 
 /* Make the sidebar appear over the navbar */
@@ -1099,8 +1105,7 @@ iframe[src*=".pdf"] {
 
 /* Ensure mobile menu button has higher z-index */
 .mobile-view .mobile-menu-btn {
-  z-index: 1075;
-  position: relative;
+  z-index: 1600; /* Higher than markers */
 }
 
 /* Adjust content for mobile tab navigation */
@@ -1337,19 +1342,16 @@ iframe[src*=".pdf"] {
 
 /* Mobile overlay controls */
 .mobile-overlay-controls {
+  z-index: 1800; /* Higher than markers but lower than modals */
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   background-color: white;
-  border-top-left-radius: 15px;
-  border-top-right-radius: 15px;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1075; /* Higher than sidebar but lower than modals */
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  padding: 0.75rem;
   transform: translateY(100%);
   transition: transform 0.3s ease;
-  max-height: 70vh; /* Allow for more content visibility */
-  overflow: hidden; /* Ensure the rounded corners are respected */
 }
 
 .mobile-overlay-controls.show {
@@ -1416,7 +1418,7 @@ iframe[src*=".pdf"] {
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-top: 10px;
-  z-index: 100;
+  z-index: 1400;
   background-color: white;
   transition: box-shadow 0.3s ease;
 }
@@ -1529,7 +1531,7 @@ iframe[src*=".pdf"] {
   position: absolute;
   top: 70px;
   right: 15px;
-  z-index: 1000;
+  z-index: 1400;
 }
 
 .mobile-filters-btn .btn {
@@ -1547,7 +1549,7 @@ iframe[src*=".pdf"] {
 
 /* Mobile filters offcanvas */
 .mobile-filters-offcanvas {
-  max-width: 280px;
+  z-index: 2600; /* Above sidebar but below modals */
 }
 
 .mobile-filters-offcanvas .offcanvas-body {
@@ -1602,7 +1604,7 @@ iframe[src*=".pdf"] {
 /* Simplified Map Event Filter */
 .map-event-filter {
   position: relative;
-  z-index: 1000;
+  z-index: 1500;
 }
 
 /* For mobile view, make the filter more compact */
@@ -1717,7 +1719,7 @@ iframe[src*=".pdf"] {
 /* Add a stronger, more specific rule for event markers */
 .map-content .event-marker {
   position: absolute !important; 
-  z-index: 1000 !important; /* Higher than map layers but lower than UI panels */
+  z-index: 100 !important; /* Lower z-index so panels can appear above */
   pointer-events: auto !important;
   cursor: pointer !important;
   visibility: visible !important;
@@ -1727,5 +1729,101 @@ iframe[src*=".pdf"] {
 /* Ensure marker hover state works */
 .map-content .event-marker:hover {
   transform: translate(-50%, -50%) scale(1.2) !important;
-  z-index: 1001 !important; /* Just slightly higher than non-hovered markers */
+  z-index: 101 !important; /* Just slightly higher than non-hovered markers */
+}
+
+/* Mobile-specific marker z-index adjustments */
+.mobile-view .event-marker {
+  z-index: 100 !important; /* Lower z-index so panels can appear above */
+}
+
+.mobile-view .event-marker:hover,
+.mobile-view .event-marker-hover {
+  z-index: 101 !important; /* Just slightly higher than non-hovered markers */
+}
+
+/* Map layers panel - ensure it appears above markers but below other panels */
+.map-layers-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1500; /* Above markers but below modal panels */
+}
+
+/* Add event modal - ensure it's always on top */
+.mobile-view .modal {
+  z-index: 3000 !important; /* Higher than markers (800) and other UI (2000) */
+}
+
+.mobile-view .modal-content {
+  z-index: 3001 !important; /* Ensure it's above all other elements */
+}
+
+/* Ensure modals appear above all other elements */
+.event-modal-dialog {
+  z-index: 3000 !important; /* Higher than everything else */
+}
+
+.event-modal-backdrop {
+  z-index: 2999 !important;
+}
+
+/* Mobile overlay controls - ensure they appear above markers */
+.mobile-overlay-controls {
+  z-index: 1800; /* Higher than markers but lower than modals */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border-top-left-radius: 15px;
+  border-top-right-radius: 15px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  padding: 0.75rem;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  max-height: 70vh; /* Allow for more content visibility */
+  overflow: hidden; /* Ensure the rounded corners are respected */
+}
+
+.mobile-overlay-controls.show {
+  transform: translateY(0);
+}
+
+/* Mobile-specific menu buttons - make them appear above markers */
+.mobile-view .mobile-menu-btn {
+  position: relative;
+  z-index: 1600; /* Higher than markers */
+}
+
+/* Mobile sidebar - ensure proper stacking */
+.mobile-sidebar {
+  z-index: 2500 !important; /* Above markers but below modals */
+}
+
+/* Filter buttons and controls */
+.map-filter-card {
+  z-index: 1400;
+}
+
+.mobile-filters-btn {
+  z-index: 1400;
+}
+
+.mobile-filters-offcanvas {
+  max-width: 280px;
+  z-index: 2600; /* Above sidebar but below modals */
+}
+
+/* Map event filter panel */
+.map-event-filter {
+  z-index: 1500;
+}
+
+/* Map selection panel */
+.map-selection-panel {
+  z-index: 2200; /* Higher than regular panels, lower than modals */
 } 

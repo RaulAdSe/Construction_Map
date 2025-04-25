@@ -230,13 +230,25 @@ const ViewEventModal = ({
   const ensureHttpsUrl = (url) => {
     if (!url) return url;
     
-    // If it's a relative URL, prepend the HTTPS backend URL
-    if (!url.startsWith('http')) {
-      return `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${url.split('/').pop()}`;
+    // If it's already a full URL, just ensure it uses HTTPS
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url.replace(/^http:\/\//i, 'https://');
     }
     
-    // If it's an HTTP URL, convert to HTTPS
-    return url.replace(/^http:\/\//i, 'https://');
+    // If it's a relative URL starting with /uploads/
+    if (url.startsWith('/uploads/')) {
+      return `https://construction-map-backend-ypzdt6srya-uc.a.run.app${url}`;
+    }
+    
+    // If it's a relative path that includes 'events/' (like when stored directly from API)
+    if (url.includes('events/')) {
+      // Extract the filename only if it includes a path
+      const filename = url.split('/').pop();
+      return `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${filename}`;
+    }
+    
+    // For any other relative URL, assume it's a direct filename in the events folder
+    return `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${url}`;
   };
   
   const renderImage = () => {

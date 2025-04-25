@@ -38,8 +38,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # During local development, we use http for localhost
-      # In production, always use https://construction-map-backend-ypzdt6srya-uc.a.run.app
       - REACT_APP_API_URL=http://localhost:8000
     depends_on:
       - backend

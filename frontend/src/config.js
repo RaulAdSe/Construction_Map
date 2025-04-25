@@ -271,4 +271,76 @@ export const diagnoseMixedContent = () => {
   }
   
   return issues;
-}; 
+};
+
+// Add enhanced security to force HTTPS on all construction-map-backend URLs
+// This function should be called before any API request
+export function enforceForcedHttps() {
+  console.debug('[Config] Installing enhanced HTTPS enforcement');
+  
+  // Replace any in-memory URLs that might have been cached with HTTP
+  if (typeof document !== 'undefined') {
+    const forceHttpsReplacement = () => {
+      // Find any links or resources with http://construction-map-backend
+      const insecurePattern = /http:\/\/construction-map-backend[^"'\s]*/g;
+      
+      // Scan the entire DOM for insecure URLs
+      const htmlContent = document.documentElement.innerHTML;
+      const matches = htmlContent.match(insecurePattern);
+      
+      if (matches && matches.length > 0) {
+        console.warn('[Security] Found insecure URLs in DOM:', matches);
+        // We can't modify DOM directly here, but we can warn about it
+      }
+    };
+    
+    // Run immediately and then periodically
+    forceHttpsReplacement();
+    setInterval(forceHttpsReplacement, 5000);
+  }
+  
+  // Add extra enforcement for XMLHttpRequest and fetch
+  if (typeof window !== 'undefined') {
+    // Create a strong URLPattern matcher for our backend
+    const backendPattern = new RegExp('(http|https)://construction-map-backend[^/]*/(.*)');
+    
+    // Patch XMLHttpRequest more aggressively
+    if (window.XMLHttpRequest) {
+      const originalOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url, ...args) {
+        if (typeof url === 'string') {
+          // Check if this is our backend URL
+          const match = url.match(backendPattern);
+          if (match) {
+            // Always force HTTPS regardless of original protocol
+            const secureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/${match[2]}`;
+            console.warn('[Security] Forcing HTTPS for XMLHttpRequest:', url, '->', secureUrl);
+            url = secureUrl;
+          }
+        }
+        return originalOpen.call(this, method, url, ...args);
+      };
+    }
+    
+    // Patch fetch more aggressively too
+    if (window.fetch) {
+      const originalFetch = window.fetch;
+      window.fetch = function(url, options = {}) {
+        if (typeof url === 'string') {
+          // Check if this is our backend URL
+          const match = url.match(backendPattern);
+          if (match) {
+            // Always force HTTPS regardless of original protocol
+            const secureUrl = `https://construction-map-backend-ypzdt6srya-uc.a.run.app/${match[2]}`;
+            console.warn('[Security] Forcing HTTPS for fetch:', url, '->', secureUrl);
+            url = secureUrl;
+          }
+        }
+        return originalFetch.call(window, url, options);
+      };
+    }
+  }
+}
+
+// Call this function immediately
+enforceForcedHttps(); 

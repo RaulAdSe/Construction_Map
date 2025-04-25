@@ -10,6 +10,8 @@ import { setLanguage } from './utils/translate';
 import { checkAuth, clearExpiredToken } from './services/authService';
 // Import API Test Utility for debugging
 import './utils/ApiTestUtil';
+// Import z-index fixes (should be imported last to override other styles)
+import './assets/styles/zindex-fix.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

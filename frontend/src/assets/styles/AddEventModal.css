@@ -90,6 +90,17 @@
   font-size: 1.1rem;
 }
 
+/* Ensure mobile modal is always on top */
+.mobile-view .add-event-modal,
+.mobile-event-modal.modal-dialog {
+  z-index: 3100 !important; /* Ensure it's higher than other modals */
+}
+
+.mobile-view .add-event-modal .modal-content,
+.mobile-event-modal .modal-content {
+  z-index: 3101 !important;
+}
+
 @media (max-width: 576px) {
   .event-modal-dialog {
     margin: 0.5rem;
