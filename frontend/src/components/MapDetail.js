@@ -801,6 +801,11 @@ const MapDetail = ({
           onClick={(e) => {
             console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
             
+            // Close mobile layer controls when clicking on map
+            if (isMobile && showMobileControls) {
+              setShowMobileControls(false);
+            }
+            
             // Skip all click handling on mobile - we handle it with touch events
             if (isMobile) {
               console.log('MapDetail: Ignoring click event on mobile - using touch events instead');
@@ -949,12 +954,12 @@ const MapDetail = ({
     
     const layerStyles = isMobile ? {
       position: 'fixed',
-      bottom: '20px',
+      bottom: '70px', // Increase from 20px to 70px to position it lower
       right: '20px', 
       left: '20px',
       zIndex: 1001,
       boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-      maxHeight: '80vh'
+      maxHeight: '70vh' // Reduce from 80vh to 70vh to make it shorter
     } : {
       position: 'relative',
       padding: '15px',
