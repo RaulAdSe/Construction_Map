@@ -135,7 +135,10 @@ const MapEventTypeFilter = ({ mapFilteredEvents, allEvents, onFilterChange }) =>
       marginBottom: '5px',
       display: 'flex',
       justifyContent: 'center',
-      flexWrap: 'wrap'
+      flexWrap: 'wrap',
+      position: 'relative',
+      zIndex: 10001,
+      pointerEvents: 'auto'
     }}>
       <div className={`d-flex ${isMobile ? 'flex-wrap' : 'align-items-center'}`}>
         <Form.Check
@@ -148,7 +151,9 @@ const MapEventTypeFilter = ({ mapFilteredEvents, allEvents, onFilterChange }) =>
           className="me-2 mb-0"
           style={{ 
             whiteSpace: 'nowrap',
-            opacity: typeCounts.incidence > 0 ? 1 : 0.5
+            opacity: typeCounts.incidence > 0 ? 1 : 0.5,
+            pointerEvents: 'auto',
+            cursor: 'pointer'
           }}
         />
         
@@ -162,7 +167,9 @@ const MapEventTypeFilter = ({ mapFilteredEvents, allEvents, onFilterChange }) =>
           className="me-2 mb-0"
           style={{ 
             whiteSpace: 'nowrap',
-            opacity: typeCounts.check > 0 ? 1 : 0.5
+            opacity: typeCounts.check > 0 ? 1 : 0.5,
+            pointerEvents: 'auto',
+            cursor: 'pointer'
           }}
         />
         
@@ -176,7 +183,9 @@ const MapEventTypeFilter = ({ mapFilteredEvents, allEvents, onFilterChange }) =>
           className="mb-0"
           style={{ 
             whiteSpace: 'nowrap',
-            opacity: typeCounts.request > 0 ? 1 : 0.5
+            opacity: typeCounts.request > 0 ? 1 : 0.5,
+            pointerEvents: 'auto',
+            cursor: 'pointer'
           }}
         />
       </div>

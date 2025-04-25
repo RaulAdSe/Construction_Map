@@ -1415,7 +1415,17 @@ const MapViewer = ({ onLogout }) => {
       <Row className="map-content-container g-0">
         <Col xs={12} className="position-relative map-content-area p-0">
           {/* Show filter at the top-right corner of the map area for desktop */}
-          <div className="desktop-filter-container">
+          <div className="desktop-filter-container" style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            zIndex: 10000, 
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '4px',
+            padding: '8px',
+            boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)',
+            pointerEvents: 'auto'
+          }}>
             <MapEventTypeFilter 
               mapFilteredEvents={filteredEvents} 
               allEvents={originalEventsRef.current} 
