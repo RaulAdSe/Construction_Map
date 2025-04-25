@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { API_URL, ensureHttps } from '../config';
+import { API_URL, API_PATH, ensureHttps } from '../config';
 
 // Create axios instance with default config
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: ensureHttps(API_URL + API_PATH),
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -37,7 +37,15 @@ apiClient.interceptors.request.use(config => {
 // Get all users (admin only)
 export const getAllUsers = async () => {
   try {
-    const response = await apiClient.get('/users');
+    // Force HTTPS for this particular request
+    const secureUrl = 'https://construction-map-backend-ypzdt6srya-uc.a.run.app/api/v1/users';
+    const response = await axios.get(secureUrl, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
     return response.data;
   } catch (error) {
     console.error('Error fetching users:', error);

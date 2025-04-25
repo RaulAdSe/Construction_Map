@@ -246,7 +246,7 @@ const MapDetail = ({
       const contentRect = mapContentRef.current.getBoundingClientRect();
       initialContentSize.current = {
         width: contentRect.width || 1200,
-        height: (contentRect.height || 900) * 0.9425 // Apply height adjustment only once
+        height: (contentRect.height || 900) * 1 // Apply height adjustment only once
       };
       
       if (DEBUG) {
@@ -821,134 +821,93 @@ const MapDetail = ({
             }
           }}
         >
-          {/* Map content layers */}
+          {/* Map content layers - ALL map layers have pointer-events: none */}
           <div ref={mapContentRef} style={{
             ...contentStyle,
-            pointerEvents: 'none' // Make the content itself not capture pointer events
+            pointerEvents: 'none', // Make the content itself not capture pointer events
+            zIndex: 1 // Low z-index for map layers
           }} className="map-content">
             {renderMapLayer(implantationMap, 0)}
             {overlayMapObjects.map(m => renderMapLayer(m, 1, true))}
           </div>
           
-          {/* Separate markers container with fixed positioning relative to map container */}
-          {imageLoaded && (
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              zIndex: 2000,
-              pointerEvents: 'none'
-            }} className="event-markers-container">
-              <div className="debug-marker-info" style={{
-                position: 'absolute',
-                top: '5px',
-                left: '5px',
-                background: 'rgba(0,0,0,0.7)',
-                color: 'white',
-                padding: '5px',
-                borderRadius: '5px',
-                fontSize: '10px',
-                zIndex: 3000,
-                display: 'none'
-              }}>
-                Map size: {contentSize.width}x{contentSize.height} | Scale: {viewportScale.toFixed(2)}
-              </div>
+          {/* DEDICATED MARKER CONTAINER - positioned exactly like map content but with higher z-index */}
+          <div 
+            style={{
+              ...contentStyle,
+              pointerEvents: 'none', // Container passes events through by default
+              overflow: 'visible',
+              zIndex: 9999
+            }} 
+            className="marker-positioning-container"
+          >
+            {visibleEvents && visibleEvents.map((event) => {
+              const normalizedCoords = normalizeEventCoordinates(event);
               
-              {visibleEvents && visibleEvents.map((event) => {
-                // Extract numeric coordinates, ensure they're numbers
-                let xCoord = parseFloat(event.x_coordinate || event.location_x);
-                let yCoord = parseFloat(event.y_coordinate || event.location_y);
-                
-                // Log raw coordinates before normalization
-                console.log(`Raw coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
-                
-                // If coordinates are exceptionally large (like percentages > 100),
-                // likely a coordinate system mismatch - normalize to 0-100 range
-                if (!isNaN(xCoord) && !isNaN(yCoord)) {
-                  if (xCoord > 100 || yCoord > 100) {
-                    // Coordinates are in pixels or some other absolute unit
-                    // Normalize to percentage range based on assumed 1000x1000 coordinate space
-                    const normalizeBase = 400; // Assume coordinates are based on a 400x400 grid
-                    const normalizedX = (xCoord / normalizeBase) * 100;
-                    const normalizedY = (yCoord / normalizeBase) * 100;
-                    
-                    console.log(`Normalized coordinates: x=${normalizedX.toFixed(2)}%, y=${normalizedY.toFixed(2)}% (from ${xCoord},${yCoord})`);
-                    
-                    xCoord = normalizedX;
-                    yCoord = normalizedY;
-                  }
-                }
-                
-                // Clamp coordinates to reasonable range (0-100%)
-                xCoord = Math.min(Math.max(xCoord, 0), 100);
-                yCoord = Math.min(Math.max(yCoord, 0), 100);
-                
-                console.log(`Final marker position for event ${event.id}: x=${xCoord.toFixed(2)}%, y=${yCoord.toFixed(2)}%`);
-                
-                console.log(`Rendering marker for event ${event.id}`, {
-                  id: event.id,
-                  title: event.title || event.name,
-                  x: xCoord,
-                  y: yCoord,
-                  raw_x: event.x_coordinate,
-                  raw_y: event.y_coordinate,
-                  raw_location_x: event.location_x,
-                  raw_location_y: event.location_y
-                });
-                
-                // Skip rendering if coordinates are not valid numbers
-                if (isNaN(xCoord) || isNaN(yCoord)) {
-                  console.warn(`Invalid coordinates for event ${event.id}: x=${xCoord}, y=${yCoord}`);
-                  return null;
-                }
-                
-                // Smaller, simpler debug marker - a simpler visible element to confirm positioning
-                const debugMarker = (
-                  <div
-                    key={`debug-marker-${event.id}`}
-                    style={{
-                      position: 'absolute',
-                      left: `${xCoord}%`,
-                      top: `${yCoord}%`,
-                      width: '10px',
-                      height: '10px',
-                      backgroundColor: isIncidence(event) ? '#FF0000' : 
-                                      isCheck(event) ? '#3399FF' : 
-                                      isRequest(event) ? '#9966CC' : '#FF9900',
-                      borderRadius: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 2500,
-                      pointerEvents: 'auto',
-                      cursor: 'pointer',
-                      border: 'none'
-                    }}
-                    onClick={() => handleEventClick(event)}
-                  >
-                  </div>
-                );
-                
-                return (
-                  <>
-                    {/* The debug marker - now our primary marker */}
-                    {debugMarker}
-                    
-                    {/* The regular EventMarker component - now hidden */}
-                    <EventMarker
-                      key={`event-${event.id}-${eventKey}`}
-                      event={event}
-                      x={xCoord}
-                      y={yCoord}
-                      viewportScale={viewportScale}
-                      isMobile={isMobile}
-                      onClick={() => handleEventClick(event)}
-                      disabled={true}
-                      style={{display: 'none'}}
-                    />
-                  </>
-                );
-              })}
+              if (!normalizedCoords) {
+                console.warn(`Skipping marker for event ${event.id} due to invalid coordinates`);
+                return null;
+              }
+              
+              const { x, y } = normalizedCoords;
+              
+              // Determine marker color based on event type
+              const markerColor = isIncidence(event) ? '#FF0000' : 
+                          isCheck(event) ? '#3399FF' : 
+                          isRequest(event) ? '#9966CC' : '#FF9900';
+              
+              // Create a direct DOM marker with guaranteed visibility and interactivity
+              return (
+                <div
+                  key={`event-marker-${event.id}`}
+                  className="event-marker"
+                  style={{
+                    position: 'absolute',
+                    left: `${x}%`,
+                    top: `${y}%`,
+                    width: '20px',
+                    height: '20px',
+                    backgroundColor: markerColor,
+                    borderRadius: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 10000,
+                    pointerEvents: 'auto !important',
+                    cursor: 'pointer',
+                    border: '3px solid white',
+                    boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
+                    display: 'block !important',
+                    visibility: 'visible !important'
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent event from bubbling
+                    console.log(`Marker clicked for event ${event.id}`);
+                    handleEventClick(event);
+                  }}
+                  title={event.title || event.name || `Event #${event.id}`}
+                  data-event-id={event.id}
+                  data-x-coord={x}
+                  data-y-coord={y}
+                />
+              );
+            })}
+          </div>
+          
+          {/* DEBUG INFO - Fixed position at top */}
+          {DEBUG && (
+            <div className="debug-marker-info" style={{
+              position: 'absolute',
+              top: '5px',
+              left: '5px',
+              background: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '5px',
+              borderRadius: '5px',
+              fontSize: '12px',
+              zIndex: 10001,
+              pointerEvents: 'auto'
+            }}>
+              Map size: {contentSize.width}x{contentSize.height} | Scale: {viewportScale.toFixed(2)} | 
+              Events: {visibleEvents?.length || 0}
             </div>
           )}
         </div>
@@ -998,84 +957,71 @@ const MapDetail = ({
       maxHeight: '80vh'
     } : {
       position: 'relative',
-      width: '100%',
       padding: '15px',
       backgroundColor: '#f8f9fa',
       border: '1px solid #dee2e6',
-      borderRadius: '5px'
+      borderRadius: '8px',
+      boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
     };
     
     return (
-      (!isMobile || showMobileControls) && (
-        <div className="map-layers-control" style={layerStyles}>
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h5 className="m-0">{translate('Map Layers')}</h5>
-            {isMobile && (
-              <Button 
-                variant="link" 
-                className="p-0 text-secondary" 
-                onClick={toggleMobileControls}
-                aria-label="Close"
-              >
-                X
-              </Button>
-            )}
-          </div>
-          <ListGroup>
-            {/* Always show implantation map at the top */}
-            {implantationMap && (
-              <ListGroup.Item 
-                key={`layer-${implantationMap.id}`} 
-                className="d-flex justify-content-between align-items-center"
-              >
-                <div className="d-flex align-items-center">
-                  <Form.Check
-                    type="checkbox"
-                    checked={visibleMaps.includes(implantationMap.id)}
-                    disabled={true} // Can't toggle the main map
-                    label={`${implantationMap.name} (${translate('Main')})`}
-                    id={`map-layer-${implantationMap.id}`}
-                  />
+      <div className="map-layers-container" style={{
+        ...layerStyles,
+        marginTop: '80px', // Reduced from 200px
+        marginBottom: '30px', // Reduced from 50px
+        width: 'auto', // Auto width instead of fixed 80%
+        maxWidth: '500px', // Add max-width for larger screens
+        margin: '80px auto 30px auto', // Adjusted margins
+        padding: '20px', // Reduced padding
+      }}>
+        <h5 style={{ marginBottom: '15px', fontSize: '16px', fontWeight: '600' }}>{translate('Map Layers')}</h5>
+        <ListGroup variant="flush">
+          {/* Main map item */}
+          {implantationMap && (
+            <ListGroup.Item className="main-map-item py-2" style={{ border: 'none', borderBottom: '1px solid #eee' }}>
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong style={{ fontSize: '14px' }}>{implantationMap.name || translate('Main Map')}</strong>
+                  <small className="d-block text-muted" style={{ fontSize: '12px' }}>{translate('Base layer (always visible)')}</small>
                 </div>
                 <Form.Range
-                  value={mapOpacities[implantationMap.id] * 100}
-                  onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value, 10))}
-                  min={20}
-                  max={100}
-                  className="opacity-slider"
+                  value={mapOpacities[implantationMap.id] * 100 || 100}
+                  onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
+                  style={{ width: '100px' }}
                 />
-              </ListGroup.Item>
-            )}
-            
-            {/* Then show all overlay maps */}
-            {overlayMaps.map(map => (
-              <ListGroup.Item 
-                key={`layer-${map.id}`} 
-                className="d-flex justify-content-between align-items-center"
-              >
-                <div className="d-flex align-items-center">
-                  <Form.Check
-                    type="checkbox"
-                    checked={visibleMaps.includes(map.id)}
-                    onChange={() => toggleMapVisibility(map.id)}
-                    label={map.name}
-                    id={`map-layer-${map.id}`}
-                  />
-                </div>
-                {visibleMaps.includes(map.id) && (
-                  <Form.Range
-                    value={mapOpacities[map.id] * 100}
-                    onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value, 10))}
-                    min={20}
-                    max={100}
-                    className="opacity-slider"
-                  />
-                )}
-              </ListGroup.Item>
-            ))}
-          </ListGroup>
-        </div>
-      )
+              </div>
+            </ListGroup.Item>
+          )}
+          
+          {/* Overlay maps */}
+          {overlayMaps.map(map => (
+            <ListGroup.Item key={map.id} className="d-flex justify-content-between align-items-center py-2" style={{ border: 'none', borderBottom: '1px solid #eee' }}>
+              <Form.Check 
+                type="checkbox"
+                id={`map-toggle-${map.id}`}
+                label={
+                  <div>
+                    <span style={{ fontSize: '14px' }}>{map.name || `Map #${map.id}`}</span>
+                    <small className="d-block text-muted" style={{ fontSize: '12px' }}>
+                      {map.map_type ? translate(map.map_type) : translate('Overlay')}
+                    </small>
+                  </div>
+                }
+                checked={visibleMaps.includes(map.id)}
+                onChange={() => toggleMapVisibility(map.id)}
+              />
+              
+              {visibleMaps.includes(map.id) && (
+                <Form.Range
+                  value={mapOpacities[map.id] * 100 || 50}
+                  onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value))}
+                  style={{ width: '100px' }}
+                />
+              )}
+            </ListGroup.Item>
+          ))}
+        </ListGroup>
+      </div>
     );
   };
   
@@ -1109,40 +1055,196 @@ const MapDetail = ({
     );
   };
   
+  // Update normalizeEventCoordinates function
+  const normalizeEventCoordinates = (event) => {
+    if (!event) {
+      console.warn('Invalid event:', event);
+      return null;
+    }
+
+    let x, y;
+    
+    // Try different coordinate properties in priority order
+    if (typeof event.x_coordinate !== 'undefined' && event.x_coordinate !== null) {
+      x = parseFloat(event.x_coordinate);
+      y = parseFloat(event.y_coordinate);
+    } else if (typeof event.location_x !== 'undefined' && event.location_x !== null) {
+      x = parseFloat(event.location_x);
+      y = parseFloat(event.location_y);
+    } else if (event.coordinates) {
+      // Parse coordinates based on format (could be stored as string, object, or already as numbers)
+      if (typeof event.coordinates === 'string') {
+        try {
+          const coordObj = JSON.parse(event.coordinates);
+          x = parseFloat(coordObj.x || coordObj.X || 0);
+          y = parseFloat(coordObj.y || coordObj.Y || 0);
+        } catch (e) {
+          // Try comma-separated format
+          const parts = event.coordinates.split(',');
+          x = parseFloat(parts[0] || 0);
+          y = parseFloat(parts[1] || 0);
+        }
+      } else if (typeof event.coordinates === 'object') {
+        x = parseFloat(event.coordinates.x || event.coordinates.X || 0);
+        y = parseFloat(event.coordinates.y || event.coordinates.Y || 0);
+      }
+    } else {
+      console.warn(`No valid coordinates found for event ${event.id || 'unknown'}`, event);
+      return null;
+    }
+
+    // Log original coordinates for debugging
+    console.log(`Original coordinates for event ${event.id || 'unknown'}: x=${x}, y=${y}`);
+
+    // Detect if coordinates are in pixels (large numbers) and convert to percentages
+    if (!isNaN(x) && !isNaN(y) && contentSize.width > 0 && contentSize.height > 0) {
+      // If x or y is greater than 100, assume it's in pixels and convert to percentage
+      if (x > 100 || y > 100) {
+        console.log(`Converting from pixels to percentages: x=${x}, y=${y}`);
+        x = (x / contentSize.width) * 100;
+        y = (y / contentSize.height) * 100;
+      }
+    }
+
+    // Ensure we have valid numbers
+    if (isNaN(x) || isNaN(y)) {
+      console.warn(`Invalid coordinate values: x=${x}, y=${y}`);
+      return null;
+    }
+
+    // Clamp values to 0-100% range to ensure markers stay within map bounds
+    x = Math.max(0, Math.min(100, x));
+    y = Math.max(0, Math.min(100, y));
+
+    console.log(`Normalized coordinates for event ${event.id || 'unknown'}: x=${x.toFixed(2)}%, y=${y.toFixed(2)}%`);
+    return { x, y };
+  };
+
+  const contentRef = useRef(null);
+
+  // Add useEffect for measuring content size
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const updateContentSize = () => {
+      const { width, height } = contentRef.current.getBoundingClientRect();
+      setContentSize({ width, height });
+      console.log('Updated map content size:', { width, height });
+    };
+
+    // Initial measurement
+    updateContentSize();
+
+    // Set up ResizeObserver to track size changes
+    const resizeObserver = new ResizeObserver(updateContentSize);
+    resizeObserver.observe(contentRef.current);
+
+    return () => {
+      if (contentRef.current) {
+        resizeObserver.unobserve(contentRef.current);
+      }
+      resizeObserver.disconnect();
+    };
+  }, []);
+
   return (
     <div className="map-detail-container" style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       minHeight: '100%',
-      paddingBottom: '800px' // Increased from 400px to 800px for even more space at the bottom
+      paddingBottom: '300px'
     }}>
       <div className="map-content-section" style={{ 
         position: 'relative', 
         flex: '1 0 auto',
-        marginBottom: '50px' // Add space below the map content
+        marginBottom: '120px',
+        minHeight: '700px'
       }}>
         {renderMapContent()}
         {isMobile && renderMobileToggleButton()}
       </div>
       
-      {/* Separate section for map layers in desktop view */}
+      {/* Separate section for map layers in desktop view - completely below map with clear spacing */}
       {!isMobile && (
         <div className="map-layers-section" style={{ 
-          marginTop: '600px', // Reduced from 750px to 100px to position it closer to the map
-          marginBottom: '50px', // Reduced bottom margin as well
-          padding: '30px', // More padding to make it easier to see
-          border: '1px solid #eee',
-          borderRadius: '8px',
-          backgroundColor: '#f9f9f9',
-          width: '80%', // Make it a bit narrower than the full width
-          alignSelf: 'center' // Center it horizontally
+          marginTop: '100px',
+          marginBottom: '100px',
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          paddingRight: '0',
         }}>
-          {renderMapLayers()}
+          <div style={{
+            maxWidth: '400px',
+            width: '100%',
+            backgroundColor: '#f8f9fa',
+            border: '1px solid #dee2e6',
+            borderRadius: '8px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+            padding: '20px',
+          }}>
+            <h5 style={{ marginBottom: '15px', fontSize: '16px', fontWeight: '600', textAlign: 'center' }}>{translate('Map Layers')}</h5>
+            <ListGroup variant="flush">
+              {/* Main map item */}
+              {implantationMap && (
+                <ListGroup.Item className="main-map-item py-2" style={{ border: 'none', borderBottom: '1px solid #eee' }}>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong style={{ fontSize: '14px' }}>{implantationMap.name || translate('Main Map')}</strong>
+                      <small className="d-block text-muted" style={{ fontSize: '12px' }}>{translate('Base layer (always visible)')}</small>
+                    </div>
+                    <Form.Range
+                      value={mapOpacities[implantationMap.id] * 100 || 100}
+                      onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
+                      style={{ width: '100px' }}
+                    />
+                  </div>
+                </ListGroup.Item>
+              )}
+              
+              {/* Overlay maps */}
+              {overlayMaps.map(map => (
+                <ListGroup.Item key={map.id} className="d-flex justify-content-between align-items-center py-2" style={{ border: 'none', borderBottom: '1px solid #eee' }}>
+                  <Form.Check 
+                    type="checkbox"
+                    id={`map-toggle-${map.id}`}
+                    label={
+                      <div>
+                        <span style={{ fontSize: '14px' }}>{map.name || `Map #${map.id}`}</span>
+                        <small className="d-block text-muted" style={{ fontSize: '12px' }}>
+                          {map.map_type ? translate(map.map_type) : translate('Overlay')}
+                        </small>
+                      </div>
+                    }
+                    checked={visibleMaps.includes(map.id)}
+                    onChange={() => toggleMapVisibility(map.id)}
+                  />
+                  
+                  {visibleMaps.includes(map.id) && (
+                    <Form.Range
+                      value={mapOpacities[map.id] * 100 || 50}
+                      onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value))}
+                      style={{ width: '100px' }}
+                    />
+                  )}
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          </div>
         </div>
       )}
       
       {/* Mobile layers are rendered with fixed positioning */}
       {isMobile && showMobileControls && renderMapLayers()}
+      
+      {/* Add this CSS to ensure markers are visible */}
+      <style jsx>{`
+        .event-marker {
+          visibility: visible !important;
+          z-index: 9999 !important;
+          pointer-events: auto !important;
+        }
+      `}</style>
     </div>
   );
 };
