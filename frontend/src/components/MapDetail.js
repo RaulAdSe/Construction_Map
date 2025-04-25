@@ -875,7 +875,7 @@ const MapDetail = ({
                     backgroundColor: markerColor,
                     borderRadius: '50%',
                     transform: 'translate(-50%, -50%)',
-                    zIndex: 10000,
+                    zIndex: 999,
                     pointerEvents: 'auto !important',
                     cursor: 'pointer',
                     border: '3px solid white',
@@ -954,12 +954,12 @@ const MapDetail = ({
     
     const layerStyles = isMobile ? {
       position: 'fixed',
-      bottom: '70px', // Increase from 20px to 70px to position it lower
+      bottom: '70px', // Increased from 20px to 70px to position it lower
       right: '20px', 
       left: '20px',
-      zIndex: 1001,
+      zIndex: 10001, // Increased from 1001 to be higher than markers (10000)
       boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-      maxHeight: '70vh' // Reduce from 80vh to 70vh to make it shorter
+      maxHeight: '70vh' // Reduced from 80vh to 70vh to make it shorter
     } : {
       position: 'relative',
       padding: '15px',
