@@ -164,7 +164,7 @@ def add_user_to_project(db: Session, project_id: int, user_id: int, role: str = 
     new_project_user = ProjectUser(
         project_id=project_id,
         user_id=user_id,
-        created_at=datetime.utcnow(),
+        joined_at=datetime.utcnow(),
         last_accessed_at=datetime.utcnow(),
         field=""  # Empty field by default
     )

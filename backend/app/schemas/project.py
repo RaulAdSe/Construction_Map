@@ -30,6 +30,12 @@ class ProjectUserCreate(ProjectUserBase):
     pass
 
 
+# New schema specifically for adding users to projects via API endpoint
+class ProjectUserAdd(BaseModel):
+    user_id: int
+    field: Optional[str] = None
+
+
 class ProjectUserUpdate(BaseModel):
     role: Optional[str] = None
     field: Optional[str] = None

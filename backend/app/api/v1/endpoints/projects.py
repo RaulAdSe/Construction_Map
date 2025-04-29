@@ -6,7 +6,7 @@ from app.api.deps import get_current_active_user, get_db
 from app.models.user import User
 from app.models.project import ProjectUser
 from app.models.event import Event
-from app.schemas.project import Project, ProjectCreate, ProjectUpdate, ProjectDetail, ProjectUserCreate, ProjectUserUpdate
+from app.schemas.project import Project, ProjectCreate, ProjectUpdate, ProjectDetail, ProjectUserCreate, ProjectUserUpdate, ProjectUserAdd
 from app.schemas.user import User as UserSchema
 from app.services import project as project_service
 
@@ -44,6 +44,8 @@ def create_project(
     Create a new project.
     The creator will automatically be assigned the ADMIN role.
     """
+    print(f"Creating project: {project_in.name} by user {current_user.id} ({current_user.username})")
+    
     project = project_service.create_project(
         db, 
         name=project_in.name, 
@@ -51,7 +53,25 @@ def create_project(
     )
     
     # Add current user to the project as an ADMIN
-    project_service.add_user_to_project(db, project.id, current_user.id, "ADMIN")
+    try:
+        print(f"Adding user {current_user.id} to project {project.id} as ADMIN")
+        project_user = project_service.add_user_to_project(db, project.id, current_user.id, "ADMIN")
+        
+        if project_user:
+            print(f"Successfully added user to project: {project_user.project_id}, {project_user.user_id}")
+        else:
+            print(f"WARNING: Failed to add user {current_user.id} to project {project.id}")
+            
+        # Double-check if user was actually added
+        is_member = db.query(ProjectUser).filter(
+            ProjectUser.project_id == project.id,
+            ProjectUser.user_id == current_user.id
+        ).first() is not None
+        
+        print(f"Verification - User is member of project: {is_member}")
+    except Exception as e:
+        print(f"Error adding user to project: {str(e)}")
+        # Continue anyway to return the project
     
     return project
 
@@ -155,7 +175,7 @@ def delete_project(
 @router.post("/{project_id}/users", status_code=status.HTTP_201_CREATED)
 def add_user_to_project(
     project_id: int,
-    user_data: ProjectUserCreate,
+    user_data: ProjectUserAdd,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -173,11 +193,15 @@ def add_user_to_project(
         raise HTTPException(status_code=403, detail="Not enough permissions: Admin role required")
     
     # Add user to project (role field is no longer used)
-    project_user = project_service.add_user_to_project(db, project_id, user_data.user_id)
-    if not project_user:
-        raise HTTPException(status_code=400, detail="Failed to add user to project")
-    
-    return {"status": "success", "message": "User added to project successfully"}
+    try:
+        project_user = project_service.add_user_to_project(db, project_id, user_data.user_id)
+        if not project_user:
+            raise HTTPException(status_code=400, detail="Failed to add user to project")
+        
+        return {"status": "success", "message": "User added to project successfully"}
+    except Exception as e:
+        print(f"Error adding user to project: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to add user: {str(e)}")
 
 
 @router.delete("/{project_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -403,6 +403,14 @@ const MapDetail = ({
     return state === 'request' || state.includes('request');
   };
   
+  // Define status colors for incidence type events
+  const incidenceStatusColors = {
+    'open': '#FF0000',      // Bright Red
+    'in-progress': '#FFCC00', // Yellow
+    'resolved': '#00CC00',  // Green
+    'closed': '#6C757D'     // Gray
+  };
+  
   const toggleMapVisibility = (mapId) => {
     setVisibleMaps(prevMaps => {
       // Don't allow toggling off the main map
@@ -838,11 +846,12 @@ const MapDetail = ({
           
           {/* DEDICATED MARKER CONTAINER - positioned exactly like map content but with higher z-index */}
           <div 
+            key={visibleEvents.map(e => `${e.id}:${e.state || e.status}`).join(',')}
             style={{
               ...contentStyle,
               pointerEvents: 'none', // Container passes events through by default
               overflow: 'visible',
-              zIndex: 9999
+              zIndex: 50 // Lower z-index to ensure panels appear above markers
             }} 
             className="marker-positioning-container"
           >
@@ -857,14 +866,18 @@ const MapDetail = ({
               const { x, y } = normalizedCoords;
               
               // Determine marker color based on event type
-              const markerColor = isIncidence(event) ? '#FF0000' : 
-                          isCheck(event) ? '#3399FF' : 
-                          isRequest(event) ? '#9966CC' : '#FF9900';
+              const markerColor = isIncidence(event) 
+                ? (incidenceStatusColors[event.status] || incidenceStatusColors['open']) // Use status-specific colors for incidences
+                : isCheck(event) 
+                  ? '#3399FF' 
+                  : isRequest(event) 
+                    ? '#9966CC' 
+                    : '#FF9900';
               
               // Create a direct DOM marker with guaranteed visibility and interactivity
               return (
                 <div
-                  key={`event-marker-${event.id}`}
+                  key={`event-marker-${event.id}-${event.state || event.status}`}
                   className="event-marker"
                   style={{
                     position: 'absolute',
@@ -954,12 +967,18 @@ const MapDetail = ({
     
     const layerStyles = isMobile ? {
       position: 'fixed',
-      bottom: '70px', // Increased from 20px to 70px to position it lower
-      right: '20px', 
-      left: '20px',
-      zIndex: 10001, // Increased from 1001 to be higher than markers (10000)
-      boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-      maxHeight: '70vh' // Reduced from 80vh to 70vh to make it shorter
+      bottom: '10px', // Place near the bottom like the Add Event button
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 3000, // Ensure it's above other elements
+      boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+      maxHeight: '60vh',
+      width: '90%',
+      maxWidth: '400px',
+      backgroundColor: '#ffffff',
+      borderRadius: '8px',
+      padding: '15px',
+      margin: 0 // Remove any margin for mobile
     } : {
       position: 'relative',
       padding: '15px',
@@ -972,14 +991,37 @@ const MapDetail = ({
     return (
       <div className="map-layers-container" style={{
         ...layerStyles,
-        marginTop: '80px', // Reduced from 200px
-        marginBottom: '30px', // Reduced from 50px
-        width: 'auto', // Auto width instead of fixed 80%
-        maxWidth: '500px', // Add max-width for larger screens
-        margin: '80px auto 30px auto', // Adjusted margins
-        padding: '20px', // Reduced padding
+        marginTop: isMobile ? '100px' : '80px',
+        marginBottom: isMobile ? '0' : '30px',
+        width: isMobile ? '85%' : 'auto',
+        maxWidth: isMobile ? '400px' : '500px',
+        margin: isMobile ? '0' : '80px auto 30px auto',
+        padding: '20px',
       }}>
-        <h5 style={{ marginBottom: '15px', fontSize: '16px', fontWeight: '600' }}>{translate('Map Layers')}</h5>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h5 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>{translate('Map Layers')}</h5>
+          {isMobile && (
+            <Button 
+              variant="outline-secondary" 
+              onClick={() => setShowMobileControls(false)}
+              className="p-1"
+              style={{ 
+                fontSize: '24px', 
+                lineHeight: '1', 
+                width: '36px', 
+                height: '36px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label="Close"
+            >
+              <i className="bi bi-x"></i>
+            </Button>
+          )}
+        </div>
+        
         <ListGroup variant="flush">
           {/* Main map item */}
           {implantationMap && (
@@ -1100,6 +1142,11 @@ const MapDetail = ({
 
     // Log original coordinates for debugging
     console.log(`Original coordinates for event ${event.id || 'unknown'}: x=${x}, y=${y}`);
+
+    // Add status to debug log for better debugging of marker color issues
+    if (isIncidence(event)) {
+      console.log(`Incidence event ${event.id} has status: ${event.status}, color: ${incidenceStatusColors[event.status] || incidenceStatusColors['open']}`);
+    }
 
     // Detect if coordinates are in pixels (large numbers) and convert to percentages
     if (!isNaN(x) && !isNaN(y) && contentSize.width > 0 && contentSize.height > 0) {
@@ -1242,11 +1289,10 @@ const MapDetail = ({
       {/* Mobile layers are rendered with fixed positioning */}
       {isMobile && showMobileControls && renderMapLayers()}
       
-      {/* Add this CSS to ensure markers are visible */}
+      {/* Remove this inline style as it's causing the markers to always be on top */}
       <style jsx>{`
         .event-marker {
           visibility: visible !important;
-          z-index: 9999 !important;
           pointer-events: auto !important;
         }
       `}</style>

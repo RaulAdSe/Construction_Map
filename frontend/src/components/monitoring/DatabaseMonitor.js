@@ -14,7 +14,17 @@ const DatabaseMonitor = () => {
       setError(null);
       
       const data = await getSlowQueries({ fromLog, limit: 50 });
-      setQueries(data.queries);
+      
+      // Make sure each query has the expected fields or provide default values
+      const processedQueries = data.queries.map(query => ({
+        ...query,
+        operation: query.operation_type || query.operation || 'unknown',
+        table: query.table || 'unknown',
+        timestamp: query.timestamp || new Date().toISOString(),
+        duration: query.duration || 0
+      }));
+      
+      setQueries(processedQueries);
     } catch (err) {
       console.error('Error fetching slow queries:', err);
       setError('Failed to fetch database query information.');
@@ -38,17 +48,29 @@ const DatabaseMonitor = () => {
   };
 
   const getOperationBadge = (operation) => {
+    // Handle undefined operation
+    if (!operation) {
+      return <Badge bg="secondary">UNKNOWN</Badge>;
+    }
+    
+    // Make sure operation is a string
+    const op = String(operation).toLowerCase();
+    
     const variant = 
-      operation === 'select' ? 'info' :
-      operation === 'insert' ? 'success' :
-      operation === 'update' ? 'warning' :
-      operation === 'delete' ? 'danger' : 
+      op === 'select' ? 'info' :
+      op === 'insert' ? 'success' :
+      op === 'update' ? 'warning' :
+      op === 'delete' ? 'danger' : 
       'secondary';
     
-    return <Badge bg={variant}>{operation.toUpperCase()}</Badge>;
+    return <Badge bg={variant}>{op.toUpperCase()}</Badge>;
   };
 
   const formatDuration = (seconds) => {
+    if (!seconds && seconds !== 0) {
+      return 'N/A';
+    }
+    
     if (seconds < 1) {
       return `${Math.round(seconds * 1000)} ms`;
     }
@@ -108,7 +130,7 @@ const DatabaseMonitor = () => {
                         {new Date(query.timestamp).toLocaleString()}
                       </td>
                       <td>{getOperationBadge(query.operation)}</td>
-                      <td>{query.table}</td>
+                      <td>{query.table || 'N/A'}</td>
                       <td>
                         <Badge 
                           bg={query.duration > 2 ? 'danger' : query.duration > 1 ? 'warning' : 'info'}
@@ -126,7 +148,7 @@ const DatabaseMonitor = () => {
                             fontFamily: 'monospace'
                           }}
                         >
-                          {query.query}
+                          {query.query || 'Query not available'}
                         </div>
                       </td>
                     </tr>
