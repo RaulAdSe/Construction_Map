@@ -3,8 +3,9 @@ import { Spinner, Alert, Form, ListGroup, Button } from 'react-bootstrap';
 import EventMarker from './EventMarker';
 import { useMobile } from './common/MobileProvider';
 import translate from '../utils/translate';
+import '../styles/MapDetail.css';
 
-const DEBUG = false; // Set to true only when debugging is needed
+const DEBUG = false; // Set to false to hide debug information
 
 const MapDetail = ({
   map,
@@ -95,18 +96,18 @@ const MapDetail = ({
     const scaleY = containerHeight / contentHeight;
     
     // Choose the smaller scale to ensure the content fits entirely
-    // within the container while maintaining aspect ratio
-    const newScale = Math.min(scaleX, scaleY) * 0.9425; // 0.9425 to leave slight margins
+    // For mobile, use a more aggressive scaling to ensure the entire map fits
+    const scalingFactor = isMobile ? 0.85 : 0.9425;
+    const newScale = Math.min(scaleX, scaleY) * scalingFactor; 
+    
+    if (DEBUG || isMobile) {
+      console.log(`${isMobile ? 'Mobile' : 'Desktop'} Scaling: Container: ${containerWidth}×${containerHeight}, Content: ${contentWidth}×${contentHeight}, Scale: ${newScale.toFixed(3)}`);
+    }
     
     setContainerSize({ width: containerWidth, height: containerHeight });
     setContentSize({ width: contentWidth, height: contentHeight });
     setViewportScale(newScale);
-    
-    // Only log when debugging
-    if (DEBUG) {
-      console.log(`Container: ${containerWidth}×${containerHeight}, Content: ${contentWidth}×${contentHeight}, Scale: ${newScale.toFixed(3)}`);
-    }
-  }, []);
+  }, [isMobile]);
   
   // Initialize and update viewport scaling on mount and resize
   useEffect(() => {
@@ -200,6 +201,8 @@ const MapDetail = ({
       const container = mapContainerRef.current;
       
       const handleClick = (e) => {
+        console.log('MapDetail: Click detected in selection mode');
+        
         // Ensure mapContentRef is not null before accessing it
         if (!mapContentRef.current) {
           console.warn('Map content reference is null, cannot calculate coordinates');
@@ -221,6 +224,8 @@ const MapDetail = ({
         const xPercent = (contentX / contentRect.width) * 100;
         const yPercent = (contentY / contentRect.height) * 100;
         
+        console.log(`Map clicked at: x=${xPercent.toFixed(2)}%, y=${yPercent.toFixed(2)}%`);
+        
         // Create modified map object with the current visibleMaps
         const mapWithVisibleLayers = {
           ...map,
@@ -230,12 +235,16 @@ const MapDetail = ({
         onMapClick(mapWithVisibleLayers, xPercent, yPercent);
       };
       
+      // Visual indication that we're in selection mode
       container.style.cursor = 'crosshair';
       container.addEventListener('click', handleClick);
+      
+      console.log('MapDetail: Selection mode active, click handler attached');
       
       return () => {
         container.style.cursor = 'default';
         container.removeEventListener('click', handleClick);
+        console.log('MapDetail: Selection mode deactivated, click handler removed');
       };
     }
   }, [isSelectingLocation, map, onMapClick, visibleMaps, viewportScale]);
@@ -244,13 +253,29 @@ const MapDetail = ({
     // Store initial size of loaded content for reference
     if (mapContentRef.current) {
       const contentRect = mapContentRef.current.getBoundingClientRect();
-      initialContentSize.current = {
-        width: contentRect.width || 1200,
-        height: (contentRect.height || 900) * 1 // Apply height adjustment only once
-      };
       
-      if (DEBUG) {
-        console.log(`Image loaded with dimensions: ${contentRect.width}×${contentRect.height}`);
+      // For mobile, attempt to detect dimensions from the event target if it's an image
+      if (isMobile && e?.target?.tagName === 'IMG') {
+        const img = e.target;
+        const imgWidth = img.naturalWidth || 1200;
+        const imgHeight = img.naturalHeight || 900;
+        
+        console.log(`Mobile: Setting content size from image: ${imgWidth}x${imgHeight}`);
+        
+        initialContentSize.current = {
+          width: imgWidth,
+          height: imgHeight
+        };
+      } else {
+        // Use container dimensions with default fallbacks
+        initialContentSize.current = {
+          width: contentRect.width || 1200,
+          height: (contentRect.height || 900) * 1 // Apply height adjustment only once
+        };
+      }
+      
+      if (DEBUG || isMobile) {
+        console.log(`${isMobile ? 'Mobile: ' : ''}Image loaded with dimensions: ${initialContentSize.current.width}×${initialContentSize.current.height}`);
       }
     } else {
       console.warn('Map content reference is null, cannot calculate loaded image dimensions');
@@ -258,12 +283,20 @@ const MapDetail = ({
     }
     
     setImageLoaded(true);
-    if (DEBUG) {
-      console.log("Map image loaded, events should now be visible");
+    if (DEBUG || isMobile) {
+      console.log(`${isMobile ? 'Mobile: ' : ''}Map image loaded, events should now be visible`);
     }
     
     // Trigger viewport scaling calculation after image is loaded
-    setTimeout(updateViewportScaling, 100);
+    setTimeout(updateViewportScaling, isMobile ? 300 : 100);
+    
+    // On mobile, force another update after a longer delay to ensure proper rendering
+    if (isMobile) {
+      setTimeout(() => {
+        updateViewportScaling();
+        console.log("Mobile: Second forced viewport rescaling to ensure proper rendering");
+      }, 1000);
+    }
   };
   
   const handleImageError = () => {
@@ -466,7 +499,7 @@ const MapDetail = ({
     
     // If still no URL, we can't render the map
     if (!url) {
-      console.log("No URL available for map:", currentMap?.id, currentMap?.name);
+      console.error("No URL available for map:", currentMap?.id, currentMap?.name);
       return null;
     }
     
@@ -486,11 +519,103 @@ const MapDetail = ({
     const fileExt = url.split('.').pop().toLowerCase();
     const opacity = mapOpacities[currentMap.id] || (isOverlay ? 0.5 : 1.0);
     
-    // Only log when debugging to avoid console spam
-    if (DEBUG) {
-      console.log(`Rendering map: ${currentMap.name}, ID: ${currentMap.id}, URL: ${url}, Extension: ${fileExt}`);
+    // Use the same rendering approach for all mobile browsers (Chrome and Safari)
+    if (isMobile) {
+      console.log(`Mobile: Rendering map: ${currentMap.name}, URL: ${url}, Extension: ${fileExt}, Opacity: ${opacity}, Browser: ${navigator.userAgent}`);
+      
+      return (
+        <div 
+          key={`map-layer-${currentMap.id}`} 
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%', 
+            opacity: opacity,
+            zIndex: zIndex + 10,
+            pointerEvents: 'none',
+            display: 'block',
+            visibility: 'visible',
+            overflow: 'visible',
+            backgroundColor: fileExt === 'pdf' ? '#ffffff' : 'transparent'
+          }}
+          className="mobile-map-layer"
+        >
+          {fileExt === 'pdf' ? (
+            // For PDFs on mobile, use an object tag with data attribute for better cross-browser compatibility
+            <object
+              data={url}
+              type="application/pdf"
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                visibility: 'visible',
+                pointerEvents: 'none'
+              }}
+              onLoad={() => {
+                console.log(`Mobile: PDF object loaded for map: ${currentMap.name}`);
+                handleImageLoad();
+              }}
+              className="mobile-pdf-object"
+            >
+              <embed 
+                src={url} 
+                type="application/pdf" 
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'block',
+                  visibility: 'visible'
+                }}
+                className="mobile-pdf-embed"
+              />
+            </object>
+          ) : (
+            // For images and other content types
+            <img
+              src={url}
+              alt={currentMap.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                display: 'block',
+                visibility: 'visible'
+              }}
+              onLoad={(e) => {
+                console.log(`Mobile: Image loaded for map: ${currentMap.name}`);
+                
+                // Get actual image dimensions
+                const img = e.target;
+                const imgWidth = img.naturalWidth || 1200;
+                const imgHeight = img.naturalHeight || 900;
+                console.log(`Mobile: Image dimensions: ${imgWidth}x${imgHeight}`);
+                
+                // Set initial content size from actual image
+                initialContentSize.current = {
+                  width: imgWidth,
+                  height: imgHeight
+                };
+                
+                handleImageLoad(e);
+                
+                // Force viewport update after loading
+                setTimeout(() => {
+                  if (updateViewportScaling) {
+                    updateViewportScaling();
+                  }
+                }, 500);
+              }}
+              className="mobile-map-image"
+            />
+          )}
+        </div>
+      );
     }
     
+    // Desktop rendering (unchanged)
     const layerStyle = {
       position: 'absolute',
       top: 0,
@@ -499,16 +624,13 @@ const MapDetail = ({
       height: '100%',
       opacity: opacity,
       zIndex: zIndex,
-      pointerEvents: 'none', // Let clicks pass through to the base container - CRITICAL for markers to work
+      pointerEvents: 'none',
+      backgroundColor: 'transparent'
     };
     
-    // Use a reference to track if this layer has already been loaded
-    const layerKey = `map-layer-${currentMap.id}`;
-    
     if (fileExt === 'pdf') {
-      // For PDFs, use an iframe with direct embed and hide UI controls
       return (
-        <div key={layerKey} style={layerStyle} className="pdf-container">
+        <div key={`map-layer-${currentMap.id}`} style={layerStyle} className="pdf-container">
           <iframe 
             src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
             title={currentMap.name}
@@ -517,14 +639,12 @@ const MapDetail = ({
               height: '100%', 
               border: 'none',
               backgroundColor: 'transparent',
-              pointerEvents: 'none' // Ensure iframe doesn't capture pointer events
+              pointerEvents: 'none'
             }}
             frameBorder="0"
             onLoad={(e) => {
-              // Only trigger handleImageLoad once per iframe to prevent re-rendering loops
-              if (!imageLoaded) {
-                handleImageLoad(e);
-              }
+              console.log(`PDF iframe loaded for map: ${currentMap.name}`);
+              handleImageLoad(e);
             }}
             onError={(e) => {
               console.error(`Error loading map from URL: ${url}`, e);
@@ -535,9 +655,8 @@ const MapDetail = ({
         </div>
       );
     } else if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(fileExt)) {
-      // For images, contain them in their container with consistent scaling
       return (
-        <div key={layerKey} style={layerStyle} className="map-image-container">
+        <div key={`map-layer-${currentMap.id}`} style={layerStyle} className="map-image-container">
           <img 
             src={url} 
             alt={currentMap.name} 
@@ -545,13 +664,25 @@ const MapDetail = ({
               width: '100%', 
               height: '100%', 
               objectFit: 'contain',
-              pointerEvents: 'none' // Ensure image doesn't capture pointer events
+              pointerEvents: 'none'
             }}
             onLoad={(e) => {
-              // Only trigger handleImageLoad once per image to prevent re-rendering loops
-              if (!imageLoaded) {
-                handleImageLoad(e);
-              }
+              console.log(`Image loaded successfully for map: ${currentMap.name}`);
+              
+              // Store actual image dimensions for better scaling
+              const img = e.target;
+              const imgWidth = img.naturalWidth || 1200;
+              const imgHeight = img.naturalHeight || 900;
+              
+              console.log(`Image dimensions: ${imgWidth}x${imgHeight}`);
+              
+              // Update initial content size with actual image dimensions
+              initialContentSize.current = {
+                width: imgWidth,
+                height: imgHeight
+              };
+              
+              handleImageLoad(e);
             }}
             onError={(e) => {
               console.error(`Error loading map image from URL: ${url}`, e);
@@ -562,24 +693,21 @@ const MapDetail = ({
         </div>
       );
     } else {
-      // For other file types, use a generic iframe
       return (
-        <div key={layerKey} style={layerStyle}>
+        <div key={`map-layer-${currentMap.id}`} style={layerStyle} className="generic-content-container">
           <iframe 
             src={url} 
-            className="map-iframe-container consistent-iframe-view"
+            className="map-iframe-container"
             title={currentMap.name}
             style={{ 
               width: '100%', 
               height: '100%', 
               border: 'none',
-              pointerEvents: 'none' // Ensure iframe doesn't capture pointer events
+              pointerEvents: 'none'
             }}
             onLoad={(e) => {
-              // Only trigger handleImageLoad once per iframe to prevent re-rendering loops
-              if (!imageLoaded) {
-                handleImageLoad(e);
-              }
+              console.log(`Generic iframe loaded for map: ${currentMap.name}`);
+              handleImageLoad(e);
             }}
             onError={(e) => {
               console.error(`Error loading map content from URL: ${url}`, e);
@@ -769,89 +897,225 @@ const MapDetail = ({
     );
     
     if (!hasValidMap) {
-      return <div className="no-content">No content available</div>;
+      console.error('No valid map available:', implantationMap);
+      return (
+        <div className="no-content" style={{
+          minHeight: '300px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          padding: '20px',
+          borderRadius: '4px',
+          marginTop: '20px'
+        }}>
+          No map content available. Please check connection or reload.
+        </div>
+      );
     }
+    
+    // Log map data for debugging
+    console.log('Map data:', {
+      id: implantationMap.id,
+      name: implantationMap.name,
+      url: implantationMap.content_url || implantationMap.file_url,
+      type: implantationMap.map_type,
+      userAgent: navigator.userAgent
+    });
     
     // Get all maps that should be visible
     const overlayMapObjects = overlayMaps.filter(m => visibleMaps.includes(m.id));
     
-    // Calculate the content container style with centered positioning
+    // Set minimum dimensions for content if not already set
+    const minContentWidth = 1200;
+    const minContentHeight = 900;
+    
+    // For mobile, adjust the content style to ensure it fits on screen
     const contentStyle = {
       position: 'absolute',
-      width: contentSize.width,
-      height: initialContentSize.current ? initialContentSize.current.height : contentSize.height,
+      width: contentSize.width > 0 ? contentSize.width : minContentWidth,
+      height: initialContentSize.current ? initialContentSize.current.height : (contentSize.height > 0 ? contentSize.height : minContentHeight),
       transform: isMobile 
-        ? `scale(${viewportScale * mobilePanZoomScale})` 
+        ? `translate(-50%, -50%) scale(${viewportScale * mobilePanZoomScale})` 
         : `scale(${viewportScale})`,
-      transformOrigin: 'center center',
+      transformOrigin: isMobile ? 'center center' : 'center center',
       top: '50%',
       left: '50%',
-      marginLeft: -(contentSize.width / 2),
-      marginTop: -(initialContentSize.current ? initialContentSize.current.height / 2 : contentSize.height / 2)
+      // For mobile, we use the translate in transform instead of margins
+      marginLeft: isMobile ? 0 : -(contentSize.width > 0 ? contentSize.width / 2 : minContentWidth / 2),
+      marginTop: isMobile ? 0 : -(initialContentSize.current ? initialContentSize.current.height / 2 : (contentSize.height > 0 ? contentSize.height / 2 : minContentHeight / 2))
     };
     
-    // Debug log for contentSize to help with troubleshooting
-    console.log('Map Content Size:', contentSize, 'Initial Content Size:', initialContentSize.current);
+    // Mobile-specific container styles with forced dimensions for better visibility
+    const mobileStyles = isMobile ? {
+      width: '100%',
+      height: '65vh', // Adjusted height for better aspect ratio
+      minHeight: '400px', 
+      maxHeight: '75vh',
+      position: 'relative',
+      border: '1px solid #ccc',
+      borderRadius: '4px',
+      display: 'block',
+      visibility: 'visible',
+      overflow: 'hidden',
+      margin: '0 auto',
+      backgroundColor: '#f5f5f5'
+    } : {};
+    
+    // Enhanced debugging for mobile
+    if (isMobile || DEBUG) {
+      console.log(`${isMobile ? 'Mobile' : 'Desktop'}: Map Content Size:`, contentSize);
+      console.log(`${isMobile ? 'Mobile' : 'Desktop'}: Initial Content Size:`, initialContentSize.current);
+      console.log(`${isMobile ? 'Mobile' : 'Desktop'}: Viewport Scale: ${viewportScale.toFixed(3)}`);
+      if (isMobile) {
+        console.log(`Mobile: Zoom Scale: ${mobilePanZoomScale.toFixed(3)}`);
+        console.log(`Mobile: Browser: ${navigator.userAgent}`);
+      }
+    }
     
     return (
       <>
         {!imageLoaded && (
-          <div className="map-loading-container">
-            <Spinner animation="border" />
-            <p>Loading map content...</p>
+          <div className="map-loading-container" style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 9999,
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            padding: '20px',
+            borderRadius: '8px',
+            boxShadow: '0 0 10px rgba(0,0,0,0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <Spinner animation="border" style={{ width: '3rem', height: '3rem' }} />
+            <p style={{ fontWeight: 'bold' }}>{isMobile ? "Loading map on mobile..." : "Loading map content..."}</p>
           </div>
         )}
         
         <div 
-          className="map-content-container" 
+          className={`map-content-container ${isMobile ? 'mobile-map-container' : ''}`}
           ref={mapContainerRef}
-          style={containerSize}
+          style={{
+            ...(isMobile ? mobileStyles : containerSize),
+            cursor: isSelectingLocation ? 'crosshair' : 'default',
+            // CRITICAL: Enable pointer events on the container to detect clicks
+            pointerEvents: 'auto',
+            display: 'block',
+            visibility: 'visible'
+          }}
           onClick={(e) => {
-            console.log(`MapDetail onClick: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
+            console.log(`MapDetail container clicked: isSelectingLocation=${isSelectingLocation}, isMobile=${isMobile}`);
             
             // Close mobile layer controls when clicking on map
             if (isMobile && showMobileControls) {
               setShowMobileControls(false);
             }
             
-            // Skip all click handling on mobile - we handle it with touch events
-            if (isMobile) {
-              console.log('MapDetail: Ignoring click event on mobile - using touch events instead');
+            // Skip click handling on mobile if pinching - we handle it with touch events
+            if (isMobile && isPinching) {
+              console.log('MapDetail: Ignoring click during pinch-zoom');
               return;
             }
             
-            // Desktop click handling:
+            // Allow click handling for both mobile and desktop in selection mode
             if (isSelectingLocation && mapContentRef.current) {
-              // Calculate click position relative to map content
-              const rect = mapContentRef.current.getBoundingClientRect();
-              const x = (e.clientX - rect.left) / viewportScale;
-              const y = (e.clientY - rect.top) / viewportScale;
-              
-              console.log(`MapDetail click position: x=${x}, y=${y}`);
-              
-              // Pass the click coordinates to the parent component
-              onMapClick && onMapClick(map, x, y);
+              try {
+                // Calculate click position relative to map content
+                const containerRect = mapContainerRef.current.getBoundingClientRect();
+                const containerX = e.clientX - containerRect.left;
+                const containerY = e.clientY - containerRect.top;
+                
+                const contentRect = mapContentRef.current.getBoundingClientRect();
+                
+                // Convert container coordinates to content coordinates
+                const contentX = (containerX - (containerRect.width - contentRect.width * viewportScale) / 2) / viewportScale;
+                const contentY = (containerY - (containerRect.height - contentRect.height * viewportScale) / 2) / viewportScale;
+                
+                // Calculate percentage coordinates relative to the content
+                const xPercent = (contentX / contentRect.width) * 100;
+                const yPercent = (contentY / contentRect.height) * 100;
+                
+                console.log(`MapDetail click position: x=${xPercent.toFixed(2)}%, y=${yPercent.toFixed(2)}%`);
+                
+                // Create modified map object with the current visibleMaps
+                const mapWithVisibleLayers = {
+                  ...map,
+                  visibleMaps: visibleMaps
+                };
+                
+                // Pass the click coordinates to the parent component
+                if (onMapClick) {
+                  console.log('MapDetail: Calling onMapClick handler');
+                  onMapClick(mapWithVisibleLayers, xPercent, yPercent);
+                } else {
+                  console.warn('MapDetail: No onMapClick handler provided');
+                }
+              } catch (error) {
+                console.error('Error handling map click:', error);
+              }
             }
           }}
         >
-          {/* Map content layers - ALL map layers have pointer-events: none */}
+          {/* Map content layers */}
           <div ref={mapContentRef} style={{
             ...contentStyle,
-            pointerEvents: 'none', // Make the content itself not capture pointer events
-            zIndex: 1 // Low z-index for map layers
-          }} className="map-content">
+            // Important: Allow pointer events to pass through to the container
+            pointerEvents: 'none',
+            zIndex: 1,
+            visibility: 'visible',
+            display: 'block'
+          }} className={`map-content ${isMobile ? 'mobile-map-content' : ''}`}>
             {renderMapLayer(implantationMap, 0)}
             {overlayMapObjects.map(m => renderMapLayer(m, 1, true))}
           </div>
+          
+          {/* Mobile information panel - always visible */}
+          {isMobile && DEBUG && (
+            <div className="mobile-content-info" style={{
+              position: 'absolute',
+              bottom: '10px',
+              left: '10px',
+              right: '10px',
+              padding: '10px',
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              textAlign: 'center',
+              fontSize: '14px',
+              borderRadius: '5px',
+              zIndex: 1500,
+              pointerEvents: 'none'
+            }}>
+              {implantationMap.name || "Construction Map"}
+              <br/>
+              <small>{visibleEvents?.length || 0} event(s) shown</small>
+            </div>
+          )}
           
           {/* DEDICATED MARKER CONTAINER - positioned exactly like map content but with higher z-index */}
           <div 
             key={visibleEvents.map(e => `${e.id}:${e.state || e.status}`).join(',')}
             style={{
-              ...contentStyle,
-              pointerEvents: 'none', // Container passes events through by default
+              position: 'absolute',
+              width: contentSize.width > 0 ? contentSize.width : 1200,
+              height: initialContentSize.current ? initialContentSize.current.height : (contentSize.height > 0 ? contentSize.height : 900),
+              transform: isMobile 
+                ? `translate(-50%, -50%) scale(${viewportScale * mobilePanZoomScale})` 
+                : `scale(${viewportScale})`,
+              transformOrigin: isMobile ? 'center center' : 'center center',
+              top: '50%',
+              left: '50%',
+              marginLeft: isMobile ? 0 : -(contentSize.width > 0 ? contentSize.width / 2 : 600),
+              marginTop: isMobile ? 0 : -(initialContentSize.current ? initialContentSize.current.height / 2 : (contentSize.height > 0 ? contentSize.height / 2 : 450)),
+              pointerEvents: 'auto',
               overflow: 'visible',
-              zIndex: 50 // Lower z-index to ensure panels appear above markers
+              zIndex: isMobile ? 1000 : 50,
+              visibility: 'visible',
+              display: 'block'
             }} 
             className="marker-positioning-container"
           >
@@ -867,7 +1131,7 @@ const MapDetail = ({
               
               // Determine marker color based on event type
               const markerColor = isIncidence(event) 
-                ? (incidenceStatusColors[event.status] || incidenceStatusColors['open']) // Use status-specific colors for incidences
+                ? (incidenceStatusColors[event.status] || incidenceStatusColors['open'])
                 : isCheck(event) 
                   ? '#3399FF' 
                   : isRequest(event) 
@@ -878,21 +1142,23 @@ const MapDetail = ({
               return (
                 <div
                   key={`event-marker-${event.id}-${event.state || event.status}`}
-                  className="event-marker"
+                  className={`event-marker ${isMobile ? 'mobile-event-marker' : ''}`}
                   style={{
                     position: 'absolute',
                     left: `${x}%`,
                     top: `${y}%`,
-                    width: '20px',
-                    height: '20px',
+                    // Make markers significantly smaller on mobile
+                    width: isMobile ? '15px' : '20px',
+                    height: isMobile ? '15px' : '20px',
                     backgroundColor: markerColor,
                     borderRadius: '50%',
                     transform: 'translate(-50%, -50%)',
-                    zIndex: 999,
+                    zIndex: isMobile ? 9999 : 999,
                     pointerEvents: 'auto !important',
                     cursor: 'pointer',
-                    border: '3px solid white',
-                    boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
+                    // Make border thinner on mobile
+                    border: isMobile ? '2px solid white' : '3px solid white',
+                    boxShadow: '0 0 8px rgba(0, 0, 0, 0.6)',
                     display: 'block !important',
                     visibility: 'visible !important'
                   }}
@@ -911,21 +1177,26 @@ const MapDetail = ({
           </div>
           
           {/* DEBUG INFO - Fixed position at top */}
-          {DEBUG && (
+          {(DEBUG || false) && (
             <div className="debug-marker-info" style={{
               position: 'absolute',
               top: '5px',
               left: '5px',
+              right: '5px',
               background: 'rgba(0,0,0,0.7)',
               color: 'white',
               padding: '5px',
               borderRadius: '5px',
               fontSize: '12px',
               zIndex: 10001,
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              display: 'block'
             }}>
-              Map size: {contentSize.width}x{contentSize.height} | Scale: {viewportScale.toFixed(2)} | 
-              Events: {visibleEvents?.length || 0}
+              Map: {map?.id} | Scale: {viewportScale.toFixed(2)} | 
+              Events: {visibleEvents?.length || 0} | 
+              Mode: {isSelectingLocation ? 'Selection' : 'View'} |
+              Mobile: {isMobile ? 'Yes' : 'No'} |
+              Browser: {typeof navigator !== 'undefined' ? navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Other' : 'Unknown'}
             </div>
           )}
         </div>
@@ -1140,35 +1411,25 @@ const MapDetail = ({
       return null;
     }
 
-    // Log original coordinates for debugging
-    console.log(`Original coordinates for event ${event.id || 'unknown'}: x=${x}, y=${y}`);
-
-    // Add status to debug log for better debugging of marker color issues
-    if (isIncidence(event)) {
-      console.log(`Incidence event ${event.id} has status: ${event.status}, color: ${incidenceStatusColors[event.status] || incidenceStatusColors['open']}`);
-    }
-
-    // Detect if coordinates are in pixels (large numbers) and convert to percentages
-    if (!isNaN(x) && !isNaN(y) && contentSize.width > 0 && contentSize.height > 0) {
-      // If x or y is greater than 100, assume it's in pixels and convert to percentage
-      if (x > 100 || y > 100) {
-        console.log(`Converting from pixels to percentages: x=${x}, y=${y}`);
-        x = (x / contentSize.width) * 100;
-        y = (y / contentSize.height) * 100;
-      }
-    }
-
     // Ensure we have valid numbers
     if (isNaN(x) || isNaN(y)) {
       console.warn(`Invalid coordinate values: x=${x}, y=${y}`);
       return null;
     }
 
+    // Detect if coordinates are in pixels (large numbers) and convert to percentages
+    if (contentSize.width > 0 && contentSize.height > 0) {
+      // If x or y is greater than 100, assume it's in pixels and convert to percentage
+      if (x > 100 || y > 100) {
+        x = (x / contentSize.width) * 100;
+        y = (y / contentSize.height) * 100;
+      }
+    }
+
     // Clamp values to 0-100% range to ensure markers stay within map bounds
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
-    console.log(`Normalized coordinates for event ${event.id || 'unknown'}: x=${x.toFixed(2)}%, y=${y.toFixed(2)}%`);
     return { x, y };
   };
 
@@ -1294,6 +1555,11 @@ const MapDetail = ({
         .event-marker {
           visibility: visible !important;
           pointer-events: auto !important;
+        }
+        .mobile-event-marker {
+          width: 15px !important;
+          height: 15px !important;
+          border: 2px solid white !important;
         }
       `}</style>
     </div>
