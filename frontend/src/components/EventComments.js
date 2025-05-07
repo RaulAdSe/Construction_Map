@@ -424,6 +424,18 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       return url.replace(/^http:\/\//i, 'https://');
     }
     
+    // Clean url by removing any extra spaces that might cause problems
+    url = url.trim();
+    
+    // Handle Cloud Storage URLs directly
+    if (url.includes('storage.googleapis.com')) {
+      // Ensure we have a full URL with HTTPS
+      if (!url.startsWith('https://')) {
+        return `https://storage.googleapis.com/${url.split('storage.googleapis.com/').pop()}`;
+      }
+      return url;
+    }
+    
     // If it's a relative URL starting with /uploads/
     if (url.startsWith('/uploads/')) {
       return `${baseUrl}${url}`;
@@ -431,7 +443,7 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
     
     // If it's a relative URL starting with /comments/
     if (url.startsWith('/comments/')) {
-      return `${baseUrl}${url}`;
+      return `${baseUrl}/uploads${url}`;
     }
     
     // If it's a relative path that includes 'comments/' (like when stored directly from API)

@@ -270,6 +270,47 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
     setShowHistoryModal(true);
   };
 
+  const ensureHttpsUrl = (url) => {
+    if (!url) return url;
+    
+    // If it's already a full URL with HTTPS, return as is
+    if (url.startsWith('https://')) {
+      return url;
+    }
+    
+    // If it's an HTTP URL, convert to HTTPS
+    if (url.startsWith('http://')) {
+      return url.replace(/^http:\/\//i, 'https://');
+    }
+    
+    // Clean url by removing any extra spaces
+    url = url.trim();
+    
+    // Get base URL for the backend
+    const baseUrl = (process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app').replace('http:', 'https:');
+    
+    // Handle Cloud Storage URLs
+    if (url.includes('storage.googleapis.com')) {
+      if (!url.startsWith('https://')) {
+        return `https://storage.googleapis.com/${url.split('storage.googleapis.com/').pop()}`;
+      }
+      return url;
+    }
+    
+    // If it's a relative URL starting with /uploads/
+    if (url.startsWith('/uploads/')) {
+      return `${baseUrl}${url}`;
+    }
+    
+    // If it's a relative URL starting with /comments/
+    if (url.startsWith('/comments/')) {
+      return `${baseUrl}/uploads${url}`;
+    }
+    
+    // For any other path, assume it's in uploads/comments
+    return `${baseUrl}/uploads/comments/${url.split('/').pop()}`;
+  };
+
   return (
     <div className="events-table-container">
       <EventsFilterPanel 
@@ -528,11 +569,11 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
                       {comment.image_url && (
                         <div className="mt-2">
                           <Image 
-                            src={comment.image_url} 
+                            src={ensureHttpsUrl(comment.image_url)} 
                             alt="Comment attachment" 
                             fluid 
                             style={{ maxHeight: '200px' }}
-                            onClick={() => window.open(comment.image_url, '_blank')}
+                            onClick={() => window.open(ensureHttpsUrl(comment.image_url), '_blank')}
                             className="cursor-pointer"
                           />
                         </div>
