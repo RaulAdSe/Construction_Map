@@ -181,7 +181,6 @@ async def save_event_attachment(file: UploadFile) -> str:
     # Read content to check size and then seek back to start
     content = await file.read()
     file_size = len(content)
-    await file.seek(0)
     
     if file_size > MAX_SIZE:
         raise HTTPException(400, detail=f"File size exceeds the limit of 10MB")
@@ -189,6 +188,44 @@ async def save_event_attachment(file: UploadFile) -> str:
     # Determine file type prefix for the path
     file_type_prefix = "pdf" if content_type == "application/pdf" else "img"
     
+    # Generate a unique filename with appropriate extension
+    if content_type == "application/pdf":
+        ext = ".pdf"
+    else:
+        ext = "." + content_type.split("/")[1]
+    
+    # Create a unique filename
+    unique_filename = f"{file_type_prefix}_{uuid.uuid4()}{ext}"
+    
+    # Check if we should use Cloud Storage
+    use_cloud_storage = os.getenv("USE_CLOUD_STORAGE", "false").lower() == "true"
+    in_cloud_run = os.getenv("K_SERVICE") is not None
+    logger = logging.getLogger("event_service")
+    
+    if use_cloud_storage or in_cloud_run:
+        try:
+            logger.info("Using Cloud Storage for event attachment")
+            from app.services.storage import upload_file_to_cloud_storage
+            
+            # Set destination path in Cloud Storage
+            destination_blob_name = f"events/{unique_filename}"
+            
+            # Upload to Cloud Storage
+            cloud_storage_bucket = os.getenv("CLOUD_STORAGE_BUCKET", "construction-map-storage-deep-responder-444017-h2")
+            file_url = await upload_file_to_cloud_storage(
+                content, 
+                destination_blob_name, 
+                file.content_type or "application/octet-stream"
+            )
+            
+            logger.info(f"File uploaded to Cloud Storage, URL: {file_url}")
+            return file_url  # Return the full Cloud Storage URL
+        except Exception as cloud_error:
+            logger.error(f"Error using Cloud Storage: {str(cloud_error)}")
+            logger.info("Falling back to local storage")
+            # Continue with local storage as fallback
+    
+    # If not using Cloud Storage or it failed, use local storage
     # Ensure uploads directory exists
     attachment_dir = os.path.join(settings.UPLOAD_FOLDER, "events")
     
@@ -208,27 +245,19 @@ async def save_event_attachment(file: UploadFile) -> str:
         attachment_dir = os.path.join("/tmp", "events")
         os.makedirs(attachment_dir, exist_ok=True)
     
-    # Generate a unique filename with appropriate extension
-    if content_type == "application/pdf":
-        ext = "pdf"
-    else:
-        ext = content_type.split("/")[1]
-        
-    filename = f"{file_type_prefix}_{uuid.uuid4()}.{ext}"
-    filepath = os.path.join(attachment_dir, filename)
-    
-    # Save the file
+    # Write file to disk
+    file_path = os.path.join(attachment_dir, unique_filename)
     try:
-        with open(filepath, "wb") as buffer:
-            buffer.write(content)
-    except (PermissionError, OSError) as e:
+        with open(file_path, "wb") as f:
+            await file.seek(0)  # Reset file position
+            f.write(content)
+    except Exception as e:
         logger = logging.getLogger("event_service")
-        logger.error(f"Error writing file to {filepath}: {str(e)}")
-        # If we can't write to the file, raise an error
-        raise HTTPException(500, detail=f"Could not save file due to filesystem error: {str(e)}")
+        logger.error(f"Error saving file: {str(e)}")
+        raise HTTPException(500, detail=f"Error saving file: {str(e)}")
     
-    # Return the relative path for storing in the database
-    return f"events/{filename}"
+    # Return the relative path to be stored in the database
+    return f"/events/{unique_filename}"
 
 
 async def create_event(

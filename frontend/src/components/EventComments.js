@@ -436,25 +436,43 @@ const EventComments = ({ eventId, projectId, highlightCommentId }) => {
       return url;
     }
     
-    // If it's a relative URL starting with /uploads/
-    if (url.startsWith('/uploads/')) {
-      return `${baseUrl}${url}`;
+    // Check if it's a Cloud Storage URL without the full prefix
+    if (url.includes('construction-map-storage-deep-responder-444017-h2')) {
+      return `https://storage.googleapis.com/${url}`;
     }
     
-    // If it's a relative URL starting with /comments/
+    // NEW: Migration code for existing comment attachments - redirect to Cloud Storage
+    // If it's a relative URL (from local backend storage), migrate it to Cloud Storage
     if (url.startsWith('/comments/')) {
-      return `${baseUrl}/uploads${url}`;
+      const filename = url.split('/').pop(); // Get just the filename
+      // Redirect to the same filename but in Cloud Storage
+      return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
+    }
+    
+    // If it's a relative URL starting with /uploads/
+    if (url.startsWith('/uploads/')) {
+      // Try to extract the object type and redirect to appropriate Cloud Storage path
+      if (url.includes('/uploads/comments/')) {
+        const filename = url.split('/').pop();
+        return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
+      } else if (url.includes('/uploads/events/')) {
+        const filename = url.split('/').pop();
+        return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+      } else {
+        // General /uploads/ URL, keep using backend URL for now
+        return `${baseUrl}${url}`;
+      }
     }
     
     // If it's a relative path that includes 'comments/' (like when stored directly from API)
     if (url.includes('comments/')) {
       // Extract the filename only if it includes a path
       const filename = url.split('/').pop();
-      return `${baseUrl}/uploads/comments/${filename}`;
+      return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
     }
     
     // For any other relative URL, assume it's a direct filename in the comments folder
-    return `${baseUrl}/uploads/comments/${url}`;
+    return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${url}`;
   };
 
   return (

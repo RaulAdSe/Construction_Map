@@ -15,13 +15,62 @@ import '../assets/styles/AddEventModal.css';
 const ensureHttpsUrl = (url) => {
   if (!url) return url;
   
-  // If it's a relative URL, prepend the HTTPS backend URL
-  if (!url.startsWith('http')) {
-    return `https://construction-map-backend-ypzdt6srya-uc.a.run.app/uploads/events/${url.split('/').pop()}`;
+  // If it's already a full URL, just ensure it uses HTTPS
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url.replace(/^http:\/\//i, 'https://');
   }
   
-  // If it's an HTTP URL, convert to HTTPS
-  return url.replace(/^http:\/\//i, 'https://');
+  // Clean url by removing any extra spaces that might cause problems
+  url = url.trim();
+  
+  // Handle Cloud Storage URLs directly
+  if (url.includes('storage.googleapis.com')) {
+    // Ensure we have a full URL with HTTPS
+    if (!url.startsWith('https://')) {
+      return `https://storage.googleapis.com/${url.split('storage.googleapis.com/').pop()}`;
+    }
+    return url;
+  }
+  
+  // Check if it's a Cloud Storage URL without the full prefix
+  if (url.includes('construction-map-storage-deep-responder-444017-h2')) {
+    return `https://storage.googleapis.com/${url}`;
+  }
+  
+  // Migration code for existing events - redirect to Cloud Storage
+  // If it's a relative URL (from local backend storage), migrate it to Cloud Storage
+  if (url.startsWith('/events/')) {
+    const filename = url.split('/').pop(); // Get just the filename
+    return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+  }
+  
+  // If it's a relative URL starting with /uploads/
+  if (url.startsWith('/uploads/')) {
+    // Try to extract the object type and redirect to appropriate Cloud Storage path
+    if (url.includes('/uploads/events/')) {
+      const filename = url.split('/').pop();
+      return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+    } else {
+      // General /uploads/ URL, try to determine the type based on filename pattern
+      const filename = url.split('/').pop();
+      if (filename.startsWith('img_') || filename.startsWith('pdf_')) {
+        // This looks like an event attachment
+        return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+      }
+      // Fall back to backend URL for other types
+      return `https://construction-map-backend-ypzdt6srya-uc.a.run.app${url}`;
+    }
+  }
+  
+  // If it's a relative path that includes 'events/' (like when stored directly from API)
+  if (url.includes('events/')) {
+    // Extract the filename only if it includes a path
+    const filename = url.split('/').pop();
+    return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+  }
+  
+  // For any other relative URL, assume it's a direct filename in the events folder
+  return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${url}`;
 };
 
 const EditEventModal = ({ show, onHide, event, onEventUpdated, userRole = "MEMBER", projectId }) => {

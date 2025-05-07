@@ -73,21 +73,6 @@ async def create_comment(
             try:
                 print(f"Processing file upload: {image.filename}")
                 
-                # Create uploads directory if it doesn't exist
-                upload_dir = os.path.join(settings.UPLOAD_FOLDER, "comments")
-                try:
-                    os.makedirs(upload_dir, exist_ok=True)
-                except PermissionError:
-                    print(f"Cannot create comments uploads directory (read-only filesystem): {upload_dir}")
-                    # If we're on a read-only filesystem, use a temporary directory for this operation
-                    upload_dir = os.path.join("/tmp", "comments")
-                    os.makedirs(upload_dir, exist_ok=True)
-                except OSError as e:
-                    print(f"Error creating comments uploads directory: {str(e)}")
-                    # Fall back to temporary directory
-                    upload_dir = os.path.join("/tmp", "comments")
-                    os.makedirs(upload_dir, exist_ok=True)
-                
                 # Determine file type
                 is_pdf = False
                 if image.filename.lower().endswith('.pdf') or image.content_type == 'application/pdf':
@@ -101,37 +86,91 @@ async def create_comment(
                 # Generate unique filename with appropriate prefix
                 file_extension = os.path.splitext(image.filename)[1]
                 unique_filename = f"{file_prefix}{uuid.uuid4()}{file_extension}"
-                file_path = os.path.join(upload_dir, unique_filename)
                 
-                print(f"Saving file to: {file_path}")
+                # Check if we should use Cloud Storage
+                use_cloud_storage = os.getenv("USE_CLOUD_STORAGE", "false").lower() == "true"
+                in_cloud_run = os.getenv("K_SERVICE") is not None
                 
-                # Save the file
-                try:
-                    with open(file_path, "wb") as buffer:
+                if use_cloud_storage or in_cloud_run:
+                    try:
+                        print("Using Cloud Storage for comment attachment")
+                        from app.services.storage import upload_file_to_cloud_storage
+                        
+                        # Read file content
                         content = await image.read()
-                        if not content:
-                            print("Warning: File content is empty")
-                        buffer.write(content)
-                except (PermissionError, OSError) as e:
-                    print(f"Error writing comment attachment file: {str(e)}")
-                    # If we're in the normal directory path and encounter an error, try the tmp path
-                    if not upload_dir.startswith("/tmp"):
+                        
+                        # Set destination path in Cloud Storage
+                        destination_blob_name = f"comments/{unique_filename}"
+                        
+                        # Upload to Cloud Storage
+                        cloud_storage_bucket = os.getenv("CLOUD_STORAGE_BUCKET", "construction-map-storage-deep-responder-444017-h2")
+                        file_url = await upload_file_to_cloud_storage(
+                            content, 
+                            destination_blob_name, 
+                            image.content_type or "application/octet-stream"
+                        )
+                        
+                        # Store the full Cloud Storage URL
+                        db_comment.image_url = file_url
+                        db_comment.file_type = "pdf" if is_pdf else "image"
+                        print(f"File uploaded to Cloud Storage, URL set to: {file_url}")
+                    except Exception as cloud_error:
+                        print(f"Error using Cloud Storage: {str(cloud_error)}")
+                        print("Falling back to local storage")
+                        # Continue with local storage as fallback
+                        use_cloud_storage = False
+                
+                # If not using Cloud Storage or it failed, use local storage
+                if not use_cloud_storage and not in_cloud_run:
+                    # Create uploads directory if it doesn't exist
+                    upload_dir = os.path.join(settings.UPLOAD_FOLDER, "comments")
+                    try:
+                        os.makedirs(upload_dir, exist_ok=True)
+                    except PermissionError:
+                        print(f"Cannot create comments uploads directory (read-only filesystem): {upload_dir}")
+                        # If we're on a read-only filesystem, use a temporary directory for this operation
                         upload_dir = os.path.join("/tmp", "comments")
                         os.makedirs(upload_dir, exist_ok=True)
-                        file_path = os.path.join(upload_dir, unique_filename)
+                    except OSError as e:
+                        print(f"Error creating comments uploads directory: {str(e)}")
+                        # Fall back to temporary directory
+                        upload_dir = os.path.join("/tmp", "comments")
+                        os.makedirs(upload_dir, exist_ok=True)
+                    
+                    file_path = os.path.join(upload_dir, unique_filename)
+                    print(f"Saving file to: {file_path}")
+                    
+                    # Save the file
+                    try:
                         with open(file_path, "wb") as buffer:
-                            buffer.write(content)
-                        print(f"Successfully saved file to fallback location: {file_path}")
-                    else:
-                        # If we're already using the tmp directory and still have an error, raise it
-                        raise Exception(f"Could not save file due to filesystem error: {str(e)}")
-                
-                # Set image URL and file type in database
-                # Store as /comments/{filename} - FastAPI serves this from the uploads directory
-                relative_path = f"/comments/{unique_filename}"
-                db_comment.image_url = relative_path
-                db_comment.file_type = "pdf" if is_pdf else "image"
-                print(f"File saved, URL set to: {relative_path}, type: {db_comment.file_type}")
+                            # If we already read the content for Cloud Storage attempt
+                            if 'content' in locals() and content:
+                                buffer.write(content)
+                            else:  
+                                content = await image.read()
+                                if not content:
+                                    print("Warning: File content is empty")
+                                buffer.write(content)
+                    except (PermissionError, OSError) as e:
+                        print(f"Error writing comment attachment file: {str(e)}")
+                        # If we're in the normal directory path and encounter an error, try the tmp path
+                        if not upload_dir.startswith("/tmp"):
+                            upload_dir = os.path.join("/tmp", "comments")
+                            os.makedirs(upload_dir, exist_ok=True)
+                            file_path = os.path.join(upload_dir, unique_filename)
+                            with open(file_path, "wb") as buffer:
+                                buffer.write(content)
+                            print(f"Successfully saved file to fallback location: {file_path}")
+                        else:
+                            # If we're already using the tmp directory and still have an error, raise it
+                            raise Exception(f"Could not save file due to filesystem error: {str(e)}")
+                    
+                    # Set image URL and file type in database
+                    # Store as /comments/{filename} - FastAPI serves this from the uploads directory
+                    relative_path = f"/comments/{unique_filename}"
+                    db_comment.image_url = relative_path
+                    db_comment.file_type = "pdf" if is_pdf else "image"
+                    print(f"File saved, URL set to: {relative_path}, type: {db_comment.file_type}")
             except Exception as img_error:
                 print(f"Error processing file: {str(img_error)}")
                 # Continue without image if there's an error

@@ -289,7 +289,7 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
     // Get base URL for the backend
     const baseUrl = (process.env.REACT_APP_API_URL?.replace('/api/v1', '') || 'https://construction-map-backend-ypzdt6srya-uc.a.run.app').replace('http:', 'https:');
     
-    // Handle Cloud Storage URLs
+    // Handle Cloud Storage URLs directly
     if (url.includes('storage.googleapis.com')) {
       if (!url.startsWith('https://')) {
         return `https://storage.googleapis.com/${url.split('storage.googleapis.com/').pop()}`;
@@ -297,17 +297,62 @@ const EventsTable = ({ events, onViewEvent, onEditEvent, onEventUpdated, effecti
       return url;
     }
     
-    // If it's a relative URL starting with /uploads/
-    if (url.startsWith('/uploads/')) {
-      return `${baseUrl}${url}`;
+    // Check if it's a Cloud Storage URL without the full prefix
+    if (url.includes('construction-map-storage-deep-responder-444017-h2')) {
+      return `https://storage.googleapis.com/${url}`;
     }
     
-    // If it's a relative URL starting with /comments/
+    // Migration code for existing comments/events - redirect to Cloud Storage
+    // If it's a relative URL (from local backend storage), migrate it to Cloud Storage
     if (url.startsWith('/comments/')) {
-      return `${baseUrl}/uploads${url}`;
+      const filename = url.split('/').pop(); // Get just the filename
+      return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
+    }
+    
+    if (url.startsWith('/events/')) {
+      const filename = url.split('/').pop(); // Get just the filename
+      return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+    }
+    
+    // If it's a relative URL starting with /uploads/
+    if (url.startsWith('/uploads/')) {
+      // Try to extract the object type and redirect to appropriate Cloud Storage path
+      if (url.includes('/uploads/comments/')) {
+        const filename = url.split('/').pop();
+        return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
+      } else if (url.includes('/uploads/events/')) {
+        const filename = url.split('/').pop();
+        return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+      } else {
+        // General /uploads/ URL, try to determine the type based on filename pattern
+        const filename = url.split('/').pop();
+        if (filename.startsWith('img_') || filename.startsWith('pdf_')) {
+          // This looks like a comment attachment
+          return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
+        }
+        // Fall back to backend URL
+        return `${baseUrl}${url}`;
+      }
+    }
+    
+    // If it's a relative path that includes 'comments/' (like when stored directly from API)
+    if (url.includes('comments/')) {
+      // Extract the filename only if it includes a path
+      const filename = url.split('/').pop();
+      return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
     }
     
     // For any other path, assume it's in uploads/comments
+    // Check for filename pattern to determine if it's a comment or event
+    if (url.startsWith('img_') || url.startsWith('pdf_')) {
+      const filename = url.split('/').pop();
+      if (url.includes('event') || url.includes('map') || url.includes('attachment')) {
+        return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/events/${filename}`;
+      } else {
+        return `https://storage.googleapis.com/construction-map-storage-deep-responder-444017-h2/comments/${filename}`;
+      }
+    }
+    
     return `${baseUrl}/uploads/comments/${url.split('/').pop()}`;
   };
 
