@@ -2,6 +2,7 @@ import logging
 import os
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from app.core.security import get_password_hash  # Import the password hash function
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,9 @@ def ensure_password_hash_column(engine):
     """
     try:
         logger.info("Checking if password_hash column exists in users table...")
+        
+        # Calculate the correct admin password hash using the official function
+        correct_password_hash = get_password_hash("admin")  # Set admin as default password
         
         # Check if column exists
         with engine.connect() as conn:
@@ -61,10 +65,10 @@ def ensure_password_hash_column(engine):
                 
                 try:
                     # Add the column if it doesn't exist
-                    conn.execute(text("""
+                    conn.execute(text(f"""
                         ALTER TABLE users 
                         ADD COLUMN password_hash VARCHAR(255) NOT NULL 
-                        DEFAULT '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By '
+                        DEFAULT '{correct_password_hash}'
                     """))
                     
                     conn.execute(text("COMMIT"))
@@ -89,24 +93,25 @@ def ensure_password_hash_column(engine):
                 logger.info("Admin user does not exist. Creating admin user...")
                 
                 # Create admin user if it doesn't exist
-                conn.execute(text("""
+                conn.execute(text(f"""
                     INSERT INTO users (username, email, is_admin, is_active, password_hash)
-                    VALUES ('admin', 'seritec.ingenieria.rd@gmail.com', TRUE, TRUE, '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By ')
+                    VALUES ('admin', 'seritec.ingenieria.rd@gmail.com', TRUE, TRUE, '{correct_password_hash}')
                 """))
                 
                 conn.execute(text("COMMIT"))
                 logger.info("Admin user created successfully")
             else:
-                # Update admin user password
-                logger.info("Admin user exists. Updating password...")
-                conn.execute(text("""
-                    UPDATE users
-                    SET password_hash = '$2b$12$GzF3nU5Zw96Hv1mZPjvC9.MR8JR.VcSX9c.1GurJJkRk1oTHpV3By '
-                    WHERE username = 'admin'
-                """))
+                # Comment out the automatic admin password update
+                logger.info("Admin user exists. Not updating password automatically.")
+                # The following code is commented out to prevent automatic password resets
+                # conn.execute(text(f"""
+                #     UPDATE users
+                #     SET password_hash = '{correct_password_hash}'
+                #     WHERE username = 'admin'
+                # """))
                 
-                conn.execute(text("COMMIT"))
-                logger.info("Admin user password updated successfully")
+                # conn.execute(text("COMMIT"))
+                # logger.info("Admin user password updated successfully")
             
             # Also make sure user_preferences table exists
             user_prefs_check = conn.execute(text("""

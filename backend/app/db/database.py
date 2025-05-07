@@ -230,10 +230,11 @@ def setup_database():
                         "postgresql+pg8000://",
                         creator=getconn,
                         echo=debug_mode,
+                        pool_pre_ping=True,
                         pool_size=pool_size,
                         max_overflow=max_overflow,
                         pool_timeout=pool_timeout,
-                        pool_recycle=pool_recycle,
+                        pool_recycle=600,
                     )
                     
                     logger.info("Successfully created SQLAlchemy engine with IAM authentication")
@@ -278,10 +279,11 @@ def setup_database():
                     engine = create_engine(
                         db_connection_string,
                         echo=debug_mode,
+                        pool_pre_ping=True,
                         pool_size=pool_size,
                         max_overflow=max_overflow,
                         pool_timeout=pool_timeout,
-                        pool_recycle=pool_recycle,
+                        pool_recycle=600,
                     )
                     
                     # Test connection
@@ -298,7 +300,8 @@ def setup_database():
                 settings.DATABASE_URL,
                 pool_pre_ping=True,
                 pool_size=pool_size,
-                max_overflow=max_overflow
+                max_overflow=max_overflow,
+                pool_recycle=600,
             )
             
             # Test connection

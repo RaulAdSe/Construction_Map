@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 from jose import jwt
-import bcrypt
 
 from app.core.config import settings
 from app.models.user import User
@@ -54,12 +53,4 @@ def create_user(db: Session, username: str, email: str, password: str, is_admin:
         logger.error(f"Failed to send welcome email: {str(e)}")
         # Continue even if email fails - it's non-critical
     
-    return user
-
-
-def get_password_hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode(), hashed_password.encode()) 
+    return user 

@@ -51,7 +51,7 @@ class CloudDatabaseSettings(BaseSettings):
     POOL_SIZE: int = int(os.getenv("CLOUD_DB_POOL_SIZE", "5"))
     MAX_OVERFLOW: int = int(os.getenv("CLOUD_DB_MAX_OVERFLOW", "10"))
     POOL_TIMEOUT: int = int(os.getenv("CLOUD_DB_POOL_TIMEOUT", "30"))
-    POOL_RECYCLE: int = int(os.getenv("CLOUD_DB_POOL_RECYCLE", "1800"))  # 30 minutes
+    POOL_RECYCLE: int = int(os.getenv("CLOUD_DB_POOL_RECYCLE", "600"))  # 10 minutes
     IAM_AUTHENTICATION: bool = os.getenv("CLOUD_DB_IAM_AUTHENTICATION", "false").lower() == "true"
     INSTANCE_CONNECTION_NAME: str = os.getenv("CLOUD_DB_INSTANCE", "")
     IAM_USER: str = os.getenv("CLOUD_DB_IAM_USER", "")
