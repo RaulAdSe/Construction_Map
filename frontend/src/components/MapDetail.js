@@ -38,6 +38,9 @@ const MapDetail = ({
   const initialTouchScale = useRef(null);
   const [showMobileControls, setShowMobileControls] = useState(false);
   
+  // Add state to track if desktop layer panel is visible
+  const [showDesktopControls, setShowDesktopControls] = useState(false);
+  
   // Find implantation map (main map) and overlay maps
   const implantationMap = allMaps.find(m => m.map_type === 'implantation') || map;
   const overlayMaps = allMaps.filter(m => m.id !== implantationMap?.id);
@@ -872,13 +875,20 @@ const MapDetail = ({
     };
   }, [isMobile, isSelectingLocation, map, onMapClick, viewportScale, mobilePanZoomScale, contentSize, visibleMaps]);
   
-  // Function to toggle mobile map layer controls
-  const toggleMobileControls = () => {
+  // Update toggle controls function to handle both mobile and desktop views
+  const toggleLayerControls = () => {
     // If in selecting location mode, don't show controls
     if (isSelectingLocation) {
       return;
     }
-    setShowMobileControls(!showMobileControls);
+    
+    if (isMobile) {
+      setShowMobileControls(prev => !prev);
+    } else {
+      setShowDesktopControls(prev => !prev);
+    }
+    
+    console.log(`${isMobile ? 'Mobile' : 'Desktop'} layer controls toggled`);
   };
   
   // When isSelectingLocation changes, hide mobile controls
@@ -1208,33 +1218,9 @@ const MapDetail = ({
   const renderMapLayers = () => {
     if (!overlayMaps.length) return null;
     
-    if (isMobile && !showMobileControls) {
-      // For mobile, only render the floating button when not showing controls
-      return (
-        <Button 
-          variant="primary"
-          onClick={toggleMobileControls}
-          className="toggle-layers-btn"
-          style={{
-            position: 'fixed',
-            bottom: '85px',
-            right: '20px',
-            zIndex: 1000,
-            borderRadius: '50%',
-            width: '50px',
-            height: '50px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-            fontSize: '12px',
-            fontWeight: 'bold'
-          }}
-        >
-          <span>LAYERS</span>
-        </Button>
-      );
-    }
+    // Return null if controls shouldn't be shown in current view
+    if (isMobile && !showMobileControls) return null;
+    if (!isMobile && !showDesktopControls) return null;
     
     const layerStyles = isMobile ? {
       position: 'fixed',
@@ -1251,46 +1237,41 @@ const MapDetail = ({
       padding: '15px',
       margin: 0 // Remove any margin for mobile
     } : {
-      position: 'relative',
-      padding: '15px',
-      backgroundColor: '#f8f9fa',
-      border: '1px solid #dee2e6',
+      position: 'absolute',
+      top: '75px', // Position below the Add Event button
+      left: '15px',
+      zIndex: 3000, // Ensure it's above other elements
+      boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+      maxHeight: '60vh',
+      width: '300px',
+      backgroundColor: '#ffffff',
       borderRadius: '8px',
-      boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+      padding: '15px',
+      margin: 0
     };
     
     return (
-      <div className="map-layers-container" style={{
-        ...layerStyles,
-        marginTop: isMobile ? '100px' : '80px',
-        marginBottom: isMobile ? '0' : '30px',
-        width: isMobile ? '85%' : 'auto',
-        maxWidth: isMobile ? '400px' : '500px',
-        margin: isMobile ? '0' : '80px auto 30px auto',
-        padding: '20px',
-      }}>
+      <div className="map-layers-container" style={layerStyles}>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h5 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>{translate('Map Layers')}</h5>
-          {isMobile && (
-            <Button 
-              variant="outline-secondary" 
-              onClick={() => setShowMobileControls(false)}
-              className="p-1"
-              style={{ 
-                fontSize: '24px', 
-                lineHeight: '1', 
-                width: '36px', 
-                height: '36px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              aria-label="Close"
-            >
-              <i className="bi bi-x"></i>
-            </Button>
-          )}
+          <Button 
+            variant="outline-secondary" 
+            onClick={toggleLayerControls}
+            className="p-1"
+            style={{ 
+              fontSize: '24px', 
+              lineHeight: '1', 
+              width: '36px', 
+              height: '36px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            aria-label="Close"
+          >
+            <i className="bi bi-x"></i>
+          </Button>
         </div>
         
         <ListGroup variant="flush">
@@ -1343,34 +1324,59 @@ const MapDetail = ({
     );
   };
   
-  // Mobile toggle button only - keep separate for clean structure
-  const renderMobileToggleButton = () => {
-    if (!isMobile || !overlayMaps.length || showMobileControls) return null;
+  // Render toggle buttons for both mobile and desktop
+  const renderToggleLayersButton = () => {
+    if (!overlayMaps.length) return null;
     
-    return (
-      <Button 
-        variant="primary"
-        onClick={toggleMobileControls}
-        className="toggle-layers-btn"
-        style={{
-          position: 'fixed',
-          bottom: '85px',
-          right: '20px',
-          zIndex: 1000,
-          borderRadius: '50%',
-          width: '50px',
-          height: '50px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-          fontSize: '12px',
-          fontWeight: 'bold'
-        }}
-      >
-        <span>LAYERS</span>
-      </Button>
-    );
+    if (isMobile) {
+      // For mobile: Only render when controls aren't showing
+      if (showMobileControls) return null;
+      
+      return (
+        <Button 
+          variant="primary"
+          onClick={toggleLayerControls}
+          className="toggle-layers-btn"
+          style={{
+            position: 'fixed',
+            bottom: '85px',
+            right: '20px',
+            zIndex: 1000,
+            borderRadius: '50%',
+            width: '50px',
+            height: '50px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}
+        >
+          <span>LAYERS</span>
+        </Button>
+      );
+    } else {
+      // For desktop: Only render when controls aren't showing
+      if (showDesktopControls) return null;
+      
+      return (
+        <Button
+          variant="primary"
+          className="layers-btn"
+          onClick={toggleLayerControls}
+          style={{
+            position: 'absolute',
+            top: '60px', // Position below the Add Event button
+            left: '15px',
+            zIndex: 1000
+          }}
+        >
+          <i className="bi bi-layers me-2"></i>
+          {translate('Map Layers')}
+        </Button>
+      );
+    }
   };
   
   // Update normalizeEventCoordinates function
@@ -1474,81 +1480,12 @@ const MapDetail = ({
         minHeight: '700px'
       }}>
         {renderMapContent()}
-        {isMobile && renderMobileToggleButton()}
+        {renderToggleLayersButton()}
+        {renderMapLayers()}
       </div>
       
-      {/* Separate section for map layers in desktop view - completely below map with clear spacing */}
-      {!isMobile && (
-        <div className="map-layers-section" style={{ 
-          marginTop: '100px',
-          marginBottom: '100px',
-          width: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          paddingRight: '0',
-        }}>
-          <div style={{
-            maxWidth: '400px',
-            width: '100%',
-            backgroundColor: '#f8f9fa',
-            border: '1px solid #dee2e6',
-            borderRadius: '8px',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
-            padding: '20px',
-          }}>
-            <h5 style={{ marginBottom: '15px', fontSize: '16px', fontWeight: '600', textAlign: 'center' }}>{translate('Map Layers')}</h5>
-            <ListGroup variant="flush">
-              {/* Main map item */}
-              {implantationMap && (
-                <ListGroup.Item className="main-map-item py-2" style={{ border: 'none', borderBottom: '1px solid #eee' }}>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong style={{ fontSize: '14px' }}>{implantationMap.name || translate('Main Map')}</strong>
-                      <small className="d-block text-muted" style={{ fontSize: '12px' }}>{translate('Base layer (always visible)')}</small>
-                    </div>
-                    <Form.Range
-                      value={mapOpacities[implantationMap.id] * 100 || 100}
-                      onChange={(e) => handleOpacityChange(implantationMap.id, parseInt(e.target.value))}
-                      style={{ width: '100px' }}
-                    />
-                  </div>
-                </ListGroup.Item>
-              )}
-              
-              {/* Overlay maps */}
-              {overlayMaps.map(map => (
-                <ListGroup.Item key={map.id} className="d-flex justify-content-between align-items-center py-2" style={{ border: 'none', borderBottom: '1px solid #eee' }}>
-                  <Form.Check 
-                    type="checkbox"
-                    id={`map-toggle-${map.id}`}
-                    label={
-                      <div>
-                        <span style={{ fontSize: '14px' }}>{map.name || `Map #${map.id}`}</span>
-                        <small className="d-block text-muted" style={{ fontSize: '12px' }}>
-                          {map.map_type ? translate(map.map_type) : translate('Overlay')}
-                        </small>
-                      </div>
-                    }
-                    checked={visibleMaps.includes(map.id)}
-                    onChange={() => toggleMapVisibility(map.id)}
-                  />
-                  
-                  {visibleMaps.includes(map.id) && (
-                    <Form.Range
-                      value={mapOpacities[map.id] * 100 || 50}
-                      onChange={(e) => handleOpacityChange(map.id, parseInt(e.target.value))}
-                      style={{ width: '100px' }}
-                    />
-                  )}
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
-          </div>
-        </div>
-      )}
-      
+      {/* Remove the separate section for map layers in desktop view as we now have a button */}
       {/* Mobile layers are rendered with fixed positioning */}
-      {isMobile && showMobileControls && renderMapLayers()}
       
       {/* Remove this inline style as it's causing the markers to always be on top */}
       <style jsx>{`
