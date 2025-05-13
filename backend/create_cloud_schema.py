@@ -2,9 +2,9 @@
 """
 Create Cloud Database Schema Script
 
-This script creates the database schema directly using SQLAlchemy models
-without relying on Alembic migrations. This is useful for initializing
-a fresh database on Cloud SQL.
+This script creates the database schema directly using the SQL dump file
+without relying on SQLAlchemy models. This ensures the database structure
+exactly matches what's in production, including any manual changes.
 
 Usage:
     python create_cloud_schema.py
@@ -16,11 +16,9 @@ Environment variables:
 import os
 import sys
 import logging
-from sqlalchemy import inspect, create_engine, text
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import SQLAlchemyError
 import traceback
-import json
-from datetime import datetime
 from dotenv import load_dotenv
 
 # Configure logging with more detail
@@ -54,75 +52,24 @@ for var in [
 IN_CLOUD_RUN = os.getenv("K_SERVICE") is not None
 logger.info(f"Running in Cloud Run: {IN_CLOUD_RUN}")
 
-# Monkey patch Settings class to avoid directory creation in Cloud Run environment
-import importlib.util
-import types
-
-if IN_CLOUD_RUN:
-    try:
-        # Import the config module
-        spec = importlib.util.spec_from_file_location("config", os.path.join(os.path.dirname(__file__), "app", "core", "config.py"))
-        config_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(config_module)
-        
-        # Save original __init__ method
-        original_init = config_module.Settings.__init__
-        
-        # Create patched __init__ method that skips directory creation
-        def patched_init(self, **kwargs):
-            # Call original __init__ but catch any filesystem errors
-            try:
-                original_init(self, **kwargs)
-            except OSError as e:
-                if 'Read-only file system' in str(e):
-                    logger.warning(f"Ignoring read-only filesystem error: {e}")
-                else:
-                    raise
-        
-        # Apply the patch
-        config_module.Settings.__init__ = patched_init
-        logger.info("Patched Settings.__init__ to handle read-only filesystem")
-        
-    except Exception as e:
-        logger.error(f"Failed to patch Settings class: {e}")
-        logger.error(traceback.format_exc())
+# Path to the SQL dump file
+SQL_DUMP_FILE = os.path.join(os.path.dirname(__file__), "migrations", "source_Cloud_SQL_Export_2025-05-06 (17_17_40).sql")
 
 try:
-    # Must import settings first to ensure environment variables are loaded
+    # Import settings to ensure environment variables are loaded
     logger.info("Importing settings...")
     from app.core.config import settings
     
     logger.info(f"Cloud database enabled: {settings.cloud_db.CLOUD_ENABLED}")
     logger.info(f"Database URL: {settings.DATABASE_URL.split('://')[0]}://****@{settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else '****'}")
     
-    # Now import database and models
+    # Set up the database engine using the URL from settings
     try:
-        logger.info("Importing database and models...")
-        from app.db.database import engine, Base
-        from app.models.user import User
-        from app.models.project import Project, ProjectUser
-        from app.models.map import Map
-        from app.models.event import Event
-        from app.models.notification import Notification
-        from app.models.user_activity import UserActivity
-        
-        # Try to import optional models
-        try:
-            from app.models.metric import Metric
-            logger.info("Metric model imported successfully")
-        except ImportError:
-            logger.warning("Metric model not found, continuing without it")
-        
-        try:
-            from app.models.user_preference import UserPreference
-            logger.info("UserPreference model imported successfully")
-        except ImportError:
-            logger.warning("UserPreference model not found, continuing without it")
-            
+        from app.db.database import engine
+        logger.info("Successfully imported database engine")
     except ImportError as e:
-        logger.error(f"Error importing database or models: {e}")
+        logger.error(f"Error importing database: {e}")
         logger.error(traceback.format_exc())
-        logger.error("Make sure the SQLAlchemy models are properly defined")
         sys.exit(1)
         
 except ImportError as e:
@@ -182,19 +129,86 @@ def check_tables():
         raise
 
 
-def create_schema():
-    """Create all tables that don't exist"""
+def execute_sql_dump():
+    """Create schema using the SQL dump file"""
     try:
         logger.info("Checking existing tables...")
         existing_tables = check_tables()
         
-        # Print all model tables that will be created
-        model_tables = [table.name for table in Base.metadata.tables.values()]
-        logger.info(f"Tables defined in models: {model_tables}")
+        # Read SQL dump file
+        if not os.path.exists(SQL_DUMP_FILE):
+            logger.error(f"SQL dump file not found: {SQL_DUMP_FILE}")
+            return False
         
-        # Create all tables
-        logger.info("Creating database schema...")
-        Base.metadata.create_all(engine)
+        logger.info(f"Reading SQL dump file: {SQL_DUMP_FILE}")
+        with open(SQL_DUMP_FILE, 'r') as f:
+            sql_dump = f.read()
+        
+        # Split SQL dump into individual statements
+        # PostgreSQL dumps typically use semicolons as statement separators
+        statements = []
+        current_statement = []
+        
+        # Process the SQL file line by line
+        for line in sql_dump.splitlines():
+            # Skip comment lines
+            if line.strip().startswith('--'):
+                continue
+                
+            # Add the line to the current statement
+            current_statement.append(line)
+            
+            # If the line ends with a semicolon, it's the end of the statement
+            if line.strip().endswith(';'):
+                statements.append('\n'.join(current_statement))
+                current_statement = []
+        
+        # If there's any leftover partial statement, add it (though this shouldn't happen in proper SQL dumps)
+        if current_statement:
+            statements.append('\n'.join(current_statement))
+        
+        logger.info(f"Extracted {len(statements)} SQL statements from dump file")
+        
+        # Execute statements that create database objects
+        with engine.connect() as conn:
+            # Start a transaction
+            with conn.begin():
+                # Extract and execute only the statements that create database objects (not data)
+                # This includes CREATE TABLE, CREATE FUNCTION, CREATE INDEX, etc.
+                schema_statements = [
+                    stmt for stmt in statements 
+                    if any(keyword in stmt.upper() for keyword in [
+                        'CREATE TABLE', 'CREATE FUNCTION', 'CREATE SEQUENCE', 
+                        'CREATE INDEX', 'CREATE TRIGGER', 'CREATE VIEW',
+                        'ALTER TABLE', 'ALTER SEQUENCE', 'ALTER INDEX',
+                        'SET default_tablespace', 'SET default_table_access_method'
+                    ])
+                ]
+                
+                logger.info(f"Executing {len(schema_statements)} schema creation statements")
+                
+                for i, stmt in enumerate(schema_statements):
+                    try:
+                        # Skip statements that might conflict with existing tables
+                        skip = False
+                        for table in existing_tables:
+                            if f'CREATE TABLE public.{table}' in stmt:
+                                logger.info(f"Skipping creation of existing table: {table}")
+                                skip = True
+                                break
+                        
+                        if skip:
+                            continue
+                            
+                        conn.execute(text(stmt))
+                        
+                        # Log progress every 10 statements
+                        if (i + 1) % 10 == 0 or i == 0 or i == len(schema_statements) - 1:
+                            logger.info(f"Executed {i + 1}/{len(schema_statements)} statements")
+                    
+                    except Exception as e:
+                        logger.warning(f"Error executing statement {i + 1}: {str(e)}")
+                        logger.debug(f"Problematic SQL statement: {stmt[:100]}...")
         
         # Check tables again to see what was created
         new_tables = [t for t in inspect(engine).get_table_names() if t not in existing_tables]
@@ -217,8 +231,8 @@ def create_schema():
 
 if __name__ == "__main__":
     try:
-        logger.info("Starting database schema creation...")
-        success = create_schema()
+        logger.info("Starting database schema creation using SQL dump file...")
+        success = execute_sql_dump()
         if success:
             logger.info("Schema creation completed successfully")
             sys.exit(0)

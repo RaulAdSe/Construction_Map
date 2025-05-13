@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 // Default mode is desktop
 const DEFAULT_MODE = false; // false = desktop, true = mobile
 const MOBILE_MODE_KEY = 'app_mobile_mode';
+const AUTO_DETECT_KEY = 'app_auto_detect_mobile';
 
 // Track mobile mode changes with a subscription system
 let listeners = [];
@@ -10,10 +11,76 @@ let listeners = [];
 let versionCounter = 0;
 
 /**
- * Get the current mobile mode setting from localStorage
+ * Check if the current device is likely a mobile device
+ * @returns {boolean} true if the device is likely mobile
+ */
+export const detectMobileDevice = () => {
+  // Check if running in a browser environment
+  if (typeof window === 'undefined' || !window.navigator) return false;
+  
+  // Get the user agent
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  // iOS Safari / iPhone detection - these need special handling
+  const isIOS = /iphone|ipad|ipod/.test(userAgent) || 
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  // Android detection
+  const isAndroid = /android/.test(userAgent);
+  
+  // General mobile detection
+  const isMobile = /mobile|tablet|opera mini/.test(userAgent);
+  
+  // Check for touch capability as a strong indicator
+  const hasTouch = 'ontouchstart' in window || 
+                  navigator.maxTouchPoints > 0 || 
+                  navigator.msMaxTouchPoints > 0;
+                  
+  // Check screen dimensions - consider small screens mobile
+  const isSmallScreen = window.innerWidth <= 768;
+  
+  // For debugging
+  console.log(`Mobile detection: iOS=${isIOS}, Android=${isAndroid}, Mobile=${isMobile}, Touch=${hasTouch}, SmallScreen=${isSmallScreen}`);
+  
+  // If running on iOS, give higher priority to that detection
+  if (isIOS) {
+    return true;
+  }
+  
+  // For other devices, use a combination of factors
+  return (isAndroid || isMobile || (hasTouch && isSmallScreen));
+};
+
+/**
+ * Get auto-detect setting from localStorage
+ * @returns {boolean} Whether to auto-detect mobile mode
+ */
+export const getAutoDetect = () => {
+  const savedSetting = localStorage.getItem(AUTO_DETECT_KEY);
+  // Default to true if not set
+  return savedSetting !== null ? JSON.parse(savedSetting) : true;
+};
+
+/**
+ * Set auto-detect setting in localStorage
+ * @param {boolean} autoDetect - Whether to auto-detect mobile mode
+ */
+export const setAutoDetect = (autoDetect) => {
+  localStorage.setItem(AUTO_DETECT_KEY, JSON.stringify(autoDetect));
+};
+
+/**
+ * Get the current mobile mode setting from localStorage or detect it
  * @returns {boolean} Current mobile mode (true = mobile, false = desktop)
  */
 export const getMobileMode = () => {
+  // If auto-detect is enabled, use device detection
+  if (getAutoDetect()) {
+    const isDetectedMobile = detectMobileDevice();
+    return isDetectedMobile;
+  }
+  
+  // Otherwise use the saved setting
   const savedMode = localStorage.getItem(MOBILE_MODE_KEY);
   return savedMode ? JSON.parse(savedMode) : DEFAULT_MODE;
 };
@@ -23,6 +90,9 @@ export const getMobileMode = () => {
  * @param {boolean} isMobile - Whether to enable mobile mode
  */
 export const setMobileMode = (isMobile) => {
+  // When manually setting mode, disable auto-detect
+  setAutoDetect(false);
+  
   localStorage.setItem(MOBILE_MODE_KEY, JSON.stringify(isMobile));
   // Increment version counter
   versionCounter++;
@@ -41,6 +111,18 @@ export const toggleMobileMode = () => {
   const newMode = !currentMode;
   setMobileMode(newMode);
   return newMode;
+};
+
+/**
+ * Enable auto-detection of mobile mode
+ */
+export const enableAutoDetect = () => {
+  setAutoDetect(true);
+  const isDetectedMobile = detectMobileDevice();
+  // Still need to update listeners and trigger re-render
+  versionCounter++;
+  listeners.forEach(listener => listener(isDetectedMobile, versionCounter));
+  window.dispatchEvent(new Event('mobileModeChange'));
 };
 
 /**
@@ -78,10 +160,30 @@ export const useMobileMode = () => {
       });
     });
     
+    // Listen for window resize to detect mobile/desktop changes
+    const handleResize = () => {
+      if (getAutoDetect()) {
+        const isDetectedMobile = detectMobileDevice();
+        const currentMode = getMobileMode();
+        
+        if (isDetectedMobile !== currentMode) {
+          versionCounter++;
+          listeners.forEach(listener => listener(isDetectedMobile, versionCounter));
+          setState({ isMobile: isDetectedMobile, version: versionCounter });
+        }
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
     const unsubscribe = onMobileModeChange(handleMobileModeChange);
+    
+    // Initial check
+    handleResize();
     
     return () => {
       window.removeEventListener('mobileModeChange', handleMobileModeChange);
+      window.removeEventListener('resize', handleResize);
       unsubscribe();
     };
   }, []);
@@ -93,5 +195,8 @@ export default {
   getMobileMode,
   setMobileMode,
   toggleMobileMode,
-  useMobileMode
+  useMobileMode,
+  detectMobileDevice,
+  enableAutoDetect,
+  getAutoDetect
 }; 

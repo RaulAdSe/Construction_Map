@@ -1,0 +1,219 @@
+/* Map Viewer Component Styles */
+
+/* PDF Container Styles */
+.pdf-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #FFFFFF;
+  border-radius: 0;
+}
+
+.pdf-renderer-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #FFFFFF;
+  border-radius: 0;
+}
+
+.pdf-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  background-color: #FFFFFF;
+  box-shadow: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove all PDF viewer UI elements */
+.pdfViewer,
+.pdfViewer .page,
+.pdfViewer .canvasWrapper,
+.pdfViewer .textLayer,
+.pdfViewer canvas {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background-color: #FFFFFF !important;
+}
+
+/* Override PDF.js viewer styles to remove UI elements */
+.textLayer, 
+.annotationLayer, 
+.toolbar,
+button,
+#viewerContainer > div:not(.page),
+.toolbarButton,
+.secondaryToolbar,
+#secondaryToolbar,
+#toolbarViewerMiddle,
+#toolbarViewerRight,
+#toolbarViewerLeft,
+#toolbarSidebar,
+#viewFind,
+#viewAttachments,
+#viewLayers,
+#viewThumbnail,
+#viewOutline,
+#sidebarToggle,
+#secondaryPresentationMode,
+#secondaryOpenFile,
+#secondaryPrint,
+#secondaryDownload,
+#secondaryViewBookmark,
+#viewBookmark {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+.pdf-error {
+  color: #d9534f;
+  text-align: center;
+  padding: 20px;
+  border: 1px solid #d9534f;
+  background-color: rgba(217, 83, 79, 0.1);
+  border-radius: 4px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Map Image Container */
+.map-image-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #FFFFFF;
+}
+
+.consistent-map-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 98%;
+  max-height: 98%;
+  object-fit: contain;
+}
+
+/* Generic iFrame Container */
+.map-iframe-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  overflow: hidden;
+}
+
+.consistent-iframe-view {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: transparent;
+  border: none;
+}
+
+/* Map Content Container */
+.map-content-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  overflow: hidden !important;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background-color: #f8f9fa;
+}
+
+.map-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  overflow: visible !important;
+}
+
+/* Loading Container */
+.map-loading-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(248, 249, 250, 0.8);
+  z-index: 1000;
+}
+
+/* Marker Container */
+.marker-positioning-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible !important;
+  pointer-events: none;
+  z-index: 600;
+}
+
+.event-marker {
+  visibility: visible !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+  z-index: 600;
+  transform-origin: center;
+}
+
+/* No content message */
+.no-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  font-size: 1.2rem;
+}
+
+/* Mobile Specific Styles */
+@media (max-width: 768px) {
+  .map-content-container {
+    min-height: 400px;
+  }
+  
+  .toggle-layers-btn {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 10px !important;
+  }
+} 
