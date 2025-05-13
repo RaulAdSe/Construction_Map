@@ -29,6 +29,7 @@ venv311/
 .env.test
 .env.production
 .env.gcp
+.env.cloud
 .env.staging
 .env.*.local
 .env.*.development
@@ -36,6 +37,14 @@ venv311/
 .env.*.production
 .env.*.gcp
 .env.*.staging
+**/.env
+**/.env.local
+**/.env.development
+**/.env.test
+**/.env.production
+**/.env.gcp
+**/.env.cloud
+**/.env.staging
 *.pem
 *.key
 
@@ -94,3 +103,7 @@ htmlcov/
 client_secrets*.json
 
 token.txt 
+
+# Exception for example env files (these should be tracked)
+!**/*.example
+!**/*.sample 
