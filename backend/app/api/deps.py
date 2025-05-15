@@ -27,19 +27,44 @@ def get_current_user(
     logger.debug(f"DEBUG mode: {settings.DEBUG}")
     logger.debug(f"Processing token: {token[:10] + '...' if token else None}")
     
-    # In development mode, allow anonymous access if DEBUG is True and no token provided
-    if settings.DEBUG and not token:
-        # Look up an admin user for dev purposes
+    # DEVELOPMENT MODE: Always return admin user when in DEBUG mode for local development
+    if settings.DEBUG:
+        # First try to check if there's a token, if so use that user
+        if token:
+            try:
+                # Try to decode without verification
+                payload = jwt.decode(
+                    token, 
+                    settings.SECRET_KEY, 
+                    algorithms=[ALGORITHM],
+                    options={"verify_exp": False, "verify_signature": False}
+                )
+                username = payload.get("sub")
+                if username:
+                    user = db.query(User).filter(User.username == username).first()
+                    if user:
+                        logger.debug(f"DEBUG mode: Found user from token: {user.username}")
+                        return user
+            except Exception as e:
+                logger.debug(f"DEBUG mode: Error decoding token, falling back to admin: {e}")
+                pass
+                
+        # If no token or token is invalid, find an admin user for local development
         admin_user = db.query(User).filter(User.is_admin == True).first()
         if admin_user:
-            logger.debug(f"Running in DEBUG mode, using admin user: {admin_user.username}")
+            logger.debug(f"DEBUG mode: Using admin user: {admin_user.username}")
             return admin_user
-        # Fallback to first user if no admin found
+            
+        # If no admin, use any user
         first_user = db.query(User).first()
         if first_user:
-            logger.debug(f"Running in DEBUG mode, using first user: {first_user.username}")
+            logger.debug(f"DEBUG mode: Using first available user: {first_user.username}")
             return first_user
+            
+        # If no users exist, raise an error
+        logger.error("DEBUG mode: No users found in database")
     
+    # PRODUCTION MODE: Normal authentication flow
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -48,17 +73,6 @@ def get_current_user(
     
     if not token:
         logger.warning("No token provided")
-        if settings.DEBUG:
-            # For development, try to find a valid user
-            logger.debug("In debug mode, checking for default users")
-            default_user = db.query(User).filter(User.username == "admin").first()
-            if default_user:
-                logger.debug(f"Using default admin user for debugging")
-                return default_user
-            first_user = db.query(User).first()
-            if first_user:
-                logger.debug(f"Using first available user for debugging: {first_user.username}")
-                return first_user
         raise credentials_exception
         
     try:
@@ -66,23 +80,11 @@ def get_current_user(
         secret_key_hash = hash(settings.SECRET_KEY) 
         logger.debug(f"Using SECRET_KEY hash: {secret_key_hash}")
         
-        # In development mode, use a generous leeway for token expiration (30 minutes)
-        token_leeway = 1800 if settings.DEBUG else 0  # 30 minutes in dev mode
-        
-        # Decode token with options for development mode
-        logger.debug(f"Using token leeway of {token_leeway} seconds")
-        
-        # Configure options for JWT decoding
-        decode_options = {}
-        if settings.DEBUG:
-            # In debug mode, don't verify token expiration
-            decode_options = {"verify_exp": False}
-            
+        # Decode token with appropriate options
         payload = jwt.decode(
             token, 
             settings.SECRET_KEY, 
-            algorithms=[ALGORITHM],
-            options=decode_options
+            algorithms=[ALGORITHM]
         )
         
         username: str = payload.get("sub")
@@ -95,28 +97,6 @@ def get_current_user(
         
     except JWTError as e:
         logger.error(f"JWT error: {str(e)}")
-        
-        # In development mode, allow expired tokens
-        if settings.DEBUG and "expired" in str(e).lower():
-            try:
-                # Try to decode without verifying expiration
-                logger.debug("In debug mode, trying to decode expired token")
-                payload = jwt.decode(
-                    token, 
-                    settings.SECRET_KEY, 
-                    algorithms=[ALGORITHM],
-                    options={"verify_exp": False}
-                )
-                username = payload.get("sub")
-                if username:
-                    logger.debug(f"Using expired token for user: {username}")
-                    user = db.query(User).filter(User.username == username).first()
-                    if user:
-                        logger.debug(f"Found user from expired token: {user.username}")
-                        return user
-            except Exception as inner_e:
-                logger.error(f"Error while trying to use expired token: {inner_e}")
-                
         raise credentials_exception
         
     user = db.query(User).filter(User.username == token_data.username).first()

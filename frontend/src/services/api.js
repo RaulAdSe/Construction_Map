@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Add debug flag to control console output
-const DEBUG = false;
+const DEBUG = true;  // Enable debug mode for development
 
 const API_URL = 'http://localhost:8000/api/v1';
 
@@ -14,11 +14,31 @@ const apiClient = axios.create({
   withCredentials: true
 });
 
+// Development mode helper - creates a dummy token if none exists
+const ensureDevToken = () => {
+  if (process.env.NODE_ENV === 'development') {
+    // Only create a token in development mode
+    const token = localStorage.getItem('token');
+    if (!token) {
+      if (DEBUG) console.log('Creating development token for local testing');
+      // This is a dummy token for development only - it will be accepted in DEBUG mode
+      const devToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6OTk5OTk5OTk5OX0.devtoken';
+      localStorage.setItem('token', devToken);
+      return devToken;
+    }
+    return token;
+  }
+  return localStorage.getItem('token');
+};
+
 // Add auth token to requests if available
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = ensureDevToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    if (DEBUG) console.log(`Request to ${config.url} with auth token`);
+  } else {
+    if (DEBUG) console.warn(`Request to ${config.url} without auth token`);
   }
   return config;
 }, (error) => {
@@ -29,13 +49,23 @@ apiClient.interceptors.request.use((config) => {
 // Add response interceptor to handle common responses
 apiClient.interceptors.response.use(
   response => {
+    if (DEBUG) console.log(`Response from ${response.config.url}: status ${response.status}`);
     return response;
   },
   error => {
     // Handle unauthorized errors (401)
     if (error.response && error.response.status === 401) {
-      if (DEBUG) console.warn('Unauthorized access, redirecting to login');
-      // Check if we're not already on the login page to avoid redirect loops
+      if (DEBUG) console.warn(`Unauthorized access to ${error.config.url}, creating new dev token`);
+      
+      // In development mode, try regenerating the token
+      if (process.env.NODE_ENV === 'development') {
+        localStorage.removeItem('token');
+        ensureDevToken();
+        // Don't redirect, just regenerate the token
+        return axios(error.config);  // Retry the request with new token
+      }
+      
+      // In production, redirect to login
       if (!window.location.pathname.includes('/login')) {
         localStorage.removeItem('token');
         window.location.href = '/login';
