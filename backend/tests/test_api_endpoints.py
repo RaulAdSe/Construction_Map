@@ -1,18 +1,25 @@
+#!/usr/bin/env python
 import requests
-import sys
 import json
+import sys
 import os
 
-# Base URL of the API
-BASE_URL = "http://localhost:8000/api/v1"
+# Configuration
+BASE_URL = os.getenv("API_URL", "http://localhost:8000/api/v1")
+TOKEN = os.getenv("API_TOKEN", None)  # Get from local storage in browser
 
-# Sample JWT token for authentication (replace with a valid token)
-# You can get a valid token by logging in through the UI and checking localStorage
-TOKEN = None  # Will be set after login
+# Headers for authentication
+headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json"
+}
+
+if TOKEN:
+    headers["Authorization"] = f"Bearer {TOKEN}"
 
 def login(username="admin", password="admin"):
     """Login to get a valid JWT token"""
-    url = f"{BASE_URL}/auth/login"  # Correct endpoint path
+    url = f"{BASE_URL}/auth/login"
     response = requests.post(
         url, 
         data={"username": username, "password": password},
