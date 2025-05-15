@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str = get_or_create_secret_key()
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Hardcoded value, ignoring environment
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # File Storage
     UPLOAD_FOLDER: str = os.getenv("UPLOAD_FOLDER", "./uploads")
