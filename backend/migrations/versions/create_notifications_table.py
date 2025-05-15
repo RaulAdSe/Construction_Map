@@ -1,7 +1,7 @@
 """create_notifications_table
 
 Revision ID: 8f27g6s2a77h
-Revises: create_user_activities_table
+Revises: a1b2c3d4e5f6
 Create Date: 2023-09-01 12:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '8f27g6s2a77h'
-down_revision = 'create_user_activities_table'
+down_revision = 'a1b2c3d4e5f6'
 branch_labels = None
 depends_on = None
 
