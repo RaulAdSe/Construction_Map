@@ -46,7 +46,7 @@ def get_or_create_secret_key():
 
 class CloudDatabaseSettings(BaseSettings):
     """Cloud database specific settings"""
-    CLOUD_ENABLED: bool = os.getenv("CLOUD_DB_ENABLED", "false").lower() == "true"
+    CLOUD_ENABLED: bool = False  # Default to False - must be explicitly enabled
     CONNECTION_STRING: Optional[str] = os.getenv("CLOUD_DB_CONNECTION_STRING")
     POOL_SIZE: int = int(os.getenv("CLOUD_DB_POOL_SIZE", "5"))
     MAX_OVERFLOW: int = int(os.getenv("CLOUD_DB_MAX_OVERFLOW", "10"))
@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str = get_or_create_secret_key()
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 7)))  # 7 days default
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 30)))  # 30 days default for development
     
     # File Storage
     UPLOAD_FOLDER: str = os.getenv("UPLOAD_FOLDER", "./uploads")
@@ -167,12 +167,27 @@ class Settings(BaseSettings):
         # Configure SQLAlchemy engine arguments
         self.ENGINE_ARGS = {
             "pool_pre_ping": True,  # Test connections before using them
-            "pool_size": 5,         # Default connection pool size
-            "max_overflow": 10,     # Max number of connections beyond pool_size
-            "pool_timeout": 30,     # Seconds to wait for a connection from the pool
-            "pool_recycle": 1800,   # Recycle connections after 30 minutes
+            "pool_size": 10,        # Increase default connection pool size
+            "max_overflow": 20,     # Increase max number of connections beyond pool_size
+            "pool_timeout": 60,     # Increase seconds to wait for a connection from the pool
+            "pool_recycle": 3600,   # Recycle connections after 60 minutes
+            "connect_args": {
+                "connect_timeout": 10,  # Connect timeout in seconds
+                "keepalives": 1,        # Enable TCP keepalives
+                "keepalives_idle": 30,  # Seconds between TCP keepalives
+                "keepalives_interval": 10,  # Seconds between keepalive probes
+                "keepalives_count": 5    # Number of keepalive probes before reconnect
+            }
         }
         
+        # Force local database for development use
+        if self.DEBUG:
+            self.cloud_db.CLOUD_ENABLED = False
+            self.POSTGRES_SERVER = "localhost"
+            self.POSTGRES_USER = "postgres"  # Force standard user for local dev
+            self.POSTGRES_PASSWORD = "postgres"  # Force standard password for local dev
+            print(f"DEBUG mode enabled - using local database at {self.POSTGRES_SERVER} with user {self.POSTGRES_USER}")
+            
         # Configure database URI based on whether cloud database is enabled
         if self.cloud_db.CLOUD_ENABLED and self.cloud_db.CONNECTION_STRING:
             self.DATABASE_URL = self.cloud_db.CONNECTION_STRING

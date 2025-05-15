@@ -21,7 +21,24 @@ var/
 *.egg
 venv/
 venv311/
+
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+.secret_key
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Database files
+*.db
+backend/*.db
+*_dev.db
+local_dev.db
 
 # Logs
 logs
@@ -68,7 +85,19 @@ htmlcov/
 # Uploaded files
 /uploads
 /backend/uploads
+/backend/uploads/*
+!/backend/uploads/.gitkeep
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+*.ca-bundle
 
 # Project specific
 .server_pids
-token.txt 
+token.txt
+.service-account.json
+gcp-credentials.json
+*credentials*.json 

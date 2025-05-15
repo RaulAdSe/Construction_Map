@@ -94,7 +94,15 @@ except Exception as e:
 logger.info("Checking/creating database...")
 db_created = create_database_if_not_exists()
 if not db_created:
-    logger.critical("Failed to ensure database exists - application may not function correctly")
+    if settings.DEBUG:
+        # If in debug mode and PostgreSQL connection fails, use SQLite as fallback
+        logger.warning("Failed to connect to PostgreSQL, using SQLite for local development")
+        sqlite_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "local_dev.db")
+        settings.SQLALCHEMY_DATABASE_URI = f"sqlite:///{sqlite_path}"
+        settings.ENGINE_ARGS = {"connect_args": {"check_same_thread": False}}  # SQLite needs this
+        logger.info(f"Using SQLite database at: {sqlite_path}")
+    else:
+        logger.critical("Failed to ensure database exists - application may not function correctly")
 
 # Create SQLAlchemy engine
 logger.info(f"Using database URI: {settings.SQLALCHEMY_DATABASE_URI}")

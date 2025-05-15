@@ -83,8 +83,8 @@ check_backend_api() {
 # ---------- STOP SERVERS ----------
 echo -e "${YELLOW}Stopping any running servers...${NC}"
 
-# Kill any existing servers on ports 3000 and 8000
-kill_process_on_port 3000
+# Kill any existing servers on ports 8080 and 8000
+kill_process_on_port 8080
 kill_process_on_port 8000
 
 # Read saved PIDs if available
@@ -120,10 +120,10 @@ else
 fi
 
 # Verify all processes are stopped
-if is_port_in_use 3000 || is_port_in_use 8000; then
+if is_port_in_use 8080 || is_port_in_use 8000; then
   echo -e "${RED}Warning: Some processes may still be running.${NC}"
   echo -e "${YELLOW}You may need to manually kill them:${NC}"
-  echo -e "lsof -i :3000 -i :8000"
+  echo -e "lsof -i :8080 -i :8000"
   echo -e "kill -9 <PID>"
   exit 1
 else
@@ -173,7 +173,7 @@ echo "Starting frontend server..."
 cd frontend
 npm start &
 
-echo "Servers are starting. Frontend will be available at http://localhost:3000"
+echo "Servers are starting. Frontend will be available at http://localhost:8080"
 echo "Backend will be available at http://localhost:8000"
 
 # Save PIDs to file for potential future use
@@ -181,7 +181,7 @@ echo "$BACKEND_PID $FRONTEND_PID" > .server_pids
 
 # Instructions for the user
 echo -e "${GREEN}=== Servers Successfully Restarted ===${NC}"
-echo -e "Frontend: ${GREEN}http://localhost:3000${NC}"
+echo -e "Frontend: ${GREEN}http://localhost:8080${NC}"
 echo -e "Backend: ${GREEN}http://localhost:8000${NC}"
 echo -e "Logs are saved in the logs directory"
 echo -e "${YELLOW}To view backend logs:${NC} tail -f logs/backend.log"
