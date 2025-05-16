@@ -19,6 +19,7 @@ Construction Map simplifies on-site project management with real-time event trac
 ## ⚙️ Architecture Overview
 
 
+![Screenshot 2025-05-16 at 14 11 11](https://github.com/user-attachments/assets/4a043a0c-d30a-44fa-b1fc-0433570a4b5c)
 
 | Layer     | Stack                                                                 |
 |-----------|------------------------------------------------------------------------|
