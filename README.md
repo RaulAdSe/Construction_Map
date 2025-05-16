@@ -40,11 +40,11 @@ production: Deployment-ready code currently running in production
 
 ---
 
-##🖥️ Local Development
+## 🖥️ Local Development
 Apply to README.md
 Run
  
-##🐳☁️ GCP Deployment (Cloud Run + Cloud SQL)
+## 🐳☁️ GCP Deployment (Cloud Run + Cloud SQL)
 > For full steps, see `mdfiles/GCP_DEPLOYMENT.md`
 🐍 create_cloud_schema.py handles database setup and migration
 🔐 Socket-based connection to Cloud SQL
