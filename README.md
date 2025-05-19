@@ -68,7 +68,7 @@ rauladse-construction_map/
 
 ## 📹 Demo
 
-🎬 [Watch Demo Video](#) – See how Construction Map enables field workers and managers to coordinate visually, report issues, and track progress directly on project blueprints.
+🎬 https://youtu.be/RB5qGtLw1lQ – See how Construction Map enables field workers and managers to coordinate visually, report issues, and track progress directly on project blueprints.
 
 ---
 
