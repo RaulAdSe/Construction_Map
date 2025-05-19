@@ -9,7 +9,7 @@ Construction Map simplifies on-site project management with real-time event trac
 ## ✨ Key Features
 
 - **📍 Map-Based Event Tracking** – Pinpoint issues, attach photos, and track resolution status spatially.
-- **🗂️ Multi-layered Maps** – Overlay PDF, JPG, PNG, and SVG blueprints for comparison and change tracking.
+- **🗂️ Multi-layered Maps** – Overlay PDF, JPG, PNG, and SVG blueprints for comparison, overlays and tracking.
 - **💬 Threaded Comments & Mentions** – Collaborate directly on the map with notifications and mentions.
 - **📁 Role-Based Access** – Admin/member permissions at the project level.
 - **📦 Cloud-Ready** – Dockerized, GCP-friendly (Cloud SQL, Cloud Run, GCS).
