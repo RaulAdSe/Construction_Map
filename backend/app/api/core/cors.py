@@ -27,17 +27,23 @@ def get_cors_headers(request: Request) -> dict:
     origin = request.headers.get("origin", "")
     
     # If origin is in allowed origins, use it; otherwise use default
+    # More permissive approach - allow any origin from the list
     if origin in ALLOWED_ORIGINS:
         response_origin = origin
     else:
+        # Default to the first origin if not in allowed list
         response_origin = ALLOWED_ORIGINS[0]
+    
+    # Get requested headers if available
+    request_headers = request.headers.get("access-control-request-headers", "*")
     
     return {
         "Access-Control-Allow-Origin": response_origin,
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "*",
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Expose-Headers": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        "Access-Control-Allow-Headers": request_headers,
+        "Access-Control-Expose-Headers": "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count, Access-Control-Allow-Origin",
+        "Access-Control-Max-Age": "600",  # Cache preflight for 10 minutes
         "Vary": "Origin"
     }
 

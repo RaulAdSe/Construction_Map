@@ -18,6 +18,8 @@ from api.routes import events, maps, projects, auth, monitoring
 from api.routes.monitoring import track_request_middleware
 from api.core.logging import logger
 from app.api.core.cors import ALLOWED_ORIGINS, get_cors_headers, cors_response
+from app.api.middleware.cors_middleware import CORSMiddleware as CustomCORSMiddleware
+from app.api.middleware.cors_middleware import handle_options
 
 # Import this to activate SQLAlchemy event listeners
 import api.core.db_monitoring
@@ -27,7 +29,7 @@ try:
     # Create the FastAPI app
     app = FastAPI(title="Construction Map API")
     
-    # Add CORS middleware
+    # Add FastAPI's built-in CORS middleware first
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ALLOWED_ORIGINS,
@@ -38,18 +40,15 @@ try:
                         "X-Total-Count", "Access-Control-Allow-Origin"],
         max_age=600,  # Cache preflight requests for 10 minutes
     )
+    
+    # Add our custom CORS middleware for extra protection
+    app.add_middleware(CustomCORSMiddleware)
 
     # Add explicit OPTIONS route handler for CORS preflight requests
     @app.options("/{full_path:path}")
     async def options_route(request: Request, full_path: str):
-        # Get headers from the CORS helper
-        cors_headers = get_cors_headers(request)
-        
-        # Return a response with appropriate CORS headers
-        return JSONResponse(
-            content={},
-            headers=cors_headers
-        )
+        # Use the specialized options handler
+        return await handle_options(request)
 
     # Add global exception handler for proper CORS headers in error responses
     @app.exception_handler(Exception)
