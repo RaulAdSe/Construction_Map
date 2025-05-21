@@ -275,8 +275,8 @@ const NotificationBell = () => {
   }, []);
 
   return (
-    <div className="notification-bell-container" style={{ position: 'relative', display: 'inline-block', marginRight: '15px', zIndex: 99999 }}>
-      <div className="d-flex align-items-center">
+    <div className="notification-bell-container" style={{ position: 'relative', display: 'inline-block', marginRight: '10px', zIndex: 99999 }}>
+      <div className="d-flex align-items-center" style={{ gap: '6px' }}>
         <div 
           ref={bellRef}
           onClick={toggleNotifications} 

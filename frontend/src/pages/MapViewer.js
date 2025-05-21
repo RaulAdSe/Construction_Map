@@ -1073,7 +1073,11 @@ const MapViewer = ({ onLogout }) => {
             <Navbar.Brand onClick={handleBackToProjects} style={{ cursor: 'pointer', fontSize: '1rem' }}>
               {project?.name || translate('Construction Map Viewer')}
             </Navbar.Brand>
-            <div className="d-flex align-items-center">
+            <div className="d-flex align-items-center mobile-controls-container" 
+              style={{ 
+                gap: '4px', /* Reducir espacio entre elementos */
+                marginRight: '-8px' /* Mover ligeramente todo hacia la izquierda */
+              }}>
               <RoleSwitcher 
                 currentIsAdmin={effectiveIsAdmin}
                 onRoleChange={handleRoleChange}
