@@ -64,26 +64,35 @@
 
 /* Mobile styles for notification panel */
 @media (max-width: 768px) {
-  .notification-panel {
+  .notification-panel,
+  .mobile-notification-panel {
     position: fixed !important;
     top: 60px !important;
-    right: 0 !important;
-    left: auto !important; /* Ensure it's not on the left side */
+    right: 0 !important; 
+    left: auto !important; /* Nunca mostrar a la izquierda */
     width: 100% !important;
-    max-width: 320px !important;
+    max-width: 300px !important; /* Reducido de 320px para asegurar que quede en pantalla */
     height: auto !important;
     max-height: 80vh !important;
     border-radius: 0 0 0 8px !important;
     margin: 0 !important;
     box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.2) !important;
+    transform: translateX(0) !important; /* Asegurar que no hay transformaciones que lo muevan */
   }
   
-  /* Improved notification item display on mobile */
+  /* Forzar alineación a la derecha del panel en cualquier circunstancia */
+  .notification-overlay .notification-panel,
+  .notification-overlay .mobile-notification-panel {
+    right: 0 !important;
+    left: auto !important;
+  }
+  
+  /* Mejorar visualización de elementos de notificación en móvil */
   .notification-item {
     padding: 12px !important;
   }
   
-  /* Make notification text more readable on small screens */
+  /* Hacer texto de notificación más legible en pantallas pequeñas */
   .notification-text {
     font-size: 0.9rem !important;
     line-height: 1.4 !important;

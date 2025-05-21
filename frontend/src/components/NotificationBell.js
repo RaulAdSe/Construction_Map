@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import '../styles/global.css';
 import api from '../api'; // Import central API instance
+import { useMobile } from './common/MobileProvider';
 
 const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
@@ -17,6 +18,7 @@ const NotificationBell = () => {
   const navigate = useNavigate();
   const notificationRef = useRef(null);
   const bellRef = useRef(null);
+  const { isMobile } = useMobile();
 
   const fetchNotifications = async () => {
     try {
@@ -354,9 +356,9 @@ const NotificationBell = () => {
               style={{
                 position: 'absolute',
                 top: bellRef.current ? bellRef.current.getBoundingClientRect().bottom + 5 : '60px',
-                right: bellRef.current ? window.innerWidth - bellRef.current.getBoundingClientRect().right : '20px',
-                width: '350px',
-                maxHeight: '500px',
+                right: isMobile ? 0 : (bellRef.current ? window.innerWidth - bellRef.current.getBoundingClientRect().right : '20px'),
+                width: isMobile ? '300px' : '350px',
+                maxHeight: isMobile ? '80vh' : '500px',
                 overflowY: 'auto',
                 zIndex: 100000,
                 boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
