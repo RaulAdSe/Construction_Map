@@ -40,8 +40,10 @@ const MobileSwitcher = () => {
         className="mobile-switcher"
         aria-label={`Switch to ${isMobile ? 'Desktop' : 'Mobile'} View`}
         key={`mobile-switch-${isMobile}`} // Force re-render when mode changes
+        size="sm"
+        style={{ padding: '0.25rem 0.4rem' }}
       >
-        {isMobile ? '💻' : '📱'}
+        {isMobile ? '💻' : '��'}
       </Button>
     </OverlayTrigger>
   );

@@ -45,18 +45,19 @@ const RoleSwitcher = ({
   };
   
   return (
-    <div className="role-switcher d-flex align-items-center me-3">
-      <small className="text-muted me-2">View as:</small>
+    <div className="role-switcher d-flex align-items-center me-2">
+      <small className="text-muted me-1 d-none d-sm-inline">View as:</small>
       <Button 
         size="sm" 
         variant={viewAsAdmin ? 'primary' : 'secondary'}
         onClick={handleRoleToggle}
         className="d-flex align-items-center"
+        style={{ padding: '0.2rem 0.4rem' }}
       >
         <Badge bg={viewAsAdmin ? 'light' : 'dark'} text={viewAsAdmin ? 'dark' : 'light'} className="me-1">
           {viewAsAdmin ? 'ADMIN' : 'MEMBER'}
         </Badge>
-        <small>{viewAsAdmin ? '→ Switch to Member' : '→ Switch to Admin'}</small>
+        <small className="d-none d-md-inline">{viewAsAdmin ? '→ Switch to Member' : '→ Switch to Admin'}</small>
       </Button>
     </div>
   );

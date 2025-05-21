@@ -52,8 +52,18 @@ const LanguageSwitcher = () => {
         className="language-switcher"
         aria-label={`Switch to ${currentLanguage === 'en' ? 'Spanish' : 'English'}`}
         key={`lang-switch-${currentLanguage}`} // Force re-render when language changes
+        size="sm"
+        style={{ padding: '0.25rem 0.4rem' }}
       >
-        {currentLanguage === 'en' ? '🇪🇸 ES' : '🇺🇸 EN'}
+        {currentLanguage === 'en' ? (
+          <>
+            🇪🇸 <span className="d-none d-md-inline">ES</span>
+          </>
+        ) : (
+          <>
+            🇺🇸 <span className="d-none d-md-inline">EN</span>
+          </>
+        )}
       </Button>
     </OverlayTrigger>
   );

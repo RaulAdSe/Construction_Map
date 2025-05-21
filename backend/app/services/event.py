@@ -1,21 +1,19 @@
+from typing import List, Dict, Optional, Any, Union
 import os
-import uuid
 import json
-from typing import List, Optional, Dict, Any, Tuple
-from fastapi import UploadFile, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, and_, or_, cast, Date
-import pandas as pd
-import io
-from datetime import datetime, timedelta
 import logging
+from fastapi import HTTPException, UploadFile
+from sqlalchemy import func, desc, or_, and_
+from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from uuid import uuid4
 
-from app.models.event import Event
-from app.models.event_comment import EventComment
-from app.models.user import User
 from app.core.config import settings
-from app.services.notification import NotificationService
+from app.models.event import Event
+from app.models.user import User
+from app.models.event_comment import EventComment
 from app.services import event_history
+from app.services.notification import NotificationService
 
 
 def get_event(db: Session, event_id: int) -> Optional[Event]:
@@ -195,7 +193,7 @@ async def save_event_attachment(file: UploadFile) -> str:
         ext = "." + content_type.split("/")[1]
     
     # Create a unique filename
-    unique_filename = f"{file_type_prefix}_{uuid.uuid4()}{ext}"
+    unique_filename = f"{file_type_prefix}_{uuid4()}{ext}"
     
     # Check if we should use Cloud Storage
     use_cloud_storage = os.getenv("USE_CLOUD_STORAGE", "false").lower() == "true"
@@ -279,13 +277,30 @@ async def create_event(
     # Process tags
     tags_json = None
     if tags:
-        # Ensure tags is a list of strings
+        # Fix for tags handling - ensure proper format
         if isinstance(tags, str):
             try:
-                tags = json.loads(tags)
+                # Try to parse as JSON
+                parsed_tags = json.loads(tags)
+                # If it's a list, use it directly
+                if isinstance(parsed_tags, list):
+                    tags_json = parsed_tags
+                else:
+                    # If it's not a list but some other JSON, convert to list
+                    tags_json = [str(parsed_tags)]
             except json.JSONDecodeError:
-                tags = [tags]
-        tags_json = tags
+                # If not valid JSON, treat as a single tag
+                tags_json = [tags]
+        else:
+            # If already a list, use as is
+            tags_json = tags
+        
+        # Final safety check to ensure valid tags
+        if not isinstance(tags_json, list):
+            tags_json = []
+        
+        # Ensure all tags are strings
+        tags_json = [str(tag) for tag in tags_json if tag]
     
     # Process active_maps if provided as a string
     if active_maps and isinstance(active_maps, str):
@@ -389,6 +404,32 @@ def update_event(
     
     # Update fields if provided
     update_data = event_update.dict(exclude_unset=True)
+    
+    # Special handling for tags
+    if 'tags' in update_data:
+        tags = update_data['tags']
+        # Fix for tags handling - ensure proper format
+        if isinstance(tags, str):
+            try:
+                # Try to parse as JSON
+                parsed_tags = json.loads(tags)
+                # If it's a list, use it directly
+                if isinstance(parsed_tags, list):
+                    update_data['tags'] = parsed_tags
+                else:
+                    # If it's not a list but some other JSON, convert to list
+                    update_data['tags'] = [str(parsed_tags)]
+            except json.JSONDecodeError:
+                # If not valid JSON, treat as a single tag
+                update_data['tags'] = [tags]
+        
+        # Final safety check to ensure valid tags
+        if not isinstance(update_data['tags'], list):
+            update_data['tags'] = []
+        
+        # Ensure all tags are strings
+        update_data['tags'] = [str(tag) for tag in update_data['tags'] if tag]
+    
     for field, value in update_data.items():
         # Set the attribute first
         setattr(db_event, field, value)
@@ -796,11 +837,18 @@ def get_events_with_filters(
         # For each tag, check if it exists in the tags array
         tag_conditions = []
         for tag in tags_filter:
-            # This uses PostgreSQL's array containment operator
-            tag_conditions.append(Event.tags.contains([tag]))
+            # This was using PostgreSQL's array containment operator which may not work as expected with JSON
+            # Use a more compatible approach with JSON data
+            # Try various match approaches to ensure tags are found
+            tag_str = str(tag).strip().lower()
+            if tag_str:
+                # Check if tag exists in the array using JSON containment
+                # This works with most SQL backends supporting JSON
+                tag_conditions.append(func.lower(func.cast(Event.tags, db.String)).contains(tag_str))
         
         # Join conditions with OR (event has any of the specified tags)
-        query = query.filter(or_(*tag_conditions))
+        if tag_conditions:
+            query = query.filter(or_(*tag_conditions))
     
     # Group by necessary fields
     query = query.group_by(
