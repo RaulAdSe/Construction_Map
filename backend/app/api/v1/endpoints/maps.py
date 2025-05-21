@@ -11,8 +11,9 @@ from app.services import map as map_service
 from app.services import project as project_service
 from app.api.v1.endpoints.monitoring import log_user_activity
 
-from fastapi.responses import JSONResponse  # Import missing JSONResponse
-import traceback  # Import missing module for traceback
+from fastapi.responses import JSONResponse
+import traceback
+import sys
 
 router = APIRouter()
 
@@ -65,32 +66,14 @@ def get_maps(
         return maps
     
     except Exception as e:
-    # Log detailed error for troubleshooting
+        # Log detailed error for troubleshooting
         print(f"Error in get_maps: {str(e)}")
         print(f"Traceback: {traceback.format_exc()}")
         
-        # Get origin from request headers or use default
-        origin = getattr(request, 'headers', {}).get('origin', '')
-        allowed_origins = [
-            "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
-            "https://construction-map-frontend-77413952899.us-central1.run.app",
-            "https://coordino.servitecingenieria.com",
-            "http://localhost:3000"
-        ]
-        # Use the origin if it's allowed, otherwise use a default
-        if origin not in allowed_origins:
-            origin = "https://construction-map-frontend-77413952899.us-central1.run.app"
-        
-        # Return error with CORS headers
+        # Return simple JSON error response (FastAPI will handle CORS)
         return JSONResponse(
             status_code=500,
-            content={"detail": f"Error accessing maps: {str(e)}"},
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": "*",
-                "Access-Control-Allow-Headers": "*",
-            }
+            content={"detail": f"Error accessing maps: {str(e)}"}
         )
 
 

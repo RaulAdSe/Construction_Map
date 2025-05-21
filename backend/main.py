@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session
 import os
 import uuid
@@ -10,6 +9,7 @@ import time
 import sys
 import traceback
 from typing import Optional
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 # Import the necessary modules using the correct paths
 from api.models import User
@@ -17,64 +17,79 @@ from api.deps import get_db, get_current_user
 from api.routes import events, maps, projects, auth, monitoring
 from api.routes.monitoring import track_request_middleware
 from api.core.logging import logger
+
 # Import this to activate SQLAlchemy event listeners
 import api.core.db_monitoring
+
+# Define allowed origins
+ALLOWED_ORIGINS = [
+    "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
+    "https://construction-map-frontend-77413952899.us-central1.run.app",
+    "https://coordino.servitecingenieria.com",
+    "http://localhost:3000"
+]
 
 # Enhanced error handling for startup
 try:
     # Create the FastAPI app
     app = FastAPI(title="Construction Map API")
     
-    # Add CORS middleware
+    # Add CORS middleware - MORE PERMISSIVE to allow custom domain
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",  # Original frontend
-            "https://construction-map-frontend-77413952899.us-central1.run.app", # New frontend domain
-            "https://coordino.servitecingenieria.com", # Custom domain
-            "http://localhost:3000",  # For local development
-        ],
+        allow_origins=["*"],  # More permissive - allow all origins
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
-        expose_headers=["Content-Length", "Content-Range", "Content-Type", "Content-Disposition",
-                        "X-Total-Count", "Access-Control-Allow-Origin"],
+        expose_headers=["Content-Length", "Content-Range", "Content-Type", "Content-Disposition", "X-Total-Count"],
         max_age=600,  # Cache preflight requests for 10 minutes
     )
-
-    # Add explicit OPTIONS route handler for CORS preflight requests
-    @app.options("/{full_path:path}")
-    async def options_route(request: Request, full_path: str):
+    
+    # Add a middleware to handle CORS with specific origins
+    @app.middleware("http")
+    async def cors_middleware(request: Request, call_next):
+        # Process the request
+        response = await call_next(request)
+        
         # Get origin from request
         origin = request.headers.get("origin", "")
         
-        # Define allowed origins
-        allowed_origins = [
-            "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
-            "https://construction-map-frontend-77413952899.us-central1.run.app",
-            "https://coordino.servitecingenieria.com",
-            "http://localhost:3000"
-        ]
+        # Exact match for allowed origins, with special focus on coordino domain
+        if origin == "https://coordino.servitecingenieria.com" or origin == "http://localhost:3000":
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count"
+            
+        # Always set Vary: Origin
+        response.headers["Vary"] = "Origin"
         
-        # If origin is in allowed origins, use it; otherwise use default
-        if origin in allowed_origins:
-            response_origin = origin
-        else:
-            response_origin = "https://construction-map-frontend-ypzdt6srya-uc.a.run.app"
+        return response
+    
+    # Add explicit OPTIONS route handler for CORS preflight requests
+    @app.options("/{full_path:path}")
+    async def options_route(request: Request, full_path: str):
+        origin = request.headers.get("origin", "")
         
-        # Return a response with appropriate CORS headers
-        return JSONResponse(
-            content={},
-            headers={
-                "Access-Control-Allow-Origin": response_origin,
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-                "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, X-CSRF-TOKEN, X-Requested-With, DNT, Keep-Alive, User-Agent, X-Requested-With",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "600",  # Cache preflight for 10 minutes
-            }
-        )
+        # Create response with appropriate headers
+        response = Response(content="", status_code=200)
+        
+        # Exact match for allowed origins, with special focus on coordino domain
+        if origin == "https://coordino.servitecingenieria.com" or origin == "http://localhost:3000":
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count"
+            response.headers["Access-Control-Max-Age"] = "600"  # Cache preflight for 10 minutes
+            
+        # Always set Vary: Origin
+        response.headers["Vary"] = "Origin"
+        
+        return response
 
-    # Add global exception handler for proper CORS headers in error responses
+    # Add global exception handler
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         # Determine status code
@@ -87,29 +102,9 @@ try:
         print(error_msg)
         print(f"Traceback: {traceback.format_exc()}")
         
-        # Ensure we include CORS headers in the error response
-        # Determine which origin to use based on request
-        origin = request.headers.get("origin", "https://construction-map-frontend-77413952899.us-central1.run.app")
-        # Only allow specific origins
-        allowed_origins = [
-            "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
-            "https://construction-map-frontend-77413952899.us-central1.run.app",
-            "https://coordino.servitecingenieria.com",
-            "http://localhost:3000"
-        ]
-        if origin not in allowed_origins:
-            origin = "https://construction-map-frontend-77413952899.us-central1.run.app"
-            
         return JSONResponse(
             status_code=status_code,
-            content={"detail": str(exc)},
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": "*",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Expose-Headers": "*",
-            }
+            content={"detail": str(exc)}
         )
 
     # Add logging middleware
@@ -125,19 +120,6 @@ try:
         try:
             response = await call_next(request)
             process_time = time.time() - start_time
-            
-            # Ensure CORS headers are present in all responses
-            origin = request.headers.get("origin", "")
-            allowed_origins = [
-                "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
-                "https://construction-map-frontend-77413952899.us-central1.run.app",
-                "https://coordino.servitecingenieria.com",
-                "http://localhost:3000"
-            ]
-            
-            if origin in allowed_origins:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
             
             # Log successful request
             logger.info(
@@ -218,6 +200,14 @@ try:
             "status": "online",
             "version": "1.0.0",
             "docs": "/docs"
+        }
+        
+    # Health check endpoint
+    @app.get("/health")
+    async def health():
+        return {
+            "status": "healthy",
+            "timestamp": time.time()
         }
         
     # Print initialization complete message
