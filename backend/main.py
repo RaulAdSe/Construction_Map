@@ -54,10 +54,13 @@ try:
         # Get origin from request
         origin = request.headers.get("origin", "")
         
-        # Special handling for coordino.servitecingenieria.com and localhost
-        if "coordino.servitecingenieria.com" in origin or "localhost:3000" in origin:
+        # Exact match for allowed origins, with special focus on coordino domain
+        if origin == "https://coordino.servitecingenieria.com" or origin == "http://localhost:3000":
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count"
             
         # Always set Vary: Origin
         response.headers["Vary"] = "Origin"
@@ -72,8 +75,8 @@ try:
         # Create response with appropriate headers
         response = Response(content="", status_code=200)
         
-        # Special handling for coordino.servitecingenieria.com and localhost
-        if "coordino.servitecingenieria.com" in origin or "localhost:3000" in origin:
+        # Exact match for allowed origins, with special focus on coordino domain
+        if origin == "https://coordino.servitecingenieria.com" or origin == "http://localhost:3000":
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
