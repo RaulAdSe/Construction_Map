@@ -17,40 +17,35 @@ from api.deps import get_db, get_current_user
 from api.routes import events, maps, projects, auth, monitoring
 from api.routes.monitoring import track_request_middleware
 from api.core.logging import logger
-from app.api.core.cors import ALLOWED_ORIGINS, get_cors_headers, cors_response
-from app.api.middleware.cors_middleware import CORSMiddleware as CustomCORSMiddleware
-from app.api.middleware.cors_middleware import handle_options
 
 # Import this to activate SQLAlchemy event listeners
 import api.core.db_monitoring
+
+# Define allowed origins
+ALLOWED_ORIGINS = [
+    "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
+    "https://construction-map-frontend-77413952899.us-central1.run.app",
+    "https://coordino.servitecingenieria.com",
+    "http://localhost:3000"
+]
 
 # Enhanced error handling for startup
 try:
     # Create the FastAPI app
     app = FastAPI(title="Construction Map API")
     
-    # Add FastAPI's built-in CORS middleware first
+    # Add CORS middleware - SIMPLIFIED to just use FastAPI's built-in middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # More permissive to allow all origins, our custom middleware will filter
+        allow_origins=ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
-        expose_headers=["Content-Length", "Content-Range", "Content-Type", "Content-Disposition",
-                        "X-Total-Count", "Access-Control-Allow-Origin"],
+        expose_headers=["Content-Length", "Content-Range", "Content-Type", "Content-Disposition", "X-Total-Count"],
         max_age=600,  # Cache preflight requests for 10 minutes
     )
-    
-    # Add our custom CORS middleware for extra protection
-    app.add_middleware(CustomCORSMiddleware)
 
-    # Add explicit OPTIONS route handler for CORS preflight requests
-    @app.options("/{full_path:path}")
-    async def options_route(request: Request, full_path: str):
-        # Use the specialized options handler
-        return await handle_options(request)
-
-    # Add global exception handler for proper CORS headers in error responses
+    # Add global exception handler
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         # Determine status code
@@ -63,9 +58,7 @@ try:
         print(error_msg)
         print(f"Traceback: {traceback.format_exc()}")
         
-        # Use CORS helper for consistent headers
-        return cors_response(
-            request=request,
+        return JSONResponse(
             status_code=status_code,
             content={"detail": str(exc)}
         )
@@ -83,12 +76,6 @@ try:
         try:
             response = await call_next(request)
             process_time = time.time() - start_time
-            
-            # Ensure CORS headers are present in all responses
-            origin = request.headers.get("origin", "")
-            if origin in ALLOWED_ORIGINS:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
             
             # Log successful request
             logger.info(
@@ -133,28 +120,6 @@ try:
     app.include_router(maps.router, prefix="/api/v1/maps", tags=["maps"])
     app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
     app.include_router(monitoring.router, prefix="/api/v1/monitoring", tags=["monitoring"])
-
-    # Force CORS headers for all routes using middleware
-    @app.middleware("http")
-    async def add_cors_headers(request: Request, call_next):
-        # Process the request
-        response = await call_next(request)
-        
-        # Get origin from request
-        origin = request.headers.get("origin", "")
-        
-        # If origin is in allowed origins, add headers
-        if origin in ALLOWED_ORIGINS:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "*"
-            response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count, Access-Control-Allow-Origin"
-        
-        # Always set Vary: Origin
-        response.headers["Vary"] = "Origin"
-        
-        return response
 
     # Serve static files from the uploads/events directory with the correct path
     # Since the server runs from /backend, we need to use the correct relative path

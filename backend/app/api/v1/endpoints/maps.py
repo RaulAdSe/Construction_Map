@@ -10,7 +10,6 @@ from app.schemas.map import Map, MapCreate, MapUpdate
 from app.services import map as map_service
 from app.services import project as project_service
 from app.api.v1.endpoints.monitoring import log_user_activity
-from app.api.core.cors import cors_response, ALLOWED_ORIGINS
 
 from fastapi.responses import JSONResponse
 import traceback
@@ -71,9 +70,8 @@ def get_maps(
         print(f"Error in get_maps: {str(e)}")
         print(f"Traceback: {traceback.format_exc()}")
         
-        # Use CORS helper for consistent headers
-        return cors_response(
-            request=request,
+        # Return simple JSON error response (FastAPI will handle CORS)
+        return JSONResponse(
             status_code=500,
             content={"detail": f"Error accessing maps: {str(e)}"}
         )
