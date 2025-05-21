@@ -297,13 +297,17 @@ const AddEventModal = ({ show, onHide, mapId, position, onEventAdded, projectId,
           
           <Form.Group className="mb-3">
             <Form.Label>{translate('Description')}</Form.Label>
-            <Form.Control 
-              as="textarea" 
-              rows={3} 
+            <MentionInput 
               value={description} 
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={setDescription}
               placeholder={translate('Enter a description (optional)')}
+              rows={3}
+              projectId={projectId}
+              id="event-description"
             />
+            <Form.Text className="text-muted">
+              {translate('Use @username to mention other users')}
+            </Form.Text>
           </Form.Group>
           
           <Row>
