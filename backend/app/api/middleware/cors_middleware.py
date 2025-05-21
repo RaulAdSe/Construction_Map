@@ -32,16 +32,8 @@ class CORSMiddleware(BaseHTTPMiddleware):
             # Create response with appropriate headers
             response = Response(content="", status_code=200)
             
-            # If origin matches the origin of special domains always allow it
-            if "coordino.servitecingenieria.com" in origin or "localhost:3000" in origin:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-                response.headers["Access-Control-Allow-Headers"] = "*"
-                response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count, Access-Control-Allow-Origin"
-                response.headers["Access-Control-Max-Age"] = "600"  # Cache preflight for 10 minutes
-            # For other origins, check if they're in the allowed list
-            elif origin in ALLOWED_ORIGINS:
+            # Check if origin is in allowed origins
+            if origin in ALLOWED_ORIGINS:
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Credentials"] = "true"
                 response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
@@ -57,15 +49,8 @@ class CORSMiddleware(BaseHTTPMiddleware):
         # For non-OPTIONS requests, process the request
         response = await call_next(request)
         
-        # Special handling for specific domains
-        if "coordino.servitecingenieria.com" in origin or "localhost:3000" in origin:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "*"
-            response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count, Access-Control-Allow-Origin"
-        # For other origins, check if they're in the allowed list
-        elif origin in ALLOWED_ORIGINS:
+        # Check if origin is in allowed origins
+        if origin in ALLOWED_ORIGINS:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
@@ -93,16 +78,8 @@ async def handle_options(request: Request):
     # Create response with appropriate headers
     response = Response(content="", status_code=200)
     
-    # Special handling for specific domains
-    if "coordino.servitecingenieria.com" in origin or "localhost:3000" in origin:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count, Access-Control-Allow-Origin"
-        response.headers["Access-Control-Max-Age"] = "600"  # Cache preflight for 10 minutes
-    # For other origins, check if they're in the allowed list
-    elif origin in ALLOWED_ORIGINS:
+    # Check if origin is in allowed origins
+    if origin in ALLOWED_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
