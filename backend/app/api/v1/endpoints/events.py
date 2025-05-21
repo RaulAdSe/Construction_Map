@@ -184,7 +184,7 @@ async def create_event(
     active_maps: Optional[str] = Form(None),
     x_coordinate: float = Form(...),
     y_coordinate: float = Form(...),
-    tags: Optional[List[str]] = Form(None),
+    tags: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
