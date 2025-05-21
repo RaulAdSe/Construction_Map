@@ -350,7 +350,7 @@ const NotificationBell = () => {
           >
             <Card
               ref={notificationPanelRef}
-              className="notification-panel"
+              className="notification-panel mobile-notification-panel"
               style={{
                 position: 'absolute',
                 top: bellRef.current ? bellRef.current.getBoundingClientRect().bottom + 5 : '60px',
