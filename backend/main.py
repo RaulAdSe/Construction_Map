@@ -9,7 +9,7 @@ import time
 import sys
 import traceback
 from typing import Optional
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 # Import the necessary modules using the correct paths
 from api.models import User
@@ -34,16 +34,57 @@ try:
     # Create the FastAPI app
     app = FastAPI(title="Construction Map API")
     
-    # Add CORS middleware - SIMPLIFIED to just use FastAPI's built-in middleware
+    # Add CORS middleware - MORE PERMISSIVE to allow custom domain
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=ALLOWED_ORIGINS,
+        allow_origins=["*"],  # More permissive - allow all origins
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
         expose_headers=["Content-Length", "Content-Range", "Content-Type", "Content-Disposition", "X-Total-Count"],
         max_age=600,  # Cache preflight requests for 10 minutes
     )
+    
+    # Add a middleware to handle CORS with specific origins
+    @app.middleware("http")
+    async def cors_middleware(request: Request, call_next):
+        # Process the request
+        response = await call_next(request)
+        
+        # Get origin from request
+        origin = request.headers.get("origin", "")
+        
+        # Special handling for coordino.servitecingenieria.com and localhost
+        if "coordino.servitecingenieria.com" in origin or "localhost:3000" in origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            
+        # Always set Vary: Origin
+        response.headers["Vary"] = "Origin"
+        
+        return response
+    
+    # Add explicit OPTIONS route handler for CORS preflight requests
+    @app.options("/{full_path:path}")
+    async def options_route(request: Request, full_path: str):
+        origin = request.headers.get("origin", "")
+        
+        # Create response with appropriate headers
+        response = Response(content="", status_code=200)
+        
+        # Special handling for coordino.servitecingenieria.com and localhost
+        if "coordino.servitecingenieria.com" in origin or "localhost:3000" in origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count"
+            response.headers["Access-Control-Max-Age"] = "600"  # Cache preflight for 10 minutes
+            
+        # Always set Vary: Origin
+        response.headers["Vary"] = "Origin"
+        
+        return response
 
     # Add global exception handler
     @app.exception_handler(Exception)
