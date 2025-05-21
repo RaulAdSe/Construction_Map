@@ -20,6 +20,14 @@ from api.core.logging import logger
 # Import this to activate SQLAlchemy event listeners
 import api.core.db_monitoring
 
+# Define allowed origins as a constant to reuse in different places
+ALLOWED_ORIGINS = [
+    "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",  # Original frontend
+    "https://construction-map-frontend-77413952899.us-central1.run.app", # New frontend domain
+    "https://coordino.servitecingenieria.com", # Custom domain
+    "http://localhost:3000",  # For local development
+]
+
 # Enhanced error handling for startup
 try:
     # Create the FastAPI app
@@ -28,11 +36,7 @@ try:
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",  # Original frontend
-            "https://construction-map-frontend-77413952899.us-central1.run.app", # New frontend domain
-            "http://localhost:3000",  # For local development
-        ],
+        allow_origins=ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
@@ -41,13 +45,36 @@ try:
         max_age=600,  # Cache preflight requests for 10 minutes
     )
 
+    # Add explicit OPTIONS route handler for CORS preflight requests
+    @app.options("/{full_path:path}")
+    async def options_route(request: Request, full_path: str):
+        # Get origin from request
+        origin = request.headers.get("origin", "")
+        
+        # If origin is in allowed origins, use it; otherwise use default
+        if origin in ALLOWED_ORIGINS:
+            response_origin = origin
+        else:
+            response_origin = ALLOWED_ORIGINS[0]
+        
+        # Get all requested headers
+        request_headers = request.headers.get("access-control-request-headers", "*")
+        
+        # Return a response with appropriate CORS headers
+        return JSONResponse(
+            content={},
+            headers={
+                "Access-Control-Allow-Origin": response_origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": request_headers,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "600",  # Cache preflight for 10 minutes
+            }
+        )
+
     # Add global exception handler for proper CORS headers in error responses
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        # Import here to avoid circular imports
-        from fastapi.responses import JSONResponse
-        import traceback
-        
         # Determine status code
         status_code = 500
         if hasattr(exc, "status_code"):
@@ -58,12 +85,21 @@ try:
         print(error_msg)
         print(f"Traceback: {traceback.format_exc()}")
         
+        # Get origin from request
+        origin = request.headers.get("origin", "")
+        
+        # If origin is in allowed origins, use it; otherwise use default
+        if origin in ALLOWED_ORIGINS:
+            response_origin = origin
+        else:
+            response_origin = ALLOWED_ORIGINS[0]
+        
         # Ensure we include CORS headers in the error response
         return JSONResponse(
             status_code=status_code,
             content={"detail": str(exc)},
             headers={
-                "Access-Control-Allow-Origin": "https://construction-map-frontend-77413952899.us-central1.run.app",
+                "Access-Control-Allow-Origin": response_origin,
                 "Access-Control-Allow-Credentials": "true",
                 "Access-Control-Allow-Methods": "*",
                 "Access-Control-Allow-Headers": "*",
@@ -84,6 +120,12 @@ try:
         try:
             response = await call_next(request)
             process_time = time.time() - start_time
+            
+            # Ensure CORS headers are present in all responses
+            origin = request.headers.get("origin", "")
+            if origin in ALLOWED_ORIGINS:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
             
             # Log successful request
             logger.info(
