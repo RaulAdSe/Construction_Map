@@ -10,22 +10,11 @@ from app.schemas.map import Map, MapCreate, MapUpdate
 from app.services import map as map_service
 from app.services import project as project_service
 from app.api.v1.endpoints.monitoring import log_user_activity
+from app.api.core.cors import cors_response, ALLOWED_ORIGINS
 
-from fastapi.responses import JSONResponse  # Import missing JSONResponse
-import traceback  # Import missing module for traceback
+from fastapi.responses import JSONResponse
+import traceback
 import sys
-
-# Import ALLOWED_ORIGINS from main.py if available
-try:
-    from main import ALLOWED_ORIGINS
-except ImportError:
-    # Fallback if import fails
-    ALLOWED_ORIGINS = [
-        "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
-        "https://construction-map-frontend-77413952899.us-central1.run.app",
-        "https://coordino.servitecingenieria.com",
-        "http://localhost:3000"
-    ]
 
 router = APIRouter()
 
@@ -82,25 +71,11 @@ def get_maps(
         print(f"Error in get_maps: {str(e)}")
         print(f"Traceback: {traceback.format_exc()}")
         
-        # Get origin from request
-        origin = request.headers.get("origin", "")
-        
-        # If origin is in allowed origins, use it; otherwise use default
-        if origin in ALLOWED_ORIGINS:
-            response_origin = origin
-        else:
-            response_origin = ALLOWED_ORIGINS[0]
-        
-        # Return error with CORS headers
-        return JSONResponse(
+        # Use CORS helper for consistent headers
+        return cors_response(
+            request=request,
             status_code=500,
-            content={"detail": f"Error accessing maps: {str(e)}"},
-            headers={
-                "Access-Control-Allow-Origin": response_origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": "*",
-                "Access-Control-Allow-Headers": "*",
-            }
+            content={"detail": f"Error accessing maps: {str(e)}"}
         )
 
 
