@@ -74,6 +74,8 @@ try:
         "https://construction-map-frontend-77413952899.us-central1.run.app",
         # Any subdomain of construction-map-frontend
         "https://*.construction-map-frontend-ypzdt6srya-uc.a.run.app",
+        # Custom domain
+        "https://coordino.servitecingenieria.com",
         # Allow all Cloud Run domains for flexibility
         "https://*.run.app"
     ]
@@ -81,6 +83,12 @@ try:
     # Only add HTTP origins for local development
     if not in_cloud_run:
         logger.info("Adding HTTP origins for local development")
+        origins.extend([
+            "http://localhost:3000",
+            "http://127.0.0.1:3000"
+        ])
+    else:
+        # In Cloud Run, still allow localhost for testing
         origins.extend([
             "http://localhost:3000",
             "http://127.0.0.1:3000"
@@ -109,7 +117,24 @@ try:
             print(f"Traceback: {traceback.format_exc()}")
             
             # Get the origin from the request
-            origin = request.headers.get("origin", "https://construction-map-frontend-ypzdt6srya-uc.a.run.app")
+            origin = request.headers.get("origin")
+            
+            # Set default origin if none provided
+            if not origin:
+                origin = "https://construction-map-frontend-ypzdt6srya-uc.a.run.app"
+            
+            # Check if origin is allowed
+            allowed_origins = [
+                "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
+                "https://construction-map-frontend-77413952899.us-central1.run.app",
+                "https://coordino.servitecingenieria.com",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000"
+            ]
+            
+            # If origin is not in allowed origins, use default
+            if origin not in allowed_origins:
+                origin = "https://construction-map-frontend-ypzdt6srya-uc.a.run.app"
             
             # Create a proper error response with CORS headers
             return JSONResponse(
@@ -118,8 +143,9 @@ try:
                 headers={
                     "Access-Control-Allow-Origin": origin,
                     "Access-Control-Allow-Credentials": "true",
-                    "Access-Control-Allow-Methods": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
                     "Access-Control-Allow-Headers": "*",
+                    "Vary": "Origin"
                 }
             )
 
@@ -226,6 +252,37 @@ try:
     @app.get("/")
     def read_root():
         return {"message": "Welcome to the Construction Map API"}
+
+    @app.options("/{full_path:path}")
+    async def options_handler(request: Request, full_path: str):
+        """Handle OPTIONS requests for CORS preflight"""
+        # Get origin from request
+        origin = request.headers.get("origin")
+        
+        # Create response with appropriate headers
+        headers = {}
+        
+        # Check if origin is allowed
+        allowed_origins = [
+            "https://construction-map-frontend-ypzdt6srya-uc.a.run.app",
+            "https://construction-map-frontend-77413952899.us-central1.run.app",
+            "https://coordino.servitecingenieria.com",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000"
+        ]
+        
+        if origin in allowed_origins:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
+            headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            headers["Access-Control-Allow-Headers"] = "*"
+            headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Content-Type, Content-Disposition, X-Total-Count"
+            headers["Access-Control-Max-Age"] = "600"  # Cache preflight for 10 minutes
+        
+        # Always set Vary: Origin
+        headers["Vary"] = "Origin"
+        
+        return JSONResponse(content={}, headers=headers)
 
     logger.info("Application initialization completed successfully")
 
