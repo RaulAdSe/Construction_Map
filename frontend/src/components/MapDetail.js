@@ -1224,18 +1224,18 @@ const MapDetail = ({
     
     const layerStyles = isMobile ? {
       position: 'fixed',
-      bottom: '10px', // Place near the bottom like the Add Event button
+      bottom: '180px', // Move even lower on mobile
       left: '50%',
       transform: 'translateX(-50%)',
-      zIndex: 3000, // Ensure it's above other elements
+      zIndex: 3000, 
       boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-      maxHeight: '60vh',
-      width: '90%',
-      maxWidth: '400px',
+      maxHeight: '40vh',
+      width: '80%', // Make it smaller (was 90%)
+      maxWidth: '320px', // Reduce max width (was 400px)
       backgroundColor: '#ffffff',
       borderRadius: '8px',
       padding: '15px',
-      margin: 0 // Remove any margin for mobile
+      margin: 0
     } : {
       position: 'absolute',
       top: '75px', // Position below the Add Event button
@@ -1251,7 +1251,7 @@ const MapDetail = ({
     };
     
     return (
-      <div className="map-layers-container" style={layerStyles}>
+      <div className={`map-layers-container ${isMobile ? 'mobile-panel' : ''}`} style={layerStyles}>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h5 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>{translate('Map Layers')}</h5>
           <Button 

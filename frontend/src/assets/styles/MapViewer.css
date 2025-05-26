@@ -1826,4 +1826,41 @@ iframe[src*=".pdf"] {
 /* Map selection panel */
 .map-selection-panel {
   z-index: 2200; /* Higher than regular panels, lower than modals */
+}
+
+/* Ensure map layer panel is positioned properly on mobile */
+.map-layers-container.mobile-panel {
+  bottom: 180px !important;
+  max-height: 40vh !important;
+  width: 80% !important;
+  max-width: 320px !important;
+}
+
+/* Responsive positioning for the map layers panel on mobile */
+@media (max-width: 768px) {
+  .map-layers-container {
+    bottom: 180px !important;
+    max-height: 40vh !important;
+    width: 80% !important;
+    max-width: 320px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+  }
+}
+
+@media (max-height: 700px) {
+  /* For smaller devices, make sure the panel doesn't take too much vertical space */
+  .map-layers-container {
+    max-height: 35vh !important;
+    bottom: 150px !important;
+  }
+}
+
+@media (max-height: 600px) {
+  /* For very small devices */
+  .map-layers-container {
+    max-height: 30vh !important;
+    bottom: 130px !important;
+  }
 } 
